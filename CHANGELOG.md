@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.1 — 2026-07-20
+
+Positioning & docs. No functional changes.
+
+### Changed
+- **Store description and README rewritten around the find → connect → rediscover loop.** The plugin is a local-first second brain — semantic search *plus* a relation graph / semantic paths that reveal unlinked connections *plus* Hot/Cold rediscovery of forgotten notes — not just Chinese search. Chinese/CJK stays a highlighted strength (with a note that other languages can switch to Ollama/OpenAI), and the store description now carries the keywords people actually search for (semantic search, related notes, relation graph, rediscover, second brain) so the plugin is findable.
+
 ## 1.3.0 — 2026-07-20
 
 Relation-graph release. Both features grew out of community requests on the Chinese Obsidian forum (forum-zh #61655): connect any two notes through their semantic stepping stones, and grow an existing graph in place.

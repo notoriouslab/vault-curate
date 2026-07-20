@@ -1,9 +1,9 @@
 {
   "id": "vault-curate",
   "name": "Vault Curate",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "minAppVersion": "1.7.2",
-  "description": "Hybrid search: BM25, on-device WebGPU embeddings, fuzzy title matching. Multilingual with strong Chinese/CJK support. Optional AI auto-generates note descriptions and grouped Maps of Content. Local-first, no API keys.",
+  "description": "Find, connect, rediscover your notes. Local semantic search (BM25 + embeddings), relation graph + semantic paths for related, unlinked notes, Hot/Cold surfacing of forgotten ones, strong Chinese/CJK. A second brain, no API keys, optional AI curation.",
   "author": "Jacob Mei",
   "authorUrl": "https://github.com/notoriouslab",
   "isDesktopOnly": true

@@ -15,6 +15,9 @@ node_modules/
 # Obsidian plugin data
 data.json
 
+# macOS
+.DS_Store
+
 # Dev
 .hotreload
 .claude/
