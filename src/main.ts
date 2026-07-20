@@ -1,4 +1,4 @@
-import { Menu, normalizePath, Notice, Plugin, TFile, TFolder, requestUrl } from "obsidian";
+import { FileView, Menu, normalizePath, Notice, Plugin, TFile, TFolder, requestUrl } from "obsidian";
 import workerSource from "@inline/worker";
 import { SQLiteStore, type PersistAdapter } from "./storage/SQLiteStore";
 import { DENOISE_VERSION } from "./indexer/denoise";
@@ -19,7 +19,20 @@ import { SearchModal } from "./searcher";
 import { SearchView, VIEW_TYPE_SEARCH } from "./search-view";
 import { VaultSearchSettingTab } from "./settings";
 import { findSimilarSqlite } from "./search/discoverSqlite";
-import { buildGraphCanvas, graphCanvasFileName } from "./canvas/graphCanvas";
+import { buildGraphCanvas, graphCanvasFileName, type CanvasJson } from "./canvas/graphCanvas";
+import { buildPathCanvas, pathCanvasFileName } from "./canvas/pathCanvas";
+import { expandCanvas, CROWDED_NODE_COUNT, type ExpandResult } from "./canvas/expandCanvas";
+import {
+    buildKnnGraph,
+    widestPath,
+    edgeSimPercentile,
+    DEFAULT_KNN_K,
+    DEFAULT_MAX_HOPS,
+    KNN_SAME_FOLDER_CAP,
+    BOTTLENECK_PERCENTILE,
+    type KnnGraph,
+} from "./search/semanticPath";
+import { PathTargetModal } from "./ui/PathTargetModal";
 import { DescriptionGenerator } from "./description-generator";
 import { OnboardingModal, applyOnboardingChoice } from "./ui/OnboardingModal";
 import { loadWasmAsset } from "./runtime/wasmAssets";
@@ -37,6 +50,15 @@ export default class VaultSearchPlugin extends Plugin {
     store: SQLiteStore | null = null;
     provider: EmbeddingProvider | null = null;
     private sqlWasmBinary: Uint8Array | null = null;
+    /** Session memo for the semantic-path k-NN graph (009): keyed on the
+     *  store instance + its mutation revision, so any index change or
+     *  provider-switch store swap invalidates it automatically. */
+    private knnCache: {
+        store: SQLiteStore;
+        revision: number;
+        graph: KnnGraph;
+        threshold: number;
+    } | null = null;
     private ortWasmBinary: ArrayBuffer | null = null;
     private debounceTimers: Map<string, number> = new Map();
 
@@ -143,6 +165,22 @@ export default class VaultSearchPlugin extends Plugin {
             },
         });
 
+        // Semantic Path (009): current note → picked destination, widest
+        // chain rendered as a linear Canvas. The k-NN graph builds on
+        // demand inside the handler — never on startup/update paths.
+        this.addCommand({
+            id: "generate-semantic-path",
+            name: t.cmdSemanticPath,
+            checkCallback: (checking) => {
+                const file = this.app.workspace.getActiveFile();
+                if (!file || file.extension !== "md") return false;
+                if (!this.store) return false;
+                if (checking) return true;
+                void this.generateSemanticPath(file);
+                return true;
+            },
+        });
+
         this.addCommand({
             id: "rebuild-index",
             name: t.cmdRebuild,
@@ -211,6 +249,24 @@ export default class VaultSearchPlugin extends Plugin {
                             .setIcon("git-fork")
                             .onClick(() => void this.generateGraphCanvas(file));
                     });
+                    menu.addItem((item) => {
+                        item.setTitle(t.menuSemanticPath)
+                            .setIcon("route")
+                            .onClick(() => void this.generateSemanticPath(file));
+                    });
+                    // 009 D5: expansion targets the OPEN canvas. The
+                    // canvas file is captured HERE, at menu-build time —
+                    // right-clicking a canvas node focuses it, which can
+                    // flip getActiveFile() to the node's .md before the
+                    // menu item's onClick runs (dogfood: silent no-op).
+                    const activeCanvas = this.getActiveCanvasFile();
+                    if (activeCanvas) {
+                        menu.addItem((item) => {
+                            item.setTitle(t.menuExpandInCanvas)
+                                .setIcon("expand")
+                                .onClick(() => void this.expandInCanvas(file, activeCanvas));
+                        });
+                    }
                 }
                 if (this.settings.enableAICuration) {
                     menu.addItem((item) => {
@@ -519,8 +575,18 @@ export default class VaultSearchPlugin extends Plugin {
             this.app.metadataCache.resolvedLinks,
         );
 
-        // Empty canvasFolder means vault root ("/" is how
-        // getAbstractFileByPath addresses the root folder).
+        const { folder, existingNames } = await this.resolveCanvasFolder();
+        const stamp = window.moment().format("YYYYMMDD-HHmmss");
+        const name = graphCanvasFileName(normalizePath(file.basename), stamp, existingNames);
+        const path = await this.writeAndOpenCanvas(folder, name, canvas);
+        new Notice(t.noticeGraphCreated(path));
+    }
+
+    /** Resolve the canvas output folder (empty setting = vault root, "/"
+     *  is how getAbstractFileByPath addresses the root), create it on
+     *  first use, and collect existing child names for de-duplication.
+     *  Shared by relation graph (006) and semantic path (009). */
+    private async resolveCanvasFolder(): Promise<{ folder: string; existingNames: Set<string> }> {
         const rawFolder = this.settings.canvasFolder.trim();
         const folder = rawFolder ? normalizePath(rawFolder) : "/";
         if (folder !== "/" && !this.app.vault.getAbstractFileByPath(folder)) {
@@ -531,17 +597,196 @@ export default class VaultSearchPlugin extends Plugin {
         if (parent instanceof TFolder) {
             for (const child of parent.children) existingNames.add(child.name);
         }
+        return { folder, existingNames };
+    }
 
-        const stamp = window.moment().format("YYYYMMDD-HHmmss");
-        const name = graphCanvasFileName(normalizePath(file.basename), stamp, existingNames);
+    private async writeAndOpenCanvas(folder: string, name: string, canvas: CanvasJson): Promise<string> {
         const path = folder === "/" ? name : `${folder}/${name}`;
-
         const created = await this.app.vault.create(
             path,
             JSON.stringify(canvas, null, "\t"),
         );
         await this.app.workspace.getLeaf(true).openFile(created);
-        new Notice(t.noticeGraphCreated(path));
+        return path;
+    }
+
+    // ── Semantic Path (009) ────────────────────────────
+
+    /** Command / file-menu entry: guard the start note, then let the user
+     *  pick a destination among all indexed notes. */
+    async generateSemanticPath(file: TFile) {
+        const store = this.store;
+        if (!store) {
+            new Notice(t.noticeIndexEmpty);
+            return;
+        }
+        const note = store.getNote(file.path);
+        if (!note || note.bodyVec.length === 0) {
+            new Notice(t.notIndexed);
+            return;
+        }
+
+        const files: TFile[] = [];
+        for (const row of store.getAllNotesLight()) {
+            const af = this.app.vault.getAbstractFileByPath(row.path);
+            if (af instanceof TFile) files.push(af);
+        }
+        new PathTargetModal(this.app, files, t.pathModalPlaceholder, (target) => {
+            void this.buildSemanticPathCanvas(file, target);
+        }).open();
+    }
+
+    private async buildSemanticPathCanvas(from: TFile, to: TFile) {
+        const store = this.store;
+        if (!store) {
+            new Notice(t.noticeIndexEmpty);
+            return;
+        }
+        if (from.path === to.path) {
+            new Notice(t.noticePathSameNote);
+            return;
+        }
+
+        const all = store.getAllNotesLight();
+
+        // The O(N²) sweep only depends on index content — memoize per
+        // store revision so repeat queries in one session skip the 4s
+        // (2.5k notes) build entirely. ~66s at 10k notes: worker-izing
+        // the first build is backlogged with the BM25 worker item.
+        let graph: KnnGraph;
+        let threshold: number;
+        if (this.knnCache && this.knnCache.store === store
+            && this.knnCache.revision === store.getRevision()) {
+            ({ graph, threshold } = this.knnCache);
+        } else {
+            // Estimate from the measured quadratic: ~4s at 2.5k notes.
+            const estSeconds = Math.round((all.length / 2500) ** 2 * 4);
+            new Notice(t.noticePathBuilding(all.length, estSeconds >= 8 ? estSeconds : null));
+            // Let the notice paint before the synchronous sweep.
+            const PAINT_DELAY_MS = 30;
+            await new Promise((resolve) => window.setTimeout(resolve, PAINT_DELAY_MS));
+
+            graph = buildKnnGraph(
+                all.map((r) => ({ path: r.path, vec: r.noteVec })),
+                DEFAULT_KNN_K,
+                KNN_SAME_FOLDER_CAP,
+            );
+            // D4 amendment: a chain is only as strong as its weakest hop.
+            // Below the graph's own p45 edge percentile → honest "not
+            // connected", with both numbers shown (evidence/option-study.md).
+            threshold = edgeSimPercentile(graph, BOTTLENECK_PERCENTILE);
+            this.knnCache = { store, revision: store.getRevision(), graph, threshold };
+        }
+
+        const result = widestPath(graph, from.path, to.path, DEFAULT_MAX_HOPS);
+        if (!result) {
+            new Notice(t.noticePathNotConnected(DEFAULT_KNN_K, DEFAULT_MAX_HOPS));
+            return;
+        }
+        if (result.bottleneck < threshold) {
+            new Notice(t.noticePathWeak(result.bottleneck, threshold));
+            return;
+        }
+
+        const tierByPath = new Map(all.map((r) => [r.path, r.tier] as const));
+        const chain = result.path.map((p) => ({
+            path: p,
+            tier: tierByPath.get(p) ?? ("hot" as const),
+        }));
+        const canvas = buildPathCanvas(chain, result.sims, this.app.metadataCache.resolvedLinks);
+
+        try {
+            const { folder, existingNames } = await this.resolveCanvasFolder();
+            const stamp = window.moment().format("YYYYMMDD-HHmmss");
+            const name = pathCanvasFileName(
+                t.pathFilePrefix,
+                normalizePath(from.basename),
+                normalizePath(to.basename),
+                stamp,
+                existingNames,
+            );
+            const path = await this.writeAndOpenCanvas(folder, name, canvas);
+            new Notice(t.noticePathCreated(path));
+        } catch (e) {
+            // Overlong names, illegal characters, disk failures — surface
+            // them instead of dying as an unhandled rejection (red-team).
+            console.error("vault-curate: semantic path canvas write failed", e);
+            new Notice(t.noticePathCreateFailed);
+        }
+    }
+
+    // ── In-place canvas expansion (009 D5 mainline) ────
+
+    /** The canvas behind the current view, tolerant of a focused embedded
+     *  node editor: getActiveFile() flips to the node's .md while the
+     *  active leaf is still the canvas view, so we ask the view first. */
+    private getActiveCanvasFile(): TFile | null {
+        const view = this.app.workspace.getActiveViewOfType(FileView);
+        if (view?.getViewType() === "canvas" && view.file?.extension === "canvas") {
+            return view.file;
+        }
+        const active = this.app.workspace.getActiveFile();
+        return active?.extension === "canvas" ? active : null;
+    }
+
+    /** Expand `noteFile`'s semantic neighborhood into `canvasFile` (the
+     *  canvas open when the menu was built). vault.process re-reads the
+     *  live JSON atomically (never a snapshot); the spike showed Obsidian
+     *  merges external appends into an open canvas without losing user
+     *  edits. */
+    async expandInCanvas(noteFile: TFile, canvasFile: TFile) {
+        const store = this.store;
+        if (!store) {
+            new Notice(t.noticeIndexEmpty);
+            return;
+        }
+        const note = store.getNote(noteFile.path);
+        if (!note || note.bodyVec.length === 0) {
+            new Notice(t.notIndexed);
+            return;
+        }
+
+        const neighbors = findSimilarSqlite(noteFile.path, store, {
+            minScore: this.settings.minScore,
+            topResults: this.settings.topResults,
+            sameFolderCap: this.settings.sameFolderCap,
+        });
+        if (neighbors.length === 0) {
+            new Notice(t.noticeExpandNothingNew);
+            return;
+        }
+
+        let outcome: ExpandResult | null = null;
+        try {
+            await this.app.vault.process(canvasFile, (data) => {
+                const parsed = JSON.parse(data) as CanvasJson;
+                const result = expandCanvas(
+                    parsed,
+                    noteFile.path,
+                    neighbors.map((r) => ({ path: r.path, tier: r.tier, score: r.score })),
+                    this.app.metadataCache.resolvedLinks,
+                );
+                outcome = result;
+                if (result.added === 0 && result.linkedExisting === 0) return data;
+                return JSON.stringify(result.canvas, null, "\t");
+            });
+        } catch (e) {
+            console.error("vault-curate: expand failed", e);
+            new Notice(t.noticeExpandFailed);
+            return;
+        }
+        if (!outcome) return;
+        const result: ExpandResult = outcome;
+
+        if (result.added === 0 && result.linkedExisting === 0) {
+            new Notice(t.noticeExpandNothingNew);
+            return;
+        }
+        new Notice(t.noticeExpandAdded(result.added, result.linkedExisting));
+        if (result.collisionUnresolved) new Notice(t.noticeExpandCollision);
+        if (result.totalNodes > CROWDED_NODE_COUNT) {
+            new Notice(t.noticeExpandCrowded(result.totalNodes));
+        }
     }
 
     async rebuildIndex() {

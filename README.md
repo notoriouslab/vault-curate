@@ -41,8 +41,6 @@ Obsidian's built-in search is literal: think "prayer" but your note says "devoti
 2. After enabling, the **Welcome to Vault Curate** modal opens. Under **Embedding provider**, pick **Built-in (on-device, WebGPU)** and click **Index my vault now**
 3. After the ~110 MB model download and WebGPU indexing finish, click the sidebar compass icon and start searching
 
-> ⚠️ Vault Curate is currently going through Obsidian's community review. Until it lands there, the recommended path is [Install via BRAT](#install-via-brat) (auto-updates included) or the [Manual install](#manual-install) below.
-
 ---
 
 ## Installation
@@ -58,9 +56,9 @@ Obsidian's built-in search is literal: think "prayer" but your note says "devoti
 3. Search **Vault Curate** → **Install** → **Enable**
 4. The **Welcome to Vault Curate** modal opens automatically on first launch
 
-### Install via BRAT
+### Install via BRAT (optional)
 
-While community review is pending, [BRAT](https://github.com/TfTHacker/obsidian42-brat) (Beta Reviewers Auto-update Tool) gives you one-click install **with auto-updates on every release**:
+If you prefer tracking releases directly from GitHub, [BRAT](https://github.com/TfTHacker/obsidian42-brat) also works:
 
 1. Install and enable **BRAT** from Community plugins
 2. Cmd/Ctrl+P → `BRAT: Add a beta plugin for testing` → enter `notoriouslab/vault-curate`

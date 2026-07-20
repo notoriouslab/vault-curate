@@ -170,6 +170,24 @@ export interface Locale {
     discoverGraphNoFile: string;
     noticeGraphNoResults: string;
     noticeGraphCreated: (path: string) => string;
+    // Semantic Path (009)
+    cmdSemanticPath: string;
+    menuSemanticPath: string;
+    pathModalPlaceholder: string;
+    pathFilePrefix: string;
+    noticePathBuilding: (n: number, estSeconds: number | null) => string;
+    noticePathNotConnected: (k: number, hops: number) => string;
+    noticePathWeak: (bottleneck: number, threshold: number) => string;
+    noticePathSameNote: string;
+    noticePathCreated: (path: string) => string;
+    noticePathCreateFailed: string;
+    // In-place canvas expansion (009 D5)
+    menuExpandInCanvas: string;
+    noticeExpandAdded: (added: number, linked: number) => string;
+    noticeExpandNothingNew: string;
+    noticeExpandCrowded: (n: number) => string;
+    noticeExpandCollision: string;
+    noticeExpandFailed: string;
     settingCanvasFolder: string;
     settingCanvasFolderDesc: string;
     noticeIndexCorrupt: string;
@@ -378,6 +396,27 @@ const en: Locale = {
     discoverGraphNoFile: "Open a note first, then generate its relation graph.",
     noticeGraphNoResults: "Vault Curate: No similar notes above the score threshold — graph not created. Lower 'Minimum score' in Advanced settings to widen the net.",
     noticeGraphCreated: (path) => `Vault Curate: Relation graph created — ${path}`,
+    cmdSemanticPath: "Generate semantic path (Canvas)",
+    menuSemanticPath: "VC: Generate semantic path",
+    pathModalPlaceholder: "Select the destination note…",
+    pathFilePrefix: "Semantic path",
+    noticePathBuilding: (n, estSeconds) => `Vault Curate: Building semantic graph over ${n} notes…${estSeconds ? ` (first build ~${estSeconds}s; repeat queries reuse it)` : ""}`,
+    noticePathNotConnected: (k, hops) => `Vault Curate: Not connected within ${hops} hops in the K=${k} neighborhood — these two notes are semantically distant. (That's information, not an error.)`,
+    noticePathWeak: (bottleneck, threshold) => `Vault Curate: The strongest chain bottoms out at ${bottleneck.toFixed(3)}, below this graph's threshold ${threshold.toFixed(3)} — no chain of consistently strong links exists. Treating as not connected.`,
+    noticePathSameNote: "Vault Curate: Start and destination are the same note — pick a different one.",
+    noticePathCreated: (path) => `Vault Curate: Semantic path created — ${path}`,
+    noticePathCreateFailed: "Vault Curate: Couldn't write the path canvas file — see console for details.",
+    menuExpandInCanvas: "VC: Expand in this graph",
+    noticeExpandAdded: (added, linked) => {
+        const parts: string[] = [];
+        if (added > 0) parts.push(`added ${added} related note${added === 1 ? "" : "s"}`);
+        if (linked > 0) parts.push(`drew ${linked} new link${linked === 1 ? "" : "s"} to notes already on the graph`);
+        return `Vault Curate: ${parts.join(" and ")}`;
+    },
+    noticeExpandNothingNew: "Vault Curate: Nothing to add — related notes are already on this graph (or none passed the score threshold).",
+    noticeExpandCrowded: (n) => `Vault Curate: This graph now has ${n} nodes — consider starting a fresh one for readability.`,
+    noticeExpandCollision: "Vault Curate: Space is tight — some new nodes may overlap. Drag them to tidy up.",
+    noticeExpandFailed: "Vault Curate: Couldn't parse this canvas file — no changes were made.",
     settingCanvasFolder: "Relation graph folder",
     settingCanvasFolderDesc: "Where generated .canvas files are saved. Leave empty to use the vault root. If you point this at a folder your sync tool excludes, generated graphs won't sync.",
     noticeIndexCorrupt: "Vault Curate: Index file is corrupted. Please rebuild index.",
@@ -607,6 +646,27 @@ const zhTW: Locale = {
     discoverGraphNoFile: "請先打開筆記，再生成關聯圖。",
     noticeGraphNoResults: "Vault Curate：沒有超過相似度門檻的筆記，未建立關聯圖。可到進階設定調低「最低分數」放寬條件。",
     noticeGraphCreated: (path) => `Vault Curate：關聯圖已建立 — ${path}`,
+    cmdSemanticPath: "生成語意路徑（Canvas）",
+    menuSemanticPath: "VC: 生成語意路徑",
+    pathModalPlaceholder: "選擇終點筆記…",
+    pathFilePrefix: "語意路徑",
+    noticePathBuilding: (n, estSeconds) => `Vault Curate：正在對 ${n} 篇筆記建立語意圖…${estSeconds ? `（首次建圖約 ${estSeconds} 秒，之後同索引免重算）` : ""}`,
+    noticePathNotConnected: (k, hops) => `Vault Curate：${hops} 跳內在 K=${k} 鄰域不連通——兩篇筆記語意距離遠（這是有價值的資訊，不是錯誤）。`,
+    noticePathWeak: (bottleneck, threshold) => `Vault Curate：最強鏈的瓶頸僅 ${bottleneck.toFixed(3)}，低於本圖門檻 ${threshold.toFixed(3)}——不存在全程夠強的關聯鏈，視為語意不連通。`,
+    noticePathSameNote: "Vault Curate：起點與終點是同一篇筆記，請選擇不同筆記。",
+    noticePathCreated: (path) => `Vault Curate：語意路徑已建立 — ${path}`,
+    noticePathCreateFailed: "Vault Curate：路徑 canvas 寫入失敗，詳見 console。",
+    menuExpandInCanvas: "VC: 在此圖展開",
+    noticeExpandAdded: (added, linked) => {
+        const parts: string[] = [];
+        if (added > 0) parts.push(`展開 ${added} 篇相關筆記`);
+        if (linked > 0) parts.push(`補上 ${linked} 條與圖上既有筆記的關聯`);
+        return `Vault Curate：已${parts.join("，並")}`;
+    },
+    noticeExpandNothingNew: "Vault Curate：沒有可新增的筆記——相似筆記均已在圖上（或無超過門檻的結果）。",
+    noticeExpandCrowded: (n) => `Vault Curate：圖上已有 ${n} 個節點，建議另開新圖保持可讀性。`,
+    noticeExpandCollision: "Vault Curate：空間擁擠，部分新節點可能重疊，請手動整理。",
+    noticeExpandFailed: "Vault Curate：無法解析此 canvas 檔，未做任何變更。",
     settingCanvasFolder: "關聯圖資料夾",
     settingCanvasFolderDesc: "生成的 .canvas 檔存放位置。留空 = vault 根目錄。若指到被同步工具排除的資料夾，生成的圖不會同步，請自行留意。",
     noticeIndexCorrupt: "Vault Curate：索引檔案已損壞，請重建索引。",

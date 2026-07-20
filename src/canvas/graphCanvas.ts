@@ -51,18 +51,18 @@ export interface CanvasJson {
     edges: CanvasEdge[];
 }
 
-const NODE_W = 400;
-const NODE_H = 360;
+export const NODE_W = 400;
+export const NODE_H = 360;
 const CENTER_W = 480;
 const CENTER_H = 420;
-const MIN_RADIUS = 760;
+export const MIN_RADIUS = 760;
 // Minimum center-to-center distance at which two 400×360 boxes cannot
 // overlap in any relative direction: 400 / cos(atan(360/400)) ≈ 538.1.
-const CHORD_MIN = 540;
+export const CHORD_MIN = 540;
 
-const COLOR_CENTER = "4"; // green — anchor
-const COLOR_COLD = "5"; // cyan — possibly-forgotten old note
-const COLOR_UNLINKED = "6"; // purple — semantically close, not yet linked
+export const COLOR_CENTER = "4"; // green — anchor
+export const COLOR_COLD = "5"; // cyan — possibly-forgotten old note
+export const COLOR_UNLINKED = "6"; // purple — semantically close, not yet linked
 
 export function classifyEdge(
     centerPath: string,
@@ -77,7 +77,7 @@ export function classifyEdge(
     return { linked: false, direction: null };
 }
 
-function sideForAngle(angleDeg: number): { fromSide: CanvasSide; toSide: CanvasSide } {
+export function sideForAngle(angleDeg: number): { fromSide: CanvasSide; toSide: CanvasSide } {
     // Normalize to [-180, 180)
     let a = ((angleDeg + 180) % 360 + 360) % 360 - 180;
     if (a >= -135 && a < -45) return { fromSide: "top", toSide: "bottom" };
@@ -111,7 +111,7 @@ export function layoutRadial(k: number): {
     return { radius, positions, sides };
 }
 
-function djb2Hex(s: string): string {
+export function djb2Hex(s: string): string {
     let h = 5381;
     for (let i = 0; i < s.length; i++) {
         h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;

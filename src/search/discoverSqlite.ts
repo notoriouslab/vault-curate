@@ -13,6 +13,7 @@
 
 import type { SQLiteStore } from "../storage/SQLiteStore";
 import type { SearchResult } from "../types";
+import { folderOf } from "../utils/folderOf";
 
 function cosineNormalized(a: Float32Array, b: Float32Array): number {
     let dot = 0;
@@ -27,12 +28,6 @@ export interface DiscoverSettings {
      *  note's folder — template siblings live together and crowd out the
      *  note's actual content. 0/undefined disables. */
     sameFolderCap?: number;
-}
-
-/** Folder prefix of a vault path ('' for root notes). */
-function folderOf(path: string): string {
-    const i = path.lastIndexOf('/');
-    return i >= 0 ? path.slice(0, i) : '';
 }
 
 const YIELD_EVERY = 50;

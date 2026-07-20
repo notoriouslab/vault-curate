@@ -74,6 +74,10 @@ export class SQLiteStore {
     private db!: Database;
     private mutationCount = 0;
     private idleTimer: number | null = null;
+    /** Monotonic mutation counter (never reset, unlike mutationCount) —
+     *  cheap cache-invalidation key for consumers that derive expensive
+     *  structures from the index (009 k-NN graph memo). */
+    private revision = 0;
     private flushInFlight: Promise<void> | null = null;
     private disposed = false;
     // 007 D5: desc/body blend weight for composed note vectors. Injected by
@@ -460,7 +464,14 @@ export class SQLiteStore {
 
     // ─── Persistence (debounced) ──────────────────────────────────────────────
 
+    /** Changes whenever any index mutation lands; equal revisions imply
+     *  identical index content (within one store instance). */
+    getRevision(): number {
+        return this.revision;
+    }
+
     private touch(force = false): void {
+        this.revision++;
         this.mutationCount++;
         if (this.idleTimer) window.clearTimeout(this.idleTimer);
         if (force || this.mutationCount >= MUTATION_THRESHOLD) {

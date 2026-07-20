@@ -45,8 +45,6 @@ Obsidian 內建搜尋只認字面比對：你想到「禱告」但筆記寫的�
 2. 啟用後跳出「**歡迎使用 Vault Curate**」視窗，**Embedding 提供者** 選「**內建（裝置端、WebGPU）**」→ 點「**現在開始建立索引**」
 3. 約 110 MB 模型一次性下載 + WebGPU 索引完成後，點側邊欄羅盤 icon 開始搜尋
 
-> ⚠️ Vault Curate 目前提交 Obsidian 社群審核中。上架前推薦走 [BRAT 安裝](#brat-安裝)（含自動更新），或下方 [手動安裝](#手動安裝)。
-
 ---
 
 ## 安裝
@@ -62,9 +60,9 @@ Obsidian 內建搜尋只認字面比對：你想到「禱告」但筆記寫的�
 3. 搜尋 **Vault Curate** → 點「**安裝**」→「**啟用**」
 4. 首次啟用會自動跳出「**歡迎使用 Vault Curate**」視窗
 
-### BRAT 安裝
+### BRAT 安裝（可選）
 
-社群審核期間，用 [BRAT](https://github.com/TfTHacker/obsidian42-brat)（Beta Reviewers Auto-update Tool）可一鍵安裝且**每次 release 自動更新**：
+偏好直接追 GitHub release 的使用者，也可用 [BRAT](https://github.com/TfTHacker/obsidian42-brat)：
 
 1. 在社群外掛程式安裝並啟用 **BRAT**
 2. Cmd/Ctrl+P → `BRAT: Add a beta plugin for testing` → 輸入 `notoriouslab/vault-curate`
