@@ -151,6 +151,16 @@ The output is a plain Canvas file — drag, edit, annotate, and delete freely.
 
 ![Relation graph — semantic neighborhood on Canvas](./docs/relation-graph.png)
 
+### Semantic path (Canvas)
+
+Pick any two notes and get the **chain of stepping-stone notes** that connects them — a widest-path search over the vault's semantic k-NN graph, judged by the chain's *weakest* hop so one far-fetched link can't hide behind strong ones. The chain renders left-to-right as an editable Canvas: endpoints green, every hop labeled with its similarity, un-linked hops purple.
+
+Run **Generate semantic path (Canvas)** on the start note (command palette or right-click), then pick the destination in the fuzzy picker. If no chain of consistently strong links exists you get an honest "not connected" notice with the actual numbers — that's information, not an error. The underlying graph builds on demand (~4s on a 2.5k-note vault) and is reused for repeat queries until the index changes.
+
+### Expand in this graph
+
+Right-click any node inside a generated canvas → **VC: Expand in this graph** grows the graph *in place*: the clicked note's semantic neighborhood slots into free space around it, notes already on the canvas get connecting edges instead of duplicates, and a note pointed at by two or more edges turns **orange** — several expansions independently converged on it, which usually means it matters. Your layout edits and manually applied colors are never touched.
+
 ### AI curation (off by default)
 
 Turn it on under **Settings → AI Curation → Enable AI curation** to unlock three actions:
@@ -176,14 +186,17 @@ From Command Palette (Cmd/Ctrl+P), type `Vault Curate:` to see them all.
 | `Update index` | Incremental update (re-index files with newer mtime) | always available |
 | `Discover related Cold notes` | Global discover: Cold notes most related to your Hot pool | always available |
 | `Generate relation graph (Canvas)` | Editable Canvas of the active note's semantic neighborhood | always available |
+| `Generate semantic path (Canvas)` | Widest-path chain between the active note and a picked destination | always available |
 | `Generate description for active note` | LLM-write description + tags to the active file's frontmatter | AI curation on |
 | `Generate descriptions for current results` | Batch description for the current sidebar results | AI curation on |
 | `Generate MOC (topic-grouped)` | HDBSCAN cluster + LLM-name each group | AI curation on |
 
-Right-click menus expose three of these directly on a `.md`:
+Right-click menus expose these directly on a `.md`:
 
 - **VC: Find similar notes**
 - **VC: Generate relation graph**
+- **VC: Generate semantic path**
+- **VC: Expand in this graph** (while a `.canvas` is open)
 - **VC: Generate description** (AI curation on)
 
 ---

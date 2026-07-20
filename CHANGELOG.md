@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.3.0 — 2026-07-20
+
+Relation-graph release. Both features grew out of community requests on the Chinese Obsidian forum (forum-zh #61655): connect any two notes through their semantic stepping stones, and grow an existing graph in place.
+
+### Added
+- **Semantic path (Canvas).** Pick a destination note and get the chain that connects it to the active note: a widest-path (bottleneck) search over an on-demand semantic k-NN graph — the chain is judged by its *weakest* hop, so one far-fetched link can't be papered over by strong ones. Output is a left-to-right editable Canvas: endpoints green, intermediate nodes tier-colored, every hop labeled with its similarity, un-linked hops purple (same encoding as the relation graph). Entry points: command palette `Generate semantic path (Canvas)` or right-click **VC: Generate semantic path**.
+- **Honest "not connected" verdicts.** When the best chain's weakest hop falls below the graph's own 45th-percentile edge similarity, you get a notice with both numbers instead of a misleading chain. The threshold is percentile-anchored to each vault's/model's own score distribution, so it holds across embedding providers.
+- **Expand in this graph.** Right-click any node inside a generated canvas → **VC: Expand in this graph** appends that note's semantic neighborhood *into the same canvas* (atomic read-modify-write; your layout edits are preserved — verified against Obsidian's canvas autosave). New nodes slot into free space around the clicked node; neighbors already on the canvas get a connecting edge instead of a duplicate node; a note pointed at by 2+ edges turns **orange** — several expansions independently converged on it. User-applied colors are never overwritten.
+- The k-NN graph is memoized per index revision: repeat path queries skip the build entirely (first build ~4s on a 2,500-note vault; an estimate is shown for large vaults).
+
+### Notes
+- The k-NN graph applies the same-folder cap (default 3) per node, so template siblings don't crowd out cross-folder connections — chains route through meaningful bridges.
+- Corrupted (NaN) embeddings are excluded from the graph at three layers (build, path search, threshold), so one bad note can't silently break verdicts.
+- Known limitation: cyan and orange are also user-pickable Canvas palette colors; nodes hand-painted in exactly those two shades are indistinguishable from tool markings and may be repainted by hub detection.
+- Worker-izing the first graph build (for 10k-note vaults) is on the backlog together with the BM25 index worker.
+
 ## 1.2.2 — 2026-07-18
 
 Retrieval-quality release (plus the 1.2.0 audit compliance fixes, folded in unreleased).
