@@ -27,6 +27,8 @@ import { splitChunks } from "./indexer/chunker";
 import { denoiseForEmbed, hasDenoisableContent, DENOISE_VERSION } from "./indexer/denoise";
 import { t2sForEmbed, hasCJK, T2S_VERSION } from "./indexer/preproc";
 import { findH1Collisions, type FileTitleSource } from "./indexer/titleCollisions";
+import { deriveTier } from "./heat/deriveTier";
+import { resolveCreated } from "./heat/makeTierResolver";
 import { meanPool } from "./utils/meanPool";
 import { stripFrontmatter } from "./utils";
 import { TOKENIZER_VERSION } from "./storage/cjkTokenize";
@@ -140,20 +142,22 @@ export class Indexer {
         return set;
     }
 
+    /** Index-time tier is ADVISORY since 010 (queries derive fresh via
+     *  makeTierResolver); routed through the same deriveTier so the stored
+     *  value can never disagree with the derived one at write time. */
     private computeTier(file: TFile, incomingSet: Set<string>): "hot" | "cold" {
         const cache = this.plugin.app.metadataCache.getFileCache(file);
         const hasOutgoing = (cache?.links?.length ?? 0) > 0 || (cache?.embeds?.length ?? 0) > 0;
-        const hasIncoming = incomingSet.has(file.path);
 
-        const fm: Record<string, unknown> | undefined = cache?.frontmatter;
-        const created = fm?.created;
-        const createdTs = (typeof created === "string" || typeof created === "number")
-            ? new Date(created).getTime()
-            : file.stat.ctime;
-        const hotMs = this.plugin.settings.hotDays * 24 * 60 * 60 * 1000;
-        const isRecent = Date.now() - createdTs < hotMs;
-
-        return (hasOutgoing || hasIncoming || isRecent) ? "hot" : "cold";
+        return deriveTier({
+            created: resolveCreated(this.plugin.app, file),
+            mtime: file.stat.mtime,
+            hasOutgoing,
+            hasIncoming: incomingSet.has(file.path),
+            selfWriteMtime: this.plugin.selfWrites[file.path],
+            now: Date.now(),
+            hotDays: this.plugin.settings.hotDays,
+        });
     }
 
     /**

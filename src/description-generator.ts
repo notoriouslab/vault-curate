@@ -254,6 +254,15 @@ export class DescriptionGenerator {
                 return false;
             }
 
+            // 010 D6: this write is the plugin's doing, not a user judgment
+            // action — record it so the mtime bump doesn't re-heat the note.
+            // Date.now() right after the awaited write is within the ledger's
+            // ±2s tolerance of the on-disk mtime by construction; TFile.stat
+            // may still hold the PRE-write value here (vault event loop lag),
+            // and recording that stale mtime would miss the exemption window
+            // and let a batch run whitewash every Cold note (review W4).
+            this.plugin.recordSelfWrite(file.path, Date.now());
+
             if (!silent) new Notice(t.descGeneratedOne(file.basename));
             return true;
         } finally {

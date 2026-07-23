@@ -190,6 +190,26 @@ export interface Locale {
     noticeExpandFailed: string;
     settingCanvasFolder: string;
     settingCanvasFolderDesc: string;
+    // Purple-edge promotion (010)
+    menuPromote: string;
+    cmdPromote: string;
+    noticePromoteWriting: (pairs: number) => string;
+    promoteTitle: string;
+    promoteHint: string;
+    promoteApply: string;
+    promoteCancel: string;
+    promoteSelectedCount: (n: number) => string;
+    noticePromoteEmpty: string;
+    noticePromoteInvalidCanvas: string;
+    noticePromoteDone: (links: number, edges: number) => string;
+    noticePromoteSkipped: (pairs: number) => string;
+    noticePromotePartial: (n: number) => string;
+    noticePromoteCanvasFailed: string;
+    relatedSectionDefault: string;
+    settingRelatedSection: string;
+    settingRelatedSectionDesc: string;
+    settingPromoteBidirectional: string;
+    settingPromoteBidirectionalDesc: string;
     noticeIndexCorrupt: string;
     indexingInProgress: string;
     viewDisplayName: string;
@@ -238,7 +258,7 @@ const en: Locale = {
     maxEmbedChars: "Max embed characters",
     maxEmbedCharsDesc: "Truncate note content for embedding. Notes with a description use the description instead. Rebuild index after changing.",
     hotDays: "Hot days",
-    hotDaysDesc: "Notes created within this many days are considered Hot (active). Hot notes have links or were recently created; Cold notes are isolated and surfaced by Discover.",
+    hotDaysDesc: "Notes created or edited within this many days are considered Hot (active) — any edit counts as a deliberate touch, merely opening a note does not. Hot notes have links or recent activity; Cold notes are isolated and surfaced by Discover. Changes take effect immediately, no re-index needed.",
     searchScope: "Default search scope",
     searchScopeDesc: "Hot = linked or recent notes. Cold = isolated notes (great for rediscovery). All = everything.",
     scopeHot: "Hot only",
@@ -419,6 +439,29 @@ const en: Locale = {
     noticeExpandFailed: "Vault Curate: Couldn't parse this canvas file — no changes were made.",
     settingCanvasFolder: "Relation graph folder",
     settingCanvasFolderDesc: "Where generated .canvas files are saved. Leave empty to use the vault root. If you point this at a folder your sync tool excludes, generated graphs won't sync.",
+    menuPromote: "VC: Apply purple edges as wikilinks",
+    cmdPromote: "Apply purple edges as wikilinks",
+    noticePromoteWriting: (pairs: number) =>
+        `Vault Curate: Writing ${pairs} link pairs…`,
+    promoteTitle: "Promote purple edges to wikilinks",
+    promoteHint: "Each checked note gets a real wikilink with the group's source note — written into both notes' Related section, or only the source note when bidirectional promotion is off — and its edge turns gray. Nothing is written without a check. Cmd/Ctrl+hover a note name to preview it.",
+    promoteApply: "Apply",
+    promoteCancel: "Cancel",
+    promoteSelectedCount: (n: number) => `${n} selected`,
+    noticePromoteEmpty: "Vault Curate: No promotable purple edges on this canvas.",
+    noticePromoteInvalidCanvas: "Vault Curate: Could not read this canvas file.",
+    noticePromoteDone: (links: number, edges: number) =>
+        `Vault Curate: Wrote ${links} wikilink${links === 1 ? "" : "s"}, updated ${edges} edge${edges === 1 ? "" : "s"}.`,
+    noticePromoteSkipped: (pairs: number) =>
+        `Vault Curate: ${pairs} pair${pairs === 1 ? "" : "s"} skipped — the canvas changed while the dialog was open.`,
+    noticePromotePartial: (n: number) =>
+        `Vault Curate: ${n} write${n === 1 ? "" : "s"} failed — see the developer console.`,
+    noticePromoteCanvasFailed: "Vault Curate: Links were written, but the canvas update failed. The graph will self-correct on the next promotion scan.",
+    relatedSectionDefault: "## Related",
+    settingRelatedSection: "Related section heading",
+    settingRelatedSectionDesc: "Heading the promoted wikilinks are appended under (created at the end of the note when missing). Leave empty to follow the interface language.",
+    settingPromoteBidirectional: "Bidirectional promotion",
+    settingPromoteBidirectionalDesc: "Write the wikilink into both notes of a promoted pair. Turn off to only write into the edge's source note.",
     noticeIndexCorrupt: "Vault Curate: Index file is corrupted. Please rebuild index.",
     indexingInProgress: "Vault Curate: Indexing already in progress",
     viewDisplayName: "Vault Curate",
@@ -488,7 +531,7 @@ const zhTW: Locale = {
     maxEmbedChars: "最大 Embed 字數",
     maxEmbedCharsDesc: "每篇筆記取前幾個字做 embedding。有 description 的筆記會優先用 description。修改後需重建索引。",
     hotDays: "Hot 天數",
-    hotDaysDesc: "近幾天內建立的筆記視為 Hot（活躍）。Hot 筆記有連結或近期建立；Cold 筆記是孤立的，會被 Discover 發掘出來。",
+    hotDaysDesc: "近幾天內建立或編輯過的筆記視為 Hot（活躍）：任何編輯都算主動判定，只是打開筆記不算。Hot 筆記有連結或近期活動；Cold 筆記是孤立的，會被 Discover 發掘出來。修改即時生效，不需重建索引。",
     searchScope: "預設搜尋範圍",
     searchScopeDesc: "Hot = 有連結或近期的筆記。Cold = 孤立筆記（適合重新發現）。全部 = 不篩選。",
     scopeHot: "僅 Hot",
@@ -669,6 +712,29 @@ const zhTW: Locale = {
     noticeExpandFailed: "Vault Curate：無法解析此 canvas 檔，未做任何變更。",
     settingCanvasFolder: "關聯圖資料夾",
     settingCanvasFolderDesc: "生成的 .canvas 檔存放位置。留空 = vault 根目錄。若指到被同步工具排除的資料夾，生成的圖不會同步，請自行留意。",
+    menuPromote: "VC: 套用紫邊為 wikilink",
+    cmdPromote: "套用紫邊為 wikilink",
+    noticePromoteWriting: (pairs: number) =>
+        `Vault Curate：正在寫入 ${pairs} 對連結…`,
+    promoteTitle: "紫邊升級為 wikilink",
+    promoteHint: "勾選的筆記會與該組來源筆記建立真正的 wikilink（依「雙向寫入」設定寫進兩篇、或僅來源筆記的相關筆記小節），該邊改為灰色。未勾選的不會有任何寫入。Cmd/Ctrl+滑過筆記名可預覽內容。",
+    promoteApply: "套用",
+    promoteCancel: "取消",
+    promoteSelectedCount: (n: number) => `已選 ${n} 對`,
+    noticePromoteEmpty: "Vault Curate：此圖沒有可升級的紫邊。",
+    noticePromoteInvalidCanvas: "Vault Curate：無法讀取此 canvas 檔案。",
+    noticePromoteDone: (links: number, edges: number) =>
+        `Vault Curate：已寫入 ${links} 條 wikilink，更新 ${edges} 條邊。`,
+    noticePromoteSkipped: (pairs: number) =>
+        `Vault Curate：已跳過 ${pairs} 對（圖在對話框開啟期間被修改）。`,
+    noticePromotePartial: (n: number) =>
+        `Vault Curate：${n} 筆寫入失敗，詳見開發者 console。`,
+    noticePromoteCanvasFailed: "Vault Curate：連結已寫入，但圖更新失敗；下次執行升級掃描時會自動校正。",
+    relatedSectionDefault: "## 相關筆記",
+    settingRelatedSection: "相關筆記小節標題",
+    settingRelatedSectionDesc: "升級的 wikilink 會寫在這個標題底下（筆記沒有此節時自動在檔尾新建）。留空 = 隨介面語言。",
+    settingPromoteBidirectional: "雙向寫入",
+    settingPromoteBidirectionalDesc: "升級時把 wikilink 同時寫進兩篇筆記。關閉後只寫入邊的來源筆記。",
     noticeIndexCorrupt: "Vault Curate：索引檔案已損壞，請重建索引。",
     indexingInProgress: "Vault Curate：正在索引中，請稍候",
     viewDisplayName: "語意搜尋",

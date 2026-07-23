@@ -38,6 +38,8 @@ export type SearchHybridDeps = {
 export type SearchHybridSettings = {
     topResults: number;
     searchScope: 'hot' | 'cold' | 'all';
+    /** 010 D5: query-time tier derivation; stored tier is the fallback. */
+    tierResolver?: (path: string) => 'hot' | 'cold';
 };
 
 export function readHybridWeights(store: SQLiteStore): HybridWeights {
@@ -175,7 +177,8 @@ function materialise(
     for (const { docId, score } of top) {
         const note = store.getNote(docId);
         if (!note) continue;
-        const tier: 'hot' | 'cold' = note.tier === 'cold' ? 'cold' : 'hot';
+        const tier: 'hot' | 'cold' = settings.tierResolver?.(docId)
+            ?? (note.tier === 'cold' ? 'cold' : 'hot');
         if (settings.searchScope === 'hot' && tier !== 'hot') continue;
         if (settings.searchScope === 'cold' && tier !== 'cold') continue;
         out.push({

@@ -12,6 +12,11 @@ import { t } from "./i18n";
 
 export class VaultSearchSettingTab extends PluginSettingTab {
     plugin: VaultSearchPlugin;
+    /** Index-stats panel, re-rendered live when hotDays changes (010). */
+    private statsEl: HTMLElement | null = null;
+    /** Debounce for the live stats re-render — every keystroke in the
+     *  hotDays field would otherwise trigger a full-vault tier sweep. */
+    private statsTimer: number | null = null;
 
     constructor(app: App, plugin: VaultSearchPlugin) {
         super(app, plugin);
@@ -317,6 +322,30 @@ export class VaultSearchSettingTab extends PluginSettingTab {
                 });
             });
 
+        // Purple-edge promotion (010 D7)
+        new Setting(adv)
+            .setName(t.settingRelatedSection)
+            .setDesc(t.settingRelatedSectionDesc)
+            .addText(text => {
+                text.setPlaceholder(t.relatedSectionDefault);
+                text.setValue(this.plugin.settings.relatedSectionTitle);
+                text.onChange(async (val) => {
+                    this.plugin.settings.relatedSectionTitle = val;
+                    await this.plugin.saveSettings();
+                });
+            });
+
+        new Setting(adv)
+            .setName(t.settingPromoteBidirectional)
+            .setDesc(t.settingPromoteBidirectionalDesc)
+            .addToggle(toggle => {
+                toggle.setValue(this.plugin.settings.promoteBidirectional);
+                toggle.onChange(async (val) => {
+                    this.plugin.settings.promoteBidirectional = val;
+                    await this.plugin.saveSettings();
+                });
+            });
+
         new Setting(adv)
             .setName(t.maxEmbedChars)
             .setDesc(t.maxEmbedCharsDesc)
@@ -341,6 +370,13 @@ export class VaultSearchSettingTab extends PluginSettingTab {
                     if (!isNaN(n) && n > 0) {
                         this.plugin.settings.hotDays = n;
                         await this.plugin.saveSettings();
+                        // 010: tier derives at query time, so the stats
+                        // panel below must follow the new window live —
+                        // stale numbers here read as "needs re-index".
+                        // Debounced: typing "365" is three keystrokes and
+                        // each sweep walks the whole vault.
+                        if (this.statsTimer !== null) window.clearTimeout(this.statsTimer);
+                        this.statsTimer = window.setTimeout(() => this.renderStats(), 300);
                     }
                 });
             });
@@ -455,31 +491,42 @@ export class VaultSearchSettingTab extends PluginSettingTab {
                 });
             });
 
-        const store = this.plugin.store;
-        if (store) {
+        if (this.plugin.store) {
             new Setting(adv).setName(t.indexStats).setHeading();
-            const stats = adv.createDiv({ cls: "vault-curate-stats" });
-            const allBody = store.getAllBodyVecs();
-            let hotCount = 0;
-            let coldCount = 0;
-            for (const path of allBody.keys()) {
-                const note = store.getNote(path);
-                if (!note) continue;
-                if (note.tier === "cold") coldCount++;
-                else hotCount++;
-            }
-            stats.createEl("p", { text: `${t.totalNotes}: ${allBody.size}` });
-            stats.createEl("p", { text: `${t.hot}: ${hotCount} / ${t.cold}: ${coldCount}` });
-            const modelId = store.getMeta("embedding_model_id") ?? "—";
-            const dim = store.getMeta("embedding_dim") ?? "—";
-            stats.createEl("p", { text: `${t.model}: ${modelId}` });
-            stats.createEl("p", { text: `${t.dimensions}: ${dim}` });
-            const lastIndexedRaw = store.getMeta("last_indexed_at");
-            if (lastIndexedRaw) {
-                const d = new Date(lastIndexedRaw);
-                const localTime = isNaN(d.getTime()) ? lastIndexedRaw : formatLocalDateTime(d);
-                stats.createEl("p", { text: `${t.lastIndexed}: ${localTime}` });
-            }
+            this.statsEl = adv.createDiv({ cls: "vault-curate-stats" });
+            this.renderStats();
+        }
+    }
+
+    /** (Re)fill the index-stats panel. Called from display() and from the
+     *  hotDays onChange — tier derives at query time (010 D5), so this
+     *  panel must track the setting live to stay consistent with Discover
+     *  (same-state-multiple-surfaces). */
+    private renderStats() {
+        const store = this.plugin.store;
+        const stats = this.statsEl;
+        if (!store || !stats) return;
+        stats.empty();
+        const allBody = store.getAllBodyVecs();
+        let hotCount = 0;
+        let coldCount = 0;
+        const tierResolver = this.plugin.tierResolver();
+        for (const path of allBody.keys()) {
+            if (!store.getNote(path)) continue;
+            if (tierResolver(path) === "cold") coldCount++;
+            else hotCount++;
+        }
+        stats.createEl("p", { text: `${t.totalNotes}: ${allBody.size}` });
+        stats.createEl("p", { text: `${t.hot}: ${hotCount} / ${t.cold}: ${coldCount}` });
+        const modelId = store.getMeta("embedding_model_id") ?? "—";
+        const dim = store.getMeta("embedding_dim") ?? "—";
+        stats.createEl("p", { text: `${t.model}: ${modelId}` });
+        stats.createEl("p", { text: `${t.dimensions}: ${dim}` });
+        const lastIndexedRaw = store.getMeta("last_indexed_at");
+        if (lastIndexedRaw) {
+            const d = new Date(lastIndexedRaw);
+            const localTime = isNaN(d.getTime()) ? lastIndexedRaw : formatLocalDateTime(d);
+            stats.createEl("p", { text: `${t.lastIndexed}: ${localTime}` });
         }
     }
 

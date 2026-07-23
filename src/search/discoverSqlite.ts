@@ -13,6 +13,7 @@
 
 import type { SQLiteStore } from "../storage/SQLiteStore";
 import type { SearchResult } from "../types";
+import type { TierResolver } from "../heat/deriveTier";
 import { folderOf } from "../utils/folderOf";
 
 function cosineNormalized(a: Float32Array, b: Float32Array): number {
@@ -28,6 +29,10 @@ export interface DiscoverSettings {
      *  note's folder — template siblings live together and crowd out the
      *  note's actual content. 0/undefined disables. */
     sameFolderCap?: number;
+    /** 010 D5: query-time tier derivation. When absent, the stored
+     *  (advisory) tier is used — keeps this module Obsidian-free and the
+     *  existing tests untouched. */
+    tierResolver?: TierResolver;
 }
 
 const YIELD_EVERY = 50;
@@ -66,7 +71,7 @@ export async function discoverForNoteSqlite(
             title: row.title,
             tags: [],
             score,
-            tier: row.tier ?? "hot",
+            tier: settings.tierResolver?.(row.path) ?? row.tier ?? "hot",
         });
         if ((i + 1) % YIELD_EVERY === 0) await new Promise(r => window.setTimeout(r, 0));
     }
@@ -97,7 +102,8 @@ export async function globalDiscoverSqlite(
     for (const row of all) {
         if (row.noteVec.length === 0) continue;
         if (queryDim === 0) queryDim = row.noteVec.length;
-        if (row.tier === "cold") cold.push({ path: row.path, title: row.title, vec: row.noteVec });
+        const tier = settings.tierResolver?.(row.path) ?? row.tier;
+        if (tier === "cold") cold.push({ path: row.path, title: row.title, vec: row.noteVec });
         else hot.push(row.noteVec);
     }
     if (hot.length === 0 || cold.length === 0) return [];
@@ -171,7 +177,7 @@ export function findSimilarSqlite(
             title: row.title,
             tags: [],
             score,
-            tier: row.tier ?? "hot",
+            tier: settings.tierResolver?.(row.path) ?? row.tier ?? "hot",
         });
     }
 

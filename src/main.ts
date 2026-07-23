@@ -33,6 +33,11 @@ import {
     type KnnGraph,
 } from "./search/semanticPath";
 import { PathTargetModal } from "./ui/PathTargetModal";
+import { PromoteModal } from "./ui/PromoteModal";
+import { collectPurpleEdges, promoteEdgesInCanvas, type PurplePair } from "./canvas/promote";
+import { insertRelatedLink } from "./utils/insertRelatedLink";
+import { makeTierResolver } from "./heat/makeTierResolver";
+import type { TierResolver } from "./heat/deriveTier";
 import { DescriptionGenerator } from "./description-generator";
 import { OnboardingModal, applyOnboardingChoice } from "./ui/OnboardingModal";
 import { loadWasmAsset } from "./runtime/wasmAssets";
@@ -61,6 +66,11 @@ export default class VaultSearchPlugin extends Plugin {
     } | null = null;
     private ortWasmBinary: ArrayBuffer | null = null;
     private debounceTimers: Map<string, number> = new Map();
+    /** 010 D6: self-write exemption ledger — mtimes of the plugin's own
+     *  batch writes (description generator). Persisted in data.json,
+     *  pruned once an entry falls outside the hotDays window. Promote
+     *  writes are deliberately NOT recorded (user judgment). */
+    selfWrites: Record<string, number> = {};
 
     async onload() {
         await this.loadSettings();
@@ -237,6 +247,16 @@ export default class VaultSearchPlugin extends Plugin {
         // exists; "Generate description" is gated on enableAICuration.
         this.registerEvent(
             this.app.workspace.on("file-menu", (menu: Menu, file) => {
+                // Purple-edge promotion (010 D1): right-click on a .canvas
+                // file (tab header / file explorer).
+                if (file instanceof TFile && file.extension === "canvas" && this.store) {
+                    menu.addItem((item) => {
+                        item.setTitle(t.menuPromote)
+                            .setIcon("link")
+                            .onClick(() => void this.promotePurpleEdges(file));
+                    });
+                    return;
+                }
                 if (!(file instanceof TFile) || file.extension !== "md") return;
                 if (this.store) {
                     menu.addItem((item) => {
@@ -282,6 +302,20 @@ export default class VaultSearchPlugin extends Plugin {
             id: "global-discover",
             name: t.cmdGlobalDiscover,
             callback: () => void this.openGlobalDiscover(),
+        });
+
+        // Purple-edge promotion (010): only offered while a canvas is the
+        // active file and an index exists.
+        this.addCommand({
+            id: "promote-purple-edges",
+            name: t.cmdPromote,
+            checkCallback: (checking) => {
+                const canvasFile = this.getActiveCanvasFile();
+                if (!canvasFile || !this.store) return false;
+                if (checking) return true;
+                void this.promotePurpleEdges(canvasFile);
+                return true;
+            },
         });
 
         this.addCommand({
@@ -528,6 +562,7 @@ export default class VaultSearchPlugin extends Plugin {
             minScore: this.settings.minScore,
             topResults: this.settings.topResults,
             sameFolderCap: this.settings.sameFolderCap,
+            tierResolver: this.tierResolver(),
         });
 
         if (topResults.length === 0) {
@@ -559,10 +594,12 @@ export default class VaultSearchPlugin extends Plugin {
             return;
         }
 
+        const tierResolver = this.tierResolver();
         const neighbors = findSimilarSqlite(file.path, store, {
             minScore: this.settings.minScore,
             topResults: this.settings.topResults,
             sameFolderCap: this.settings.sameFolderCap,
+            tierResolver,
         });
         if (neighbors.length === 0) {
             new Notice(t.noticeGraphNoResults);
@@ -570,7 +607,7 @@ export default class VaultSearchPlugin extends Plugin {
         }
 
         const canvas = buildGraphCanvas(
-            { path: file.path, tier: note.tier ?? "hot" },
+            { path: file.path, tier: tierResolver(file.path) },
             neighbors.map((r) => ({ path: r.path, tier: r.tier, score: r.score })),
             this.app.metadataCache.resolvedLinks,
         );
@@ -688,10 +725,10 @@ export default class VaultSearchPlugin extends Plugin {
             return;
         }
 
-        const tierByPath = new Map(all.map((r) => [r.path, r.tier] as const));
+        const tierResolver = this.tierResolver();
         const chain = result.path.map((p) => ({
             path: p,
-            tier: tierByPath.get(p) ?? ("hot" as const),
+            tier: tierResolver(p),
         }));
         const canvas = buildPathCanvas(chain, result.sims, this.app.metadataCache.resolvedLinks);
 
@@ -750,6 +787,7 @@ export default class VaultSearchPlugin extends Plugin {
             minScore: this.settings.minScore,
             topResults: this.settings.topResults,
             sameFolderCap: this.settings.sameFolderCap,
+            tierResolver: this.tierResolver(),
         });
         if (neighbors.length === 0) {
             new Notice(t.noticeExpandNothingNew);
@@ -1007,6 +1045,169 @@ export default class VaultSearchPlugin extends Plugin {
         // Swap succeeded; safe to dispose old.
         oldProvider?.dispose();
     }
+    // ── Purple-edge promotion (010) ────
+
+    /** Effective Related-section heading: user setting, else locale default.
+     *  Sanitized to one line (red-team F2: a tampered data.json can carry a
+     *  non-string — `.trim()` on a number throws outside every try — or an
+     *  embedded newline, which can never match a single line and turns every
+     *  promotion into an EOF multi-line injection). */
+    private relatedHeading(): string {
+        const custom = String(this.settings.relatedSectionTitle ?? "")
+            .split("\n")[0].trim();
+        return custom !== "" ? custom : t.relatedSectionDefault;
+    }
+
+    /** Scan `canvasFile` for promotable purple edges and open the checkbox
+     *  modal (010 D1/D2). Read-only until the user applies. */
+    async promotePurpleEdges(canvasFile: TFile) {
+        let pairs: PurplePair[];
+        try {
+            const canvas = JSON.parse(await this.app.vault.read(canvasFile)) as CanvasJson;
+            // A brand-new canvas is literally "{}"; hand-edited ones can
+            // carry non-array nodes/edges — normalize or bail inside the
+            // try so every malformed shape lands on the same Notice.
+            canvas.nodes = Array.isArray(canvas.nodes) ? canvas.nodes : [];
+            canvas.edges = Array.isArray(canvas.edges) ? canvas.edges : [];
+            pairs = collectPurpleEdges(
+                canvas,
+                this.app.metadataCache.resolvedLinks,
+                (p) => this.app.vault.getAbstractFileByPath(p) instanceof TFile,
+            );
+        } catch (e) {
+            console.error("vault-curate: promote scan failed", e);
+            new Notice(t.noticePromoteInvalidCanvas);
+            return;
+        }
+        if (pairs.length === 0) {
+            new Notice(t.noticePromoteEmpty);
+            return;
+        }
+        new PromoteModal(this.app, pairs, (chosen) => {
+            void this.applyPromotions(canvasFile, chosen);
+        }).open();
+    }
+
+    /** Write the accepted pairs as real wikilinks, then recolor their
+     *  canvas edges. Order is md first, canvas second (010 D4): if the
+     *  canvas write fails, the links exist and the next scan's
+     *  resolvedLinks re-verification filters the pair out — the failure
+     *  self-heals. The reverse order would leave a gray edge with no link
+     *  behind it. These writes are the user's judgment action, so they are
+     *  deliberately NOT recorded in the self-write ledger; the new links
+     *  make both notes hot regardless of mtime. */
+    private async applyPromotions(canvasFile: TFile, chosen: PurplePair[]) {
+        const heading = this.relatedHeading();
+        const bidirectional = this.settings.promoteBidirectional;
+
+        // Large batches are sequential file writes with the modal already
+        // closed — silent background work invites the user to start
+        // conflicting actions (visible-background-work discipline).
+        if (chosen.length > 10) new Notice(t.noticePromoteWriting(chosen.length));
+
+        let linksWritten = 0;
+        let failedWrites = 0;
+        const okPairs: PurplePair[] = [];
+
+        for (const pair of chosen) {
+            const fromFile = this.app.vault.getAbstractFileByPath(pair.from);
+            const toFile = this.app.vault.getAbstractFileByPath(pair.to);
+            if (!(fromFile instanceof TFile) || !(toFile instanceof TFile)) {
+                failedWrites++;
+                continue;
+            }
+            try {
+                const link = this.app.fileManager.generateMarkdownLink(toFile, pair.from);
+                let inserted = false;
+                await this.app.vault.process(fromFile, (data) => {
+                    const next = insertRelatedLink(data, heading, link);
+                    inserted = next !== null;
+                    return next ?? data;
+                });
+                if (inserted) linksWritten++;
+            } catch (e) {
+                // Source write failed: nothing on disk for this pair —
+                // leave its edges purple (D8).
+                console.error(`vault-curate: promote write failed for ${pair.from}`, e);
+                failedWrites++;
+                continue;
+            }
+            if (bidirectional) {
+                try {
+                    const back = this.app.fileManager.generateMarkdownLink(fromFile, pair.to);
+                    let inserted = false;
+                    await this.app.vault.process(toFile, (data) => {
+                        const next = insertRelatedLink(data, heading, back);
+                        inserted = next !== null;
+                        return next ?? data;
+                    });
+                    if (inserted) linksWritten++;
+                } catch (e) {
+                    // Second-file failure: the forward link exists, so the
+                    // pair still counts and its edges still turn gray (D8).
+                    console.error(`vault-curate: promote reverse write failed for ${pair.to}`, e);
+                    failedWrites++;
+                }
+            }
+            okPairs.push(pair);
+        }
+
+        let changedEdges = 0;
+        let matchedCount = 0;
+        let canvasUpdated = false;
+        if (okPairs.length > 0) {
+            try {
+                await this.app.vault.process(canvasFile, (data) => {
+                    const parsed = JSON.parse(data) as CanvasJson;
+                    parsed.nodes = Array.isArray(parsed.nodes) ? parsed.nodes : [];
+                    parsed.edges = Array.isArray(parsed.edges) ? parsed.edges : [];
+                    const result = promoteEdgesInCanvas(parsed, okPairs, bidirectional);
+                    changedEdges = result.changedEdges;
+                    matchedCount = result.matchedPairs.size;
+                    if (result.changedEdges === 0) return data;
+                    return JSON.stringify(result.canvas, null, "\t");
+                });
+                canvasUpdated = true;
+            } catch (e) {
+                console.error("vault-curate: promote canvas update failed", e);
+                new Notice(t.noticePromoteCanvasFailed);
+            }
+        }
+
+        new Notice(t.noticePromoteDone(linksWritten, changedEdges));
+        // Only meaningful when the canvas write itself succeeded — after a
+        // failed write, matchedCount is garbage and the "changed meanwhile"
+        // wording would contradict the canvas-failed Notice above.
+        const skippedPairs = canvasUpdated ? okPairs.length - matchedCount : 0;
+        if (skippedPairs > 0) new Notice(t.noticePromoteSkipped(skippedPairs));
+        if (failedWrites > 0) new Notice(t.noticePromotePartial(failedWrites));
+    }
+
+    // ── Heat: tier derivation + self-write ledger (010) ────
+
+    /** One resolver per query, frozen for its duration (010 D5). */
+    tierResolver(): TierResolver {
+        return makeTierResolver(this.app, this.selfWrites, this.settings.hotDays);
+    }
+
+    /** Record a plugin-initiated write so it doesn't count as a user
+     *  judgment action (010 D6). Prunes + persists on every call — batch
+     *  callers are LLM-bound, so one saveData per file is noise. */
+    recordSelfWrite(path: string, mtime: number): void {
+        this.selfWrites[path] = mtime;
+        this.pruneSelfWrites();
+        void this.saveSettings();
+    }
+
+    /** Drop entries that fell outside the hotDays window — past it, the
+     *  mtime can't make the note hot anyway, so the ledger self-limits. */
+    private pruneSelfWrites(): void {
+        const cutoff = Date.now() - this.settings.hotDays * 24 * 60 * 60 * 1000;
+        for (const [path, mtime] of Object.entries(this.selfWrites)) {
+            if (mtime < cutoff) delete this.selfWrites[path];
+        }
+    }
+
     async loadSettings() {
         const raw: unknown = await this.loadData();
         // data.json should always parse to an object. If a user (or a tool
@@ -1021,6 +1222,15 @@ export default class VaultSearchPlugin extends Plugin {
             ? raw as Partial<VaultSearchData>
             : null;
         this.settings = Object.assign({}, DEFAULT_SETTINGS, data?.settings);
+
+        // 010 D6: self-write ledger rides the same data.json (own top-level
+        // key, no Settings UI). Same tamper surface as the hidden settings:
+        // keep only finite-number entries.
+        const sw = data?.selfWrites;
+        this.selfWrites = (sw && typeof sw === "object" && !Array.isArray(sw))
+            ? Object.fromEntries(Object.entries(sw)
+                .filter(([, v]) => typeof v === "number" && Number.isFinite(v)))
+            : {};
 
         // Phase 4 (004 rebrand) chunk tuning migration: v0.3 default 1000/200
         // is too small for bge-small-zh WASM throughput in Obsidian's Electron
@@ -1046,6 +1256,15 @@ export default class VaultSearchPlugin extends Plugin {
         // finding, 1.2.0 pre-release review). Same guard for minDescChars:
         // NaN makes the backfill's `length(description) >= ?` never match,
         // silently disabling the upgrade path.
+        // 010 red-team F1: hotDays shares the tamper surface. NaN poisons
+        // deriveTier (`now - t < NaN` is always false → whole vault goes
+        // Cold silently) AND pruneSelfWrites (`mtime < NaN` never true →
+        // ledger never shrinks). Same guard shape as the fields below.
+        const hd = Number(this.settings.hotDays);
+        this.settings.hotDays = Number.isFinite(hd) && hd > 0
+            ? Math.trunc(hd)
+            : DEFAULT_SETTINGS.hotDays;
+
         const dw = Number(this.settings.descWeight);
         this.settings.descWeight = Number.isFinite(dw)
             ? Math.max(0, Math.min(dw, 1))
@@ -1067,12 +1286,13 @@ export default class VaultSearchPlugin extends Plugin {
         delete settingsAny.minDescLength;
         delete settingsAny.index;
 
-        const migrated: VaultSearchData = { settings: this.settings };
+        this.pruneSelfWrites();
+        const migrated: VaultSearchData = { settings: this.settings, selfWrites: this.selfWrites };
         await this.saveData(migrated);
     }
 
     async saveSettings() {
-        const data: VaultSearchData = { settings: this.settings };
+        const data: VaultSearchData = { settings: this.settings, selfWrites: this.selfWrites };
         await this.saveData(data);
         // 007 D5: keep the store's blend weight in sync with settings.
         this.store?.setComposeAlpha(this.settings.descWeight);

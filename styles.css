@@ -120,6 +120,73 @@
     margin-top: 1em;
 }
 
+/* Purple-edge promotion modal (010) */
+
+/* Obsidian layers hover popovers (--layer-popover) BELOW modals
+   (--layer-modal), so a Page Preview triggered from inside the modal
+   renders behind it. Scope the lift to while THIS modal is open — the
+   list class only exists in our promote modal, so no other popover is
+   affected. */
+body:has(.vault-curate-promote-list) .popover.hover-popover {
+    z-index: var(--layer-menu);
+}
+.vault-curate-promote-list {
+    max-height: 45vh;
+    overflow-y: auto;
+    margin-top: 0.5em;
+}
+
+.vault-curate-promote-group {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin: 0.8em 0 0.2em;
+    padding-bottom: 2px;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.vault-curate-promote-group-title {
+    font-weight: 600;
+}
+
+.vault-curate-promote-folder {
+    color: var(--text-faint);
+    font-size: var(--font-ui-smaller);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vault-curate-promote-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 2px 4px 16px;
+    cursor: pointer;
+}
+
+.vault-curate-promote-target {
+    flex: 1;
+    min-width: 0;
+}
+
+.vault-curate-promote-pair {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vault-curate-promote-score {
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.vault-curate-promote-count {
+    margin-right: auto;
+    align-self: center;
+    color: var(--text-muted);
+}
+
 .vault-curate-modal-btnrow button.mod-warning {
     background: var(--interactive-accent);
     color: var(--text-on-accent);

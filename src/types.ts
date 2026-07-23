@@ -49,6 +49,14 @@ export interface VaultSearchSettings {
     /** Semantic Canvas Graph (006): folder for generated .canvas files.
      *  Empty string = vault root. */
     canvasFolder: string;
+    /** Purple-edge promotion (010 D7): heading the promoted wikilinks are
+     *  appended under. Empty string = follow the interface language
+     *  (resolved at use time via t.relatedSectionDefault). */
+    relatedSectionTitle: string;
+    /** Purple-edge promotion (010 D3): write the wikilink into both notes
+     *  of a promoted pair (the semantic relation is symmetric, and the
+     *  rescued Cold note keeps a visible trail). Off = source note only. */
+    promoteBidirectional: boolean;
 }
 
 export const DEFAULT_SETTINGS: VaultSearchSettings = {
@@ -74,11 +82,16 @@ export const DEFAULT_SETTINGS: VaultSearchSettings = {
     chunkOverlap: 100,
     enableAICuration: false,
     canvasFolder: "Vault Curate Canvases",
+    relatedSectionTitle: "",
+    promoteBidirectional: true,
 };
 
 /** data.json stores settings only — index lives in SQLite (Phase 4+). */
 export interface VaultSearchData {
     settings: VaultSearchSettings;
+    /** 010 D6: self-write exemption ledger (path → mtime of the plugin's
+     *  own batch write). Not exposed in the Settings UI. */
+    selfWrites?: Record<string, number>;
 }
 
 export interface SearchResult {

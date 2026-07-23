@@ -192,6 +192,7 @@ export class SearchView extends ItemView {
                 {
                     topResults: this.plugin.settings.topResults,
                     searchScope: this.plugin.settings.searchScope,
+                    tierResolver: this.plugin.tierResolver(),
                 },
             );
             if (query !== this.currentQuery) return;
@@ -382,6 +383,7 @@ export class SearchView extends ItemView {
         const results = await discoverForNoteSqlite(file.path, store, {
             minScore: this.plugin.settings.minScore,
             topResults: this.plugin.settings.topResults,
+            tierResolver: this.plugin.tierResolver(),
         }, localAbort);
         // Discard stale result if another file took over while we were
         // computing. Two guards: localAbort flipped by a later sweep AND
@@ -412,6 +414,7 @@ export class SearchView extends ItemView {
             {
                 minScore: this.plugin.settings.minScore,
                 topResults: this.plugin.settings.topResults,
+                tierResolver: this.plugin.tierResolver(),
             },
             (done, total) => {
                 if (!this.globalCancelled.value) {
@@ -424,10 +427,14 @@ export class SearchView extends ItemView {
         if (this.globalCancelled.value) return;
 
         if (results.length === 0) {
-            // Distinguish why: no Hot pool vs no Cold candidates vs all filtered by minScore.
+            // Distinguish why: no Hot pool vs no Cold candidates vs all filtered
+            // by minScore. MUST diagnose with the same derived tier the
+            // computation used — the stored advisory tier can disagree and
+            // name the wrong cause (010 review).
             const all = store.getAllNotesLight();
-            const hasHot = all.some(r => r.tier !== "cold");
-            const hasCold = all.some(r => r.tier === "cold");
+            const tierResolver = this.plugin.tierResolver();
+            const hasHot = all.some(r => tierResolver(r.path) !== "cold");
+            const hasCold = all.some(r => tierResolver(r.path) === "cold");
             const msg = !hasHot
                 ? t.discoverGlobalNoHot
                 : !hasCold
