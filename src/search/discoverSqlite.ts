@@ -15,6 +15,8 @@ import type { SQLiteStore } from "../storage/SQLiteStore";
 import type { SearchResult } from "../types";
 import type { TierResolver } from "../heat/deriveTier";
 import { folderOf } from "../utils/folderOf";
+import { fuseRanks, FUSION_POOL } from "./relatedFusion";
+import { groupedGlobalRank, type ColdRow, type GroupedResults } from "./globalProfile";
 
 function cosineNormalized(a: Float32Array, b: Float32Array): number {
     let dot = 0;
@@ -33,14 +35,35 @@ export interface DiscoverSettings {
      *  (advisory) tier is used — keeps this module Obsidian-free and the
      *  existing tests untouched. */
     tierResolver?: TierResolver;
+    /** 011: note-level keyword ranks from the anchor's pseudo-query (see
+     *  relatedKwRank). When present, the minScore-filtered cosine order is
+     *  RRF-fused with it before any downstream step; absent/empty = pure
+     *  cosine order. */
+    kwRank?: Map<string, number>;
+}
+
+/** RRF re-rank of the top FUSION_POOL entries of a score-descending
+ *  result list (011 D3/D4). Entries beyond the pool keep their cosine
+ *  order after the pool. */
+function applyFusion(
+    sorted: SearchResult[],
+    kwRank: Map<string, number> | undefined,
+): SearchResult[] {
+    if (!kwRank || kwRank.size === 0 || sorted.length === 0) return sorted;
+    const pool = sorted.slice(0, FUSION_POOL);
+    const rest = sorted.slice(FUSION_POOL);
+    const byPath = new Map(pool.map((r) => [r.path, r]));
+    const fused = fuseRanks(pool.map((r) => r.path), kwRank);
+    return [...fused.map((p) => byPath.get(p) as SearchResult), ...rest];
 }
 
 const YIELD_EVERY = 50;
 
 /**
- * Notes most similar to `currentPath`, with cold notes promoted (the
- * Discover differentiator). Yields to the main thread every 50 candidates
- * so a 10k-note vault doesn't freeze the sidebar.
+ * Notes most similar to `currentPath`, ranked purely by (fused)
+ * relatedness — cold notes carry a visual mark instead of jumping the
+ * queue. Yields to the main thread every 50 candidates so a 10k-note
+ * vault doesn't freeze the sidebar.
  */
 export async function discoverForNoteSqlite(
     currentPath: string,
@@ -65,7 +88,10 @@ export async function discoverForNoteSqlite(
             continue;
         }
         const score = cosineNormalized(queryVec, row.noteVec);
-        if (score < settings.minScore) continue;
+        // isFinite guard: a NaN score passes `score < minScore` (false) and
+        // then poisons every downstream sort (011 regression review C1 —
+        // same family as the 007 composeNoteVec guard).
+        if (!Number.isFinite(score) || score < settings.minScore) continue;
         results.push({
             path: row.path,
             title: row.title,
@@ -80,74 +106,66 @@ export async function discoverForNoteSqlite(
         console.warn(`vault-curate: discoverForNote skipped ${dimMismatchCount} notes with mismatched embedding dim (query=${queryDim}). Provider switched? Re-index to recover.`);
     }
 
-    return rankWithColdPromotion(results, settings.topResults);
+    // Current-note Discover ranks purely by (fused) relatedness — cold
+    // notes keep their ❄️ mark but no longer jump the queue (主公裁決
+    // 2026-07-23: the block-promotion drowned relevant Hot notes once 010
+    // made tiers honest; dedicated cold mining lives in Global Discover).
+    results.sort((a, b) => b.score - a.score);
+    const ordered = applyFusion(results, settings.kwRank);
+    return ordered.slice(0, settings.topResults);
 }
 
 /**
- * Cold notes globally ranked by max-pool similarity to the Hot pool.
- * Even on cancel, we sort + truncate the partial result so callers
- * never see an unranked / over-budget list.
+ * Global Discover, grouped (012): Cold notes ranked against the user's
+ * thinking-profile centroid, fused per top-level folder group with the
+ * profile's keyword ranks (see globalProfile.ts for the rationale). This
+ * replaced the Hot-pool max-pool ranking — register dominance at vault
+ * scale — and dropped its O(cold·hot·dim) inner loop with it. Even on
+ * cancel, the partial rows are ranked so callers never see garbage.
  */
-export async function globalDiscoverSqlite(
+export async function globalDiscoverGroupedSqlite(
     store: SQLiteStore,
-    settings: DiscoverSettings,
+    settings: {
+        minScore: number;
+        centroid: Float32Array;
+        kwRank: Map<string, number>;
+        tierResolver?: TierResolver;
+    },
     onProgress?: (done: number, total: number) => void,
     cancelled?: { value: boolean },
-): Promise<SearchResult[]> {
+): Promise<GroupedResults[]> {
     const all = store.getAllNotesLight();
-    const hot: Float32Array[] = [];
-    const cold: { path: string; title: string; vec: Float32Array }[] = [];
-    let queryDim = 0;
-
-    for (const row of all) {
-        if (row.noteVec.length === 0) continue;
-        if (queryDim === 0) queryDim = row.noteVec.length;
-        const tier = settings.tierResolver?.(row.path) ?? row.tier;
-        if (tier === "cold") cold.push({ path: row.path, title: row.title, vec: row.noteVec });
-        else hot.push(row.noteVec);
-    }
-    if (hot.length === 0 || cold.length === 0) return [];
-
-    const results: SearchResult[] = [];
+    const coldRows: ColdRow[] = [];
     let dimMismatchCount = 0;
 
-    for (let i = 0; i < cold.length; i++) {
+    for (let i = 0; i < all.length; i++) {
         if (cancelled?.value) break;
-        const item = cold[i];
-        if (item.vec.length !== queryDim) {
+        const row = all[i];
+        if (row.noteVec.length === 0) continue;
+        if (row.noteVec.length !== settings.centroid.length) {
+            // Provider-switch mid-state: silent skipping here would end in
+            // an empty view whose "lower minScore" hint is WRONG advice
+            // (red-team F5) — count and name the real cause below.
             dimMismatchCount++;
             continue;
         }
-        let max = 0;
-        for (const h of hot) {
-            if (h.length !== queryDim) continue;
-            const s = cosineNormalized(item.vec, h);
-            if (s > max) max = s;
-        }
-        if (max >= settings.minScore) {
-            results.push({
-                path: item.path,
-                title: item.title,
-                tags: [],
-                score: max,
-                tier: "cold",
-            });
+        const tier = settings.tierResolver?.(row.path) ?? row.tier;
+        if (tier === "cold") {
+            coldRows.push({ path: row.path, title: row.title, tier: "cold", vec: row.noteVec });
         }
         if ((i + 1) % YIELD_EVERY === 0) {
-            onProgress?.(i + 1, cold.length);
+            onProgress?.(i + 1, all.length);
             await new Promise(r => window.setTimeout(r, 0));
         }
     }
-    // Skip the final "complete" progress callback on cancel — otherwise the
-    // caller flashes "Done" before reacting to its own cancel state.
-    if (!cancelled?.value) onProgress?.(cold.length, cold.length);
-
+    if (!cancelled?.value) onProgress?.(all.length, all.length);
     if (dimMismatchCount > 0) {
         console.warn(`vault-curate: globalDiscover skipped ${dimMismatchCount} notes with mismatched embedding dim. Provider switched? Re-index to recover.`);
     }
 
-    results.sort((a, b) => b.score - a.score);
-    return results.slice(0, settings.topResults);
+    return groupedGlobalRank(coldRows, settings.centroid, settings.kwRank, {
+        minScore: settings.minScore,
+    });
 }
 
 /** Find Similar — note-level cosine, no cold/hot promotion. */
@@ -171,7 +189,7 @@ export function findSimilarSqlite(
             continue;
         }
         const score = cosineNormalized(queryVec, row.noteVec);
-        if (score < settings.minScore) continue;
+        if (!Number.isFinite(score) || score < settings.minScore) continue;
         results.push({
             path: row.path,
             title: row.title,
@@ -186,6 +204,9 @@ export function findSimilarSqlite(
     }
 
     results.sort((a, b) => b.score - a.score);
+    // 011: fuse before the folder cap — the cap prunes whatever order it
+    // is handed, so template siblings still can't crowd the output (D4).
+    const fused = applyFusion(results, settings.kwRank);
 
     // 008 D7: cap same-folder results. Scores are untouched — capped
     // entries are simply skipped and the next-ranked notes move up.
@@ -194,7 +215,7 @@ export function findSimilarSqlite(
         const qFolder = folderOf(currentPath);
         const out: SearchResult[] = [];
         let sameFolder = 0;
-        for (const r of results) {
+        for (const r of fused) {
             if (folderOf(r.path) === qFolder) {
                 if (sameFolder >= cap) continue;
                 sameFolder++;
@@ -204,17 +225,6 @@ export function findSimilarSqlite(
         }
         return out;
     }
-    return results.slice(0, settings.topResults);
+    return fused.slice(0, settings.topResults);
 }
 
-const MAX_COLD_PROMOTION_POOL = 200;
-
-function rankWithColdPromotion(results: SearchResult[], topResults: number): SearchResult[] {
-    results.sort((a, b) => b.score - a.score);
-    const candidates = results.slice(0, Math.min(MAX_COLD_PROMOTION_POOL, topResults * 2));
-    candidates.sort((a, b) => {
-        if (a.tier !== b.tier) return a.tier === "cold" ? -1 : 1;
-        return b.score - a.score;
-    });
-    return candidates.slice(0, topResults);
-}

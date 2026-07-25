@@ -103,6 +103,7 @@ export interface Locale {
     discoverNoIndex: string;
     discoverComputing: string;
     discoverGlobalDesc: string;
+    discoverGlobalNoProfile: string;
     discoverProgress: (done: number, total: number) => string;
     generateMoc: string;
     mocCreated: (path: string) => string;
@@ -155,7 +156,6 @@ export interface Locale {
     noticeUpdated: (updated: number, total: number, hot: number) => string;
     noticeEmptySkipped: (n: number) => string;
     noticeLargeVault: (chunks: number) => string;
-    discoverGlobalNoHot: string;
     discoverGlobalNoCold: string;
     discoverGlobalAllFiltered: string;
     discoverPin: string;
@@ -344,7 +344,8 @@ const en: Locale = {
     discoverEmpty: "No related notes found",
     discoverNoIndex: "Build index first",
     discoverComputing: "Computing...",
-    discoverGlobalDesc: "Notes most related to your active thinking but not yet explored",
+    discoverGlobalDesc: "Forgotten notes most related to your recent focus, grouped by folder",
+    discoverGlobalNoProfile: "No recent activity to build a focus profile from — edit or create a few notes first.",
     discoverProgress: (done, total) => `Computing: ${done}/${total}...`,
     generateMoc: "Generate MOC",
     mocCreated: (path) => `MOC created: ${path}`,
@@ -402,7 +403,6 @@ const en: Locale = {
     noticeEmptySkipped: (n) => `Vault Curate: skipped ${n} empty note(s) — no content to embed`,
     noticeLargeVault: (chunks) =>
         `Vault Curate: indexed ${chunks} chunks. Semantic search may take a few seconds — if it feels slow, try setting search scope to "Hot" in Settings → Advanced.`,
-    discoverGlobalNoHot: "No Hot notes yet — add internal links or recent notes to populate Hot, then Discover can surface related Cold notes against them.",
     discoverGlobalNoCold: "No Cold notes — every note in your vault is either linked or recent, so there's nothing to rediscover.",
     discoverGlobalAllFiltered: "All Cold candidates scored below the minimum threshold — lower 'Min score' in Settings → Advanced to surface lower-confidence matches.",
     discoverPin: "Pin",
@@ -617,7 +617,8 @@ const zhTW: Locale = {
     discoverEmpty: "找不到相關筆記",
     discoverNoIndex: "請先建立索引",
     discoverComputing: "計算中...",
-    discoverGlobalDesc: "與你目前思路最相關但尚未探索的筆記",
+    discoverGlobalDesc: "與你近期關注最相關、但已被遺忘的筆記（依資料夾分組）",
+    discoverGlobalNoProfile: "近期沒有活動筆記可構成關注剖繪，先編輯或建立幾篇筆記吧。",
     discoverProgress: (done, total) => `計算中：${done}/${total}...`,
     generateMoc: "生成 MOC",
     mocCreated: (path) => `MOC 已建立：${path}`,
@@ -675,7 +676,6 @@ const zhTW: Locale = {
     noticeEmptySkipped: (n) => `Vault Curate：略過 ${n} 篇空白筆記（無內容可索引）`,
     noticeLargeVault: (chunks) =>
         `Vault Curate：完成 ${chunks} 個 chunks 索引。語意搜尋可能需要數秒；若感到慢，可至「設定 → 進階 → 搜尋範圍」改為 Hot only。`,
-    discoverGlobalNoHot: "目前沒有 Hot 筆記 — 加入 internal link 或近期建立筆記後 Hot 池子會浮現，才能用發掘找相關的 Cold 筆記。",
     discoverGlobalNoCold: "目前沒有 Cold 筆記 — vault 中所有筆記都有連結或近期建立，沒有可重新發現的內容。",
     discoverGlobalAllFiltered: "所有 Cold 候選筆記分數低於最低門檻 — 請至「設定 → 進階 → 最低分數」調低後重試。",
     discoverPin: "釘選",

@@ -13,7 +13,8 @@ import type VaultSearchPlugin from "./main";
 import { SearchResult } from "./types";
 import { formatLocalDateTime, getContentPreview, renderResultItem, toWikilink } from "./utils";
 import { searchHybrid } from "./search/searchHybrid";
-import { discoverForNoteSqlite, globalDiscoverSqlite } from "./search/discoverSqlite";
+import { discoverForNoteSqlite, globalDiscoverGroupedSqlite } from "./search/discoverSqlite";
+import type { GroupedResults } from "./search/globalProfile";
 import { classifyMocSize } from "./clustering";
 import { FallbackToFlatError, generateMocGrouped, NoteForMoc, renderMocGrouped } from "./moc-generator";
 import { t } from "./i18n";
@@ -46,7 +47,10 @@ export class SearchView extends ItemView {
     private discoverResultsEl!: HTMLDivElement;
     private modeEls = {} as Record<DiscoverMode, HTMLButtonElement>;
     private mocBtn!: HTMLButtonElement;
-    private globalCancelled = { value: false };
+    /** Per-run abort token for the global sweep (red-team F4): a shared
+     *  mutable flag lets a new run "revive" a cancelled old one — same
+     *  fix shape as perFileAbort below. */
+    private globalAbort: { value: boolean } | null = null;
     private lastDiscoverResults: SearchResult[] = [];
     // Pin state — session-only (plugin reload resets). Locks Discover sidebar
     // to a specific note so file-open events don't refresh away the context.
@@ -162,7 +166,7 @@ export class SearchView extends ItemView {
     async onClose() {
         await super.onClose();
         if (this.debounceTimer) window.clearTimeout(this.debounceTimer);
-        this.globalCancelled.value = true;
+        if (this.globalAbort) this.globalAbort.value = true;
     }
 
     private scheduleSearch(query: string) {
@@ -321,7 +325,7 @@ export class SearchView extends ItemView {
     }
 
     private setDiscoverMode(mode: DiscoverMode) {
-        this.globalCancelled.value = true; // Cancel any running global computation
+        if (this.globalAbort) this.globalAbort.value = true; // Cancel any running global computation
         // User switching to global = implicit unpin (pin is a current-mode concept).
         if (mode === "global" && this.pinnedFile !== null) {
             this.unpin();
@@ -384,6 +388,7 @@ export class SearchView extends ItemView {
             minScore: this.plugin.settings.minScore,
             topResults: this.plugin.settings.topResults,
             tierResolver: this.plugin.tierResolver(),
+            kwRank: this.plugin.relatedKwRankFor(file),
         }, localAbort);
         // Discard stale result if another file took over while we were
         // computing. Two guards: localAbort flipped by a later sweep AND
@@ -405,46 +410,71 @@ export class SearchView extends ItemView {
             return;
         }
 
-        this.globalCancelled.value = false;
+        if (this.globalAbort) this.globalAbort.value = true;
+        const abort = { value: false };
+        this.globalAbort = abort;
         this.discoverStatusEl.setText(t.discoverComputing);
         this.discoverResultsEl.empty();
 
-        const results = await globalDiscoverSqlite(
+        // 012: thinking profile (recent judgment-action notes) replaces
+        // the Hot-pool anchor; results come back grouped by top folder.
+        const profile = this.plugin.globalProfileFor();
+        if (!profile.centroid) {
+            this.discoverStatusEl.setText(t.discoverGlobalNoProfile);
+            this.renderDiscoverResults([]);
+            return;
+        }
+
+        const groups = await globalDiscoverGroupedSqlite(
             store,
             {
                 minScore: this.plugin.settings.minScore,
-                topResults: this.plugin.settings.topResults,
+                centroid: profile.centroid,
+                kwRank: profile.kwRank,
                 tierResolver: this.plugin.tierResolver(),
             },
             (done, total) => {
-                if (!this.globalCancelled.value) {
+                if (!abort.value) {
                     this.discoverStatusEl.setText(t.discoverProgress(done, total));
                 }
             },
-            this.globalCancelled,
+            abort,
         );
 
-        if (this.globalCancelled.value) return;
+        if (abort.value) return;
 
-        if (results.length === 0) {
-            // Distinguish why: no Hot pool vs no Cold candidates vs all filtered
-            // by minScore. MUST diagnose with the same derived tier the
-            // computation used — the stored advisory tier can disagree and
-            // name the wrong cause (010 review).
+        if (groups.length === 0) {
+            // Distinguish why: no Cold candidates vs all below minScore.
+            // MUST diagnose with the same derived tier the computation used
+            // (010 review).
             const all = store.getAllNotesLight();
             const tierResolver = this.plugin.tierResolver();
-            const hasHot = all.some(r => tierResolver(r.path) !== "cold");
             const hasCold = all.some(r => tierResolver(r.path) === "cold");
-            const msg = !hasHot
-                ? t.discoverGlobalNoHot
-                : !hasCold
-                    ? t.discoverGlobalNoCold
-                    : t.discoverGlobalAllFiltered;
-            this.discoverStatusEl.setText(msg);
-        } else {
-            this.discoverStatusEl.setText(t.discoverGlobalDesc);
+            this.discoverStatusEl.setText(
+                !hasCold ? t.discoverGlobalNoCold : t.discoverGlobalAllFiltered,
+            );
+            this.renderDiscoverResults([]);
+            return;
         }
-        this.renderDiscoverResults(results);
+        this.discoverStatusEl.setText(t.discoverGlobalDesc);
+        this.renderGroupedResults(groups);
+    }
+
+    /** 012 D4: grouped rendering — one header per top-level folder, the
+     *  usual result items beneath. MOC generation keeps working off the
+     *  flattened list. */
+    private renderGroupedResults(groups: GroupedResults[]) {
+        this.lastDiscoverResults = groups.flatMap(g => g.results);
+        this.discoverResultsEl.empty();
+        for (const g of groups) {
+            this.discoverResultsEl.createDiv({
+                cls: "vault-curate-group-header",
+                text: `${g.group} · ${g.results.length}`,
+            });
+            for (const result of g.results) {
+                this.createResultItem(this.discoverResultsEl, result);
+            }
+        }
     }
 
     private renderDiscoverResults(results: SearchResult[]) {

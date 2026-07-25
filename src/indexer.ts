@@ -408,10 +408,17 @@ export class Indexer {
         const h1Collisions = this.buildH1Collisions(this.getMarkdownFiles());
         await this.indexOne(file, incomingSet, h1Collisions);
         this.writeIndexMeta();
+        // The upsert just invalidated the BM25 index — re-warm it in the
+        // background so relatedness fusion stays consistently available
+        // (011 perf follow-up; sliced build, never blocks this path).
+        this.plugin.scheduleBM25Warm();
     }
 
     removeNote(path: string): void {
         this.store.deleteNote(path);
+        // Deletion invalidates the BM25 index just like an upsert does —
+        // re-warm so fusion availability has no delete-shaped hole (F7).
+        this.plugin.scheduleBM25Warm();
     }
 
     async renameNote(oldPath: string, newPath: string, file: TFile): Promise<void> {

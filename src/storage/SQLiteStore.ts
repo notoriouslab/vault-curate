@@ -88,6 +88,8 @@ export class SQLiteStore {
     // any mutation that changes the corpus (chunks or descriptions);
     // setDescVec deliberately does NOT reset it — desc TEXT is unchanged.
     private bm25Index: BM25Index | null = null;
+    /** In-flight background BM25 build; concurrent warms coalesce onto it. */
+    private bm25WarmTask: Promise<void> | null = null;
 
     private constructor(
         private readonly adapter: PersistAdapter,
@@ -388,6 +390,79 @@ export class SQLiteStore {
         if (this.disposed) return;
         if (this.bm25Index) return;
         this.bm25Index = buildBM25Index(this.collectBM25Docs());
+    }
+
+    /** Whether the BM25 index is currently built (011): relatedness fusion
+     *  must NEVER trigger the synchronous first build from the passive
+     *  file-open path — it checks this and degrades to pure cosine while
+     *  cold (the background sliced warm below closes the gap). */
+    isBM25Warm(): boolean {
+        return this.bm25Index !== null;
+    }
+
+    /** Time-sliced background BM25 build (011 perf follow-up): fusion
+     *  quality must not be a hidden state machine of "has the user
+     *  searched since the last save" — dogfood caught Discover flipping
+     *  smart/dumb with warm/cold. Yields to the event loop every SLICE
+     *  docs so the UI stays responsive; a mutation landing mid-build
+     *  discards the result (the next schedule retries); concurrent
+     *  callers coalesce onto one task. */
+    async warmBM25IndexAsync(): Promise<void> {
+        if (this.disposed || this.bm25Index) return;
+        if (this.bm25WarmTask) return this.bm25WarmTask;
+        this.bm25WarmTask = this.buildBM25Sliced().finally(() => {
+            this.bm25WarmTask = null;
+        });
+        return this.bm25WarmTask;
+    }
+
+    private async buildBM25Sliced(): Promise<void> {
+        const startRevision = this.revision;
+        const SLICE = 150;
+        const yieldToUi = () => new Promise<void>((r) => window.setTimeout(r, 0));
+
+        const docs: BM25Doc[] = [];
+        const res = this.db.exec(
+            `SELECT note_path, chunk_index, content FROM chunks`,
+        );
+        if (res.length > 0) {
+            const rows = res[0].values;
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                docs.push({
+                    id: `${row[0] as string}#${row[1] as number}`,
+                    tokens: tokenizeForBM25(row[2] as string),
+                });
+                if ((i + 1) % SLICE === 0) {
+                    await yieldToUi();
+                    // dispose() may close the db while we were yielding —
+                    // touching it again would throw into a void'd promise
+                    // (red-team F1 / audit W2).
+                    if (this.disposed) return;
+                }
+            }
+        }
+        if (this.disposed) return;
+        const descRes = this.db.exec(
+            "SELECT path, description FROM notes WHERE description IS NOT NULL AND description != ''",
+        );
+        if (descRes.length > 0) {
+            const rows = descRes[0].values;
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                docs.push({
+                    id: `${row[0] as string}#-1`,
+                    tokens: tokenizeForBM25(row[1] as string),
+                });
+                if ((i + 1) % SLICE === 0) {
+                    await yieldToUi();
+                    if (this.disposed) return;
+                }
+            }
+        }
+
+        if (this.disposed || this.revision !== startRevision || this.bm25Index) return;
+        this.bm25Index = buildBM25Index(docs);
     }
 
     /**

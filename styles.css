@@ -120,6 +120,16 @@
     margin-top: 1em;
 }
 
+/* Global Discover group headers (012) */
+.vault-curate-group-header {
+    margin: 0.9em 0 0.25em;
+    padding-bottom: 2px;
+    border-bottom: 1px solid var(--background-modifier-border);
+    color: var(--text-muted);
+    font-size: var(--font-ui-smaller);
+    font-weight: 600;
+}
+
 /* Purple-edge promotion modal (010) */
 
 /* Obsidian layers hover popovers (--layer-popover) BELOW modals

@@ -36,8 +36,11 @@ import { PathTargetModal } from "./ui/PathTargetModal";
 import { PromoteModal } from "./ui/PromoteModal";
 import { collectPurpleEdges, promoteEdgesInCanvas, type PurplePair } from "./canvas/promote";
 import { insertRelatedLink } from "./utils/insertRelatedLink";
-import { makeTierResolver } from "./heat/makeTierResolver";
-import type { TierResolver } from "./heat/deriveTier";
+import { makeTierResolver, resolveCreated } from "./heat/makeTierResolver";
+import { SELF_WRITE_TOLERANCE_MS, type TierResolver } from "./heat/deriveTier";
+import { relatedKwRank, kwRankForQuery } from "./search/relatedKwRank";
+import { parseTags } from "./search/relatedFusion";
+import { buildProfile, profileCentroid, type ProfileCandidate } from "./search/globalProfile";
 import { DescriptionGenerator } from "./description-generator";
 import { OnboardingModal, applyOnboardingChoice } from "./ui/OnboardingModal";
 import { loadWasmAsset } from "./runtime/wasmAssets";
@@ -66,6 +69,8 @@ export default class VaultSearchPlugin extends Plugin {
     } | null = null;
     private ortWasmBinary: ArrayBuffer | null = null;
     private debounceTimers: Map<string, number> = new Map();
+    /** Debounce for the background BM25 warm (011 perf follow-up). */
+    private bm25WarmTimer: number | null = null;
     /** 010 D6: self-write exemption ledger — mtimes of the plugin's own
      *  batch writes (description generator). Persisted in data.json,
      *  pruned once an entry falls outside the hotDays window. Promote
@@ -351,6 +356,9 @@ export default class VaultSearchPlugin extends Plugin {
         // load — those would otherwise queue 300+ single-file index calls and
         // saturate the embedding provider on plugin enable.
         this.app.workspace.onLayoutReady(() => {
+            // 011 perf follow-up: warm the BM25 index shortly after startup
+            // (sliced, background) so the first Discover already fuses.
+            this.scheduleBM25Warm(3000);
             this.registerEvent(
                 this.app.vault.on("modify", (file) => this.onFileChange(file, "modify"))
             );
@@ -414,6 +422,7 @@ export default class VaultSearchPlugin extends Plugin {
             window.clearTimeout(timer);
         }
         if (this.activeDiscoverTimer) window.clearTimeout(this.activeDiscoverTimer);
+        if (this.bm25WarmTimer !== null) window.clearTimeout(this.bm25WarmTimer);
         // Best-effort flush + dispose. We cannot await in onunload, but
         // SQLiteStore.dispose() flushes synchronously when pending mutations.
         void this.store?.dispose();
@@ -478,6 +487,7 @@ export default class VaultSearchPlugin extends Plugin {
         if (file.extension !== "md") return;
         if (file.path === this.lastDiscoverPath) return;
         if (this.activeDiscoverTimer) window.clearTimeout(this.activeDiscoverTimer);
+        if (this.bm25WarmTimer !== null) window.clearTimeout(this.bm25WarmTimer);
         this.activeDiscoverTimer = window.setTimeout(() => {
             // Skip refresh if any SearchView leaf has Discover pinned (D3 A2:
             // global guard — any pinned leaf blocks file-open refresh). Do NOT
@@ -563,6 +573,7 @@ export default class VaultSearchPlugin extends Plugin {
             topResults: this.settings.topResults,
             sameFolderCap: this.settings.sameFolderCap,
             tierResolver: this.tierResolver(),
+            kwRank: this.relatedKwRankFor(file),
         });
 
         if (topResults.length === 0) {
@@ -600,6 +611,7 @@ export default class VaultSearchPlugin extends Plugin {
             topResults: this.settings.topResults,
             sameFolderCap: this.settings.sameFolderCap,
             tierResolver,
+            kwRank: this.relatedKwRankFor(file),
         });
         if (neighbors.length === 0) {
             new Notice(t.noticeGraphNoResults);
@@ -788,6 +800,7 @@ export default class VaultSearchPlugin extends Plugin {
             topResults: this.settings.topResults,
             sameFolderCap: this.settings.sameFolderCap,
             tierResolver: this.tierResolver(),
+            kwRank: this.relatedKwRankFor(noteFile),
         });
         if (neighbors.length === 0) {
             new Notice(t.noticeExpandNothingNew);
@@ -1188,6 +1201,96 @@ export default class VaultSearchPlugin extends Plugin {
     /** One resolver per query, frozen for its duration (010 D5). */
     tierResolver(): TierResolver {
         return makeTierResolver(this.app, this.selfWrites, this.settings.hotDays);
+    }
+
+    /** 011 D2: keyword ranks for relatedness fusion, built from the anchor
+     *  note's frontmatter tags (title fallback). Injected ONLY into the
+     *  anchored surfaces (Find Similar / relation graph / expand / Discover
+     *  current note) — global Discover and the semantic-path k-NN graph
+     *  have no anchor pseudo-query subject and stay pure cosine (D4). */
+    relatedKwRankFor(file: TFile): Map<string, number> {
+        if (!this.store) return new Map();
+        if (!this.store.isBM25Warm()) {
+            // Degrade this query to pure cosine, but close the gap soon —
+            // fusion quality must not depend on whether the user happened
+            // to search since the last save.
+            this.scheduleBM25Warm();
+            return new Map();
+        }
+        const fm: Record<string, unknown> | undefined =
+            this.app.metadataCache.getFileCache(file)?.frontmatter;
+        // Obsidian accepts both `tags:` and the singular `tag:` key.
+        return relatedKwRank(this.store, file.path, file.basename, fm?.tags ?? fm?.tag);
+    }
+
+    /** 012 D1/D2: the Global Discover thinking profile — recent
+     *  judgment-action notes (plugin self-writes exempted), their topical
+     *  tags (structural tags df-filtered) and vector centroid, plus the
+     *  profile's keyword ranks. Rebuilt per query; O(N) over the in-memory
+     *  metadataCache. */
+    globalProfileFor(): { centroid: Float32Array | null; kwRank: Map<string, number> } {
+        const store = this.store;
+        if (!store) return { centroid: null, kwRank: new Map() };
+        const t0 = Date.now();
+
+        const files = this.app.vault.getMarkdownFiles();
+        const dfMap = new Map<string, number>();
+        const candidates: ProfileCandidate[] = [];
+        for (const f of files) {
+            const fm: Record<string, unknown> | undefined =
+                this.app.metadataCache.getFileCache(f)?.frontmatter;
+            const tags = parseTags(fm?.tags ?? fm?.tag);
+            for (const tag of new Set(tags)) {
+                dfMap.set(tag, (dfMap.get(tag) ?? 0) + 1);
+            }
+            const selfWrite = this.selfWrites[f.path];
+            candidates.push({
+                path: f.path,
+                // Clamped to now: a future-dated frontmatter `created`
+                // (template leftovers) would otherwise freeze the profile
+                // on zombie notes forever (red-team F6).
+                judgedAt: Math.min(Math.max(resolveCreated(this.app, f), f.stat.mtime), Date.now()),
+                tags,
+                exempt: selfWrite !== undefined
+                    && Math.abs(f.stat.mtime - selfWrite) <= SELF_WRITE_TOLERANCE_MS,
+            });
+        }
+
+        const profile = buildProfile(candidates, dfMap, files.length);
+        const vecs: Float32Array[] = [];
+        for (const p of profile.paths) {
+            const v = store.getNoteVec(p);
+            if (v) vecs.push(v);
+        }
+        const centroid = profileCentroid(vecs);
+        const kwRank = profile.tags.length > 0
+            ? kwRankForQuery(store, profile.tags.join(" "))
+            : new Map<string, number>();
+        console.debug(
+            `vault-curate: global profile built in ${Date.now() - t0}ms `
+            + `(${profile.paths.length} notes, ${profile.tags.length} tags, ${kwRank.size} kw hits)`,
+        );
+        return { centroid, kwRank };
+    }
+
+    /** Debounced background BM25 warm-up (011 perf follow-up). */
+    scheduleBM25Warm(delayMs = 5000): void {
+        if (!this.store) return;
+        if (this.bm25WarmTimer !== null) window.clearTimeout(this.bm25WarmTimer);
+        this.bm25WarmTimer = window.setTimeout(() => {
+            this.bm25WarmTimer = null;
+            void this.store?.warmBM25IndexAsync()
+                .then(() => {
+                    // A mutation mid-build discards that build; a caller
+                    // coalesced onto the doomed task must not lose its
+                    // retry (red-team F2). Re-check and reschedule —
+                    // debounce pacing keeps edit storms from spinning.
+                    if (this.store && !this.store.isBM25Warm()) {
+                        this.scheduleBM25Warm(delayMs);
+                    }
+                })
+                .catch(() => { /* disposed mid-build (F1) — plugin unloading */ });
+        }, delayMs);
     }
 
     /** Record a plugin-initiated write so it doesn't count as a user
