@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.4.0 — 2026-07-25
+
+The close-the-loop release. It started from a thoughtful review on the Obsidian forum (#114527) and grew through several rounds of dogfooding: purple edges can now become real links, Hot/Cold measures what it claims to measure, and both Discover surfaces were rebuilt around what you are actually working on.
+
+### Added
+- **Apply purple edges as wikilinks.** Right-click a generated `.canvas` (or run `Apply purple edges as wikilinks`) → a checkbox dialog lists every purple (semantically-close-but-unlinked) edge, grouped by source note, with Cmd/Ctrl+hover native page previews. Checked pairs are written into the notes' **Related** section as real wikilinks — both notes by default, source-only via a toggle — and the edges turn gray with direction arrows on the spot. Nothing is written unchecked: the tool suggests, you decide. New settings: *Related section heading* (follows the interface language) and *Bidirectional promotion*. Accepted suggestions never come back as suggestions — the next graph draws them as real links.
+- **Keyword-aware related notes.** Find Similar, the relation graph, and current-note Discover now fuse the note's frontmatter tags (as a BM25 keyword signal) with semantic similarity via RRF — notes that merely share your *writing style* stop crowding out notes that share the *topic*. Pure-vector behavior is the automatic fallback (no tags, cold index), and the fusion can only re-rank candidates that already passed the similarity threshold, so it can never do worse than before.
+- **Global Discover rebuilt around your recent focus.** "Related to your thinking" now means: the notes you recently edited or created (the plugin's own batch writes are excluded), their curated topic tags (structural tags filtered out by document frequency), and their vector centroid. Results are grouped by top-level folder — each group surfaces its own best forgotten notes, so a large dialogue archive can no longer bury your note gems. It is also roughly an order of magnitude faster: the old all-pairs Hot×Cold scan is gone.
+
+### Changed
+- **Hot/Cold now counts edits, not just creation date.** Any edit — even a character typed and then deleted — is a deliberate judgment about a note and re-heats it. Merely *opening* a note deliberately does not (Discover would otherwise whitewash every Cold note it surfaces). The plugin's own batch writes (description generation) no longer re-heat notes.
+- **Tiers derive live at query time.** Aging across the Hot-window boundary fires no file event, so stored tiers drifted stale; tiers are now computed fresh per query. Changing *Hot window (days)* applies instantly — the settings stats panel follows live, no re-index needed.
+- **Current-note Discover ranks purely by relatedness.** Cold notes keep their ❄️ mark but no longer jump the queue; dedicated cold mining lives in Global Discover.
+- The BM25 keyword index now warms in the background in time slices — it is never built on the open-a-note path, and rebuilds itself automatically after edits.
+
+### Notes
+- The first full rebuild right after a major OS update can be much slower than usual (the system is busy reindexing itself); it is transient and resolves on its own.
+- Hardening from six independent review rounds: NaN-score guards, tamper-proof settings, per-run cancellation for global sweeps, unload-safe background builds.
+- Thanks to gauthierae on the Obsidian forum — this release is a direct answer to their review.
+
 ## 1.3.1 — 2026-07-20
 
 Positioning & docs. No functional changes.

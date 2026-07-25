@@ -76,14 +76,18 @@ Entry points: the command palette, right-click **VC: Generate relation graph**, 
 
 **Expand in this graph** — right-click any node inside a generated canvas → **VC: Expand in this graph** grows the graph *in place*: the clicked note's neighborhood slots into free space around it, notes already on the canvas get connecting edges instead of duplicates, and a note pointed at by two or more edges turns **orange** (several expansions independently converged on it, which usually means it matters). Your layout edits and manually applied colors are never touched.
 
+**Apply purple edges as wikilinks** (since 1.4.0) — the graph suggests, you decide, one click makes it real. Right-click a generated `.canvas` (or run the command) → a checkbox dialog lists every purple edge grouped by source note; Cmd/Ctrl+hover any name for a native page preview. Checked pairs are written into the notes' **Related** section as real wikilinks — both notes by default, source-only via **Advanced → Bidirectional promotion** — and the edges turn gray with direction arrows on the spot. Nothing is written unchecked, and accepted suggestions never come back as suggestions. The section heading is customizable (**Advanced → Related section heading**).
+
+Since 1.4.0, "related" itself got smarter: Find Similar, the relation graph, and current-note Discover fuse your frontmatter **tags** (as a keyword signal) with semantic similarity, so notes that merely share your writing style stop crowding out notes that share the topic. No tags? Pure semantic ranking, exactly as before.
+
 ### ♻️ Rediscover: Hot/Cold tiering + Discover
 
-A good note shouldn't cease to exist just because you forgot it. Notes are auto-tiered by **internal links + recency**: **Hot** (linked to or recently touched), **Cold** (orphan or untouched for a while); the cutoff is tunable under Advanced → Hot window (days).
+A good note shouldn't cease to exist just because you forgot it. Notes are auto-tiered by **internal links + recency**: **Hot** (linked, or created/edited recently — any edit counts as a deliberate touch; merely opening a note does not), **Cold** (orphan and untouched for a while). The cutoff is tunable under Advanced → Hot window (days) and applies instantly — tiers are derived live at query time.
 
 Discover works on **notes**, not query strings — it actively surfaces semantically related Cold notes you haven't touched recently:
 
-- **Current note**: opening a file surfaces related notes, with Cold ones visually highlighted ("you haven't read this one")
-- **Global**: the Cold notes most related to your entire Hot pool — intentional blind-spot mining
+- **Current note**: opening a file surfaces related notes ranked purely by relatedness, with Cold ones visually highlighted ("you haven't read this one")
+- **Global**: forgotten notes most related to your **recent focus** — the notes you've recently edited or created, their topic tags, and their semantic centroid — grouped by top-level folder so each corner of your vault surfaces its own best forgotten notes. Intentional blind-spot mining
 - Results export to a topic-grouped Map of Content via **Generate MOC** (falls back to a flat MOC when results are too few or too similar)
 
 ![Discover sidebar — current note](./docs/discover-current-note.png)
@@ -140,14 +144,15 @@ From the Command Palette (Cmd/Ctrl+P), type `Vault Curate:` to see them all.
 | `Find similar notes` | Find semantically related notes to the active `.md` | always available |
 | `Rebuild index` | Wipe the existing index and re-index everything | always available |
 | `Update index` | Incremental update (re-index files with newer mtime) | always available |
-| `Discover related Cold notes` | Global discover: Cold notes most related to your Hot pool | always available |
+| `Discover related Cold notes` | Global discover: forgotten notes most related to your recent focus, grouped by folder | always available |
 | `Generate relation graph (Canvas)` | Editable Canvas of the active note's semantic neighborhood | always available |
 | `Generate semantic path (Canvas)` | Widest-path chain between the active note and a picked destination | always available |
+| `Apply purple edges as wikilinks` | Promote a canvas's purple (unlinked) edges into real wikilinks via a checkbox dialog | a `.canvas` is active |
 | `Generate description for active note` | LLM-write description + tags to the active file's frontmatter | AI curation on |
 | `Generate descriptions for current results` | Batch description for the current sidebar results | AI curation on |
 | `Generate MOC (topic-grouped)` | HDBSCAN cluster + LLM-name each group | AI curation on |
 
-Right-click menus expose these directly on a note: **VC: Find similar notes**, **VC: Generate relation graph**, **VC: Generate semantic path**, **VC: Expand in this graph** (while a `.canvas` is open), and **VC: Generate description** (AI curation on).
+Right-click menus expose these directly on a note: **VC: Find similar notes**, **VC: Generate relation graph**, **VC: Generate semantic path**, **VC: Expand in this graph** (while a `.canvas` is open), and **VC: Generate description** (AI curation on). Right-clicking a `.canvas` file offers **VC: Apply purple edges as wikilinks**.
 
 ### Settings
 
@@ -155,9 +160,13 @@ Right-click menus expose these directly on a note: **VC: Find similar notes**, *
 |---|---|---|
 | **Quick setup** | Embedding provider (Built-in / Ollama / OpenAI-compatible); excluded folders | Built-in; empty |
 | **AI Curation** | Enable toggle; LLM provider; LLM model | off; Ollama; qwen3:1.7b |
-| **Advanced** | top results, min score, relation graph folder, Hot window (days), default search scope, chunk size + overlap, synonym list, auto-index toggle, rebuild + update buttons, index stats | see panel |
+| **Advanced** | top results, min score, relation graph folder, related section heading, bidirectional promotion, Hot window (days), default search scope, chunk size + overlap, synonym list, auto-index toggle, rebuild + update buttons, index stats | see panel |
 
 Changing the embedding provider or model triggers a confirmation modal — the index is wiped and rebuilt.
+
+### Troubleshooting
+
+- **A full rebuild right after a major OS update can be much slower than usual** — the system is busy reindexing itself (Spotlight, iCloud, shader caches). It's transient: speeds return to normal once the post-update dust settles; nothing in the plugin needs fixing.
 
 ---
 
