@@ -11,7 +11,7 @@
  */
 import type { Database } from 'sql.js';
 import { openDb, exportDb } from './sqlJsRuntime';
-import { applySchema } from './schema';
+import { applySchema, pruneOrphanChunks } from './schema';
 import { vecToBlob, blobToVec } from './vecCodec';
 import { l2normalize } from '../utils/l2normalize';
 import { composeNoteVec } from '../utils/composeVec';
@@ -121,6 +121,14 @@ export class SQLiteStore {
         const bytes = exists ? await adapter.read(dbPath) : null;
         store.db = await openDb(bytes, wasmBinary);
         applySchema(store.db);
+        // Clear chunks left behind by pre-fix deletes/renames (and self-heal any
+        // future leak). Only touches the store when it actually removed rows.
+        const pruned = pruneOrphanChunks(store.db);
+        if (pruned > 0) {
+            console.debug(`vault-curate: pruned ${pruned} orphan chunk(s)`);
+            store.bm25Index = null; // corpus shrank
+            store.touch();
+        }
         return store;
     }
 
@@ -195,7 +203,11 @@ export class SQLiteStore {
 
     deleteNote(path: string): void {
         if (this.disposed) return;
-        // chunks cascade automatically via ON DELETE CASCADE.
+        // Chunks must go explicitly. The schema declares ON DELETE CASCADE but
+        // sql.js keeps foreign_keys OFF, so it never fires — and enabling the
+        // pragma would make upsertNote's INSERT OR REPLACE cascade a note's
+        // chunks away on every tier flip. See pruneOrphanChunks() in schema.ts.
+        this.db.run('DELETE FROM chunks WHERE note_path = ?', [path]);
         this.db.run('DELETE FROM notes WHERE path = ?', [path]);
         this.bm25Index = null; // corpus shrank (D9)
         this.touch();

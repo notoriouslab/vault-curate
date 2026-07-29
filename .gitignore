@@ -18,6 +18,11 @@ data.json
 # macOS
 .DS_Store
 
+# Patch / editor artefacts
+*.rej
+*.orig
+*.bak
+
 # Dev
 .hotreload
 .claude/

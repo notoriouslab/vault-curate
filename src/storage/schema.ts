@@ -30,6 +30,11 @@ CREATE TABLE IF NOT EXISTS notes (
     desc_vec    BLOB
 );
 
+-- NOTE: the ON DELETE CASCADE below is INERT and must stay that way.
+-- sql.js defaults foreign_keys to OFF, so it never fires; chunk cleanup is
+-- done explicitly in SQLiteStore.deleteNote() plus the pruneOrphanChunks()
+-- sweep. Do NOT "fix" this by enabling the pragma — see pruneOrphanChunks()
+-- for the measurement showing why that silently destroys the index.
 CREATE TABLE IF NOT EXISTS chunks (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     note_path    TEXT NOT NULL REFERENCES notes(path) ON DELETE CASCADE,
@@ -150,4 +155,46 @@ export function applySchema(db: Database): void {
     backfillBootstrapped();
     ensureDescVecColumn(db);
     db.run("UPDATE meta SET value = ? WHERE key = 'schema_version'", [SCHEMA_VERSION]);
+}
+
+/**
+ * Delete chunk rows whose note row no longer exists, returning how many went.
+ *
+ * Why this is a manual sweep and not the schema's ON DELETE CASCADE:
+ *
+ *   1. sql.js 1.14.1 defaults `foreign_keys` to OFF (measured: `PRAGMA
+ *      foreign_keys` reads 0 on a fresh Database), so the CASCADE declared on
+ *      chunks.note_path never fires. deleteNote() removed only the notes row
+ *      and left the chunks behind — both the delete and the rename path, since
+ *      renameNote() deletes the old path too.
+ *
+ *   2. Turning the pragma ON is NOT the fix, it is an index-destroying change.
+ *      upsertNote() uses INSERT OR REPLACE, and SQLite's REPLACE deletes the
+ *      conflicting row before inserting the new one, which cascades that
+ *      note's chunks away. Measured on sql.js 1.14.1 with the pragma ON: a
+ *      2-chunk note went to 0 chunks after one REPLACE (a plain UPDATE was
+ *      unaffected). The tier-update paths in indexer.ts call upsertNote
+ *      WITHOUT re-inserting chunks, so every Hot/Cold flip would silently
+ *      empty that note's chunks and drop it out of BM25 and semantic search
+ *      with no error surfaced.
+ *
+ * Runs on every open so pre-fix orphans get cleared and any future leak
+ * self-heals. Caller invalidates the BM25 index when this returns non-zero:
+ * the corpus is built from chunks, so orphans inflate N and steal candidate
+ * slots (measured on a real 8,383-chunk vault: 85 orphans, 1.01%).
+ */
+export function pruneOrphanChunks(db: Database): number {
+    const res = db.exec(
+        `SELECT COUNT(*) FROM chunks
+         WHERE NOT EXISTS (SELECT 1 FROM notes WHERE notes.path = chunks.note_path)`,
+    );
+    const orphans = res.length > 0 && res[0].values.length > 0
+        ? Number(res[0].values[0][0])
+        : 0;
+    if (orphans === 0) return 0; // don't dirty the store on a clean open
+    db.run(
+        `DELETE FROM chunks
+         WHERE NOT EXISTS (SELECT 1 FROM notes WHERE notes.path = chunks.note_path)`,
+    );
+    return orphans;
 }
