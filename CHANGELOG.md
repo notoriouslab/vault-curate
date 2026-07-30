@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.4.5 — 2026-07-30
+
+The "say no, and never freeze" release: suggestions you reject finally stay rejected, and the semantic-path graph now builds in the background — the bigger your vault grows, the more this matters.
+
+### Added
+- **Don't suggest this again.** Every suggestion row (Find Similar, current-note Discover, global Discover) grows a hover **✕**; the relation graph's purple pairs get a per-row *Don't suggest* button inside the promote dialog. A dismissed pair vanishes from all suggestion surfaces — the freed slot is refilled by the next candidate, so rejecting never shrinks your results. Dismissals survive renames (including whole-folder renames), file deletions clean themselves up, and index rebuilds / provider switches can't touch them (they live in `data.json`, and sync across devices with it). Review and restore anything under Settings → Advanced → **Hidden suggestions** — each entry links back to the note and has a copy-path button.
+- **Semantic-path graph builds in a background worker.** The k-NN graph build (~4s at 2.5k notes, quadratic beyond) no longer freezes the UI: it runs in a Web Worker with a live progress notice and a **Cancel** button, and the result is bit-identical to the old in-place build. After the first build, editing a note updates the graph **incrementally in milliseconds** instead of throwing it away — repeat path queries stay instant even while you keep writing. The graph self-heals with a full background rebuild once enough notes have changed, and any index operation the maintainer didn't see (bulk rebuild, provider switch) safely falls back to one fresh build. If the worker can't start, the old main-thread build still works as a fallback.
+
+### Fixed
+- **Deleted and renamed notes no longer leave orphan chunks in the index.** The schema's `ON DELETE CASCADE` never fired under sql.js, so deletions leaked stale chunk rows into search results; chunks are now deleted explicitly and a one-time startup sweep prunes any orphans already accumulated.
+- **Renaming a note fully carries its graph state along** — the old path no longer lingers as a ghost node in the semantic graph.
+
+### Notes
+- Known limitation: purple-edge pairs on a relation graph can only be dismissed from the promote dialog (Obsidian's canvas exposes no public edge-interaction API).
+- Dismissals are deliberately *not* applied to semantic paths — a path query is a question you ask, not a suggestion the plugin makes.
+- Hardening from four independent review tracks on top of the per-change reviews: worker cancellation races, revision backstops, storm-load cost, store-audit sweep.
+
 ## 1.4.0 — 2026-07-25
 
 The close-the-loop release. It started from a thoughtful review on the Obsidian forum (#114527) and grew through several rounds of dogfooding: purple edges can now become real links, Hot/Cold measures what it claims to measure, and both Discover surfaces were rebuilt around what you are actually working on.

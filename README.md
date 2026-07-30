@@ -72,7 +72,7 @@ Entry points: the command palette, right-click **VC: Generate relation graph**, 
 
 ![Relation graph — semantic neighborhood on Canvas](./docs/relation-graph.png)
 
-**Semantic path (Canvas)** — pick any two notes and get the **chain of stepping-stone notes** that connects them: a widest-path search over the vault's semantic k-NN graph, judged by the chain's *weakest* hop so one far-fetched link can't hide behind strong ones. Run **Generate semantic path (Canvas)** on the start note, then pick the destination in the fuzzy picker. If no chain of consistently strong links exists, you get an honest "not connected" notice with the actual numbers — that's information, not an error. The underlying graph builds on demand (~4s on a 2.5k-note vault) and is reused for repeat queries until the index changes.
+**Semantic path (Canvas)** — pick any two notes and get the **chain of stepping-stone notes** that connects them: a widest-path search over the vault's semantic k-NN graph, judged by the chain's *weakest* hop so one far-fetched link can't hide behind strong ones. Run **Generate semantic path (Canvas)** on the start note, then pick the destination in the fuzzy picker. If no chain of consistently strong links exists, you get an honest "not connected" notice with the actual numbers — that's information, not an error. Since 1.4.5 the underlying graph builds in a **background worker** — a progress notice with a Cancel button instead of a frozen UI — and editing notes updates it **incrementally in milliseconds**, so repeat queries stay instant even while you keep writing.
 
 **Expand in this graph** — right-click any node inside a generated canvas → **VC: Expand in this graph** grows the graph *in place*: the clicked note's neighborhood slots into free space around it, notes already on the canvas get connecting edges instead of duplicates, and a note pointed at by two or more edges turns **orange** (several expansions independently converged on it, which usually means it matters). Your layout edits and manually applied colors are never touched.
 
@@ -89,6 +89,7 @@ Discover works on **notes**, not query strings — it actively surfaces semantic
 - **Current note**: opening a file surfaces related notes ranked purely by relatedness, with Cold ones visually highlighted ("you haven't read this one")
 - **Global**: forgotten notes most related to your **recent focus** — the notes you've recently edited or created, their topic tags, and their semantic centroid — grouped by top-level folder so each corner of your vault surfaces its own best forgotten notes. Intentional blind-spot mining
 - Results export to a topic-grouped Map of Content via **Generate MOC** (falls back to a flat MOC when results are too few or too similar)
+- **Say no once, and it sticks**: hover any suggestion and hit **✕** — that pair (or note, in global Discover) never comes back as a suggestion, its slot refilled by the next candidate. Review and restore under Settings → Advanced → **Hidden suggestions**
 
 ![Discover sidebar — current note](./docs/discover-current-note.png)
 
