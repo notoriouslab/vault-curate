@@ -31,7 +31,7 @@ Finding a note is only the first step. The harder parts come after: *seeing* how
 
 | Feature | How it works |
 |---|---|
-| **A closed loop: find → connect → rediscover** | Semantic search (hybrid BM25 + embeddings + fuzzy) finds the note; a relation graph and semantic paths surface related notes you never linked; Hot/Cold tiering resurfaces ones you'd forgotten. And your verdicts close the loop: a suggestion you accept becomes a real wikilink, one you reject never comes back. Each piece exists elsewhere as a single-point plugin — the loop is what makes this a second brain, not a search box. |
+| **A closed loop: find → connect → rediscover** | Semantic search (keyword + meaning + fuzzy title, fused) finds the note; a relation graph and semantic paths surface related notes you never linked; Hot/Cold tiering resurfaces ones you'd forgotten. And your verdicts close the loop: a suggestion you accept becomes a real wikilink, one you reject never comes back. Each piece exists elsewhere as a single-point plugin — the loop is what makes this a second brain, not a search box. |
 | **Helps you see, not think for you** | No background LLM calls, no auto-rewriting your notes, no chatbot answering *for* you. Every connection the plugin shows is a suggestion awaiting your yes or no — nothing is written, hidden, or re-ranked without your explicit action. AI curation (descriptions, grouped MOCs) is opt-in. You stay the editor of your own vault. |
 | **Local-first, strong on Chinese/CJK** | Runs on-device via WebGPU (~110 MB model once, 5,004 chunks in about **1m23s**; WASM fallback works too), no API keys. The built-in `bge-small-zh-v1.5` gives Chinese names, religious terms, and colloquial phrases an edge generic multilingual models miss — switch to Ollama/OpenAI for other languages. |
 
@@ -47,13 +47,13 @@ Four layers form one closed loop. The first three are zero-config and work out o
 
 ### 🔍 Find: semantic search
 
-Search by meaning, not just literal characters. Three signals fused via [Reciprocal Rank Fusion](https://plg.uwaterloo.ca/~gvcormac/cormacksigir09-rrf.pdf) (k=60):
+Search by meaning, not just literal characters. Three searches run at once and merge into one ranking:
 
-| Path | Catches |
+| Search | Catches |
 |---|---|
-| **BM25** (pure TS, CJK trigram) | Exact phrases, keyword combinations |
-| **Semantic embedding** | Different wording, same meaning |
-| **Fuzzy title** (Jaro–Winkler) | Typos, spelling variants |
+| **Keyword** | Exact phrases, keyword combinations |
+| **Semantic** | Different wording, same meaning |
+| **Fuzzy title** | Typos, spelling variants |
 
 - Cmd/Ctrl+P → `Vault Curate: Semantic search (modal)` for a quick jump; the sidebar **Search** tab for persistent results.
 - **Find similar notes**: right-click any `.md` → **VC: Find similar notes**; results land in the sidebar and drag straight to Canvas. Similarity is template-resistant: markdown structure symbols are stripped from the embedding input and the frontmatter `description` blends into the ranking vector, so a person card finds *that person's* conversations, not its nine template siblings. On Traditional-Chinese vaults, embedding input is converted Traditional→Simplified under the hood (stored text, keyword search, and snippets stay Traditional) to sharpen ranking.
@@ -65,7 +65,7 @@ Search by meaning, not just literal characters. Three signals fused via [Recipro
 
 Search finds a single note; this layer shows how notes relate — including the links you never drew by hand.
 
-**Relation graph (Canvas)** — generate an editable Obsidian Canvas around any note: the note in the center, its top-K semantic neighbors laid out radially, every edge labeled with its similarity score.
+**Relation graph (Canvas)** — generate an editable Obsidian Canvas around any note: the note in the center, its closest semantic neighbors laid out radially, every edge labeled with its similarity score.
 
 - **Purple edges** = semantically close but **not yet linked** — invisible connections the native graph view can't show you
 - **Gray edges** (with direction arrows) = notes you've already wikilinked
@@ -75,7 +75,7 @@ Entry points: the command palette, right-click **VC: Generate relation graph**, 
 
 ![Relation graph — semantic neighborhood on Canvas](./docs/relation-graph.png)
 
-**Semantic path (Canvas)** — pick any two notes and get the **chain of stepping-stone notes** that connects them: a widest-path search over the vault's semantic k-NN graph, judged by the chain's *weakest* hop so one far-fetched link can't hide behind strong ones. Run **Generate semantic path (Canvas)** on the start note, then pick the destination in the fuzzy picker. If no chain of consistently strong links exists, you get an honest "not connected" notice with the actual numbers — information, not an error. The underlying graph builds once in a **background worker** (a progress notice with a Cancel button; the UI never freezes) and then follows your edits **incrementally in milliseconds** — repeat queries answer instantly even while you keep writing, no matter how large your vault grows.
+**Semantic path (Canvas)** — pick any two notes and get the **chain of stepping-stone notes** that connects them. It searches the vault-wide semantic map for a route where *every* step holds up: the chain is judged by its weakest hop, so one far-fetched link can't hide behind strong ones. Run **Generate semantic path (Canvas)** on the start note, then pick the destination in the fuzzy picker. If no chain of consistently strong links exists, you get an honest "not connected" notice with the actual numbers — information, not an error. The underlying semantic map builds once **in the background** (a progress notice with a Cancel button; the UI never freezes) and then follows your edits in real time — repeat queries answer instantly even while you keep writing, no matter how large your vault grows.
 
 **Expand in this graph** — right-click any node inside a generated canvas → **VC: Expand in this graph** grows the graph *in place*: the clicked note's neighborhood slots into free space around it, notes already on the canvas get connecting edges instead of duplicates, and a note pointed at by two or more edges turns **orange** (several expansions independently converged on it, which usually means it matters). Your layout edits and manually applied colors are never touched.
 
@@ -103,7 +103,7 @@ Turn it on under **Settings → AI Curation → Enable AI curation** to unlock t
 
 - Generate a description + tags into a single note's frontmatter
 - Run description generation across the sidebar's search / discover results in a batch
-- Generate a **topic-grouped MOC** via HDBSCAN clustering + LLM naming
+- Generate a **topic-grouped MOC**: results are clustered by topic automatically and the AI names each group, producing a table-of-contents note
 
 The LLM provider is configured separately under **Settings → AI Curation** (local Ollama or any OpenAI-compatible endpoint).
 
@@ -155,7 +155,7 @@ From the Command Palette (Cmd/Ctrl+P), type `Vault Curate:` to see them all.
 | `Apply purple edges as wikilinks` | Promote a canvas's purple (unlinked) edges into real wikilinks via a checkbox dialog | a `.canvas` is active |
 | `Generate description for active note` | LLM-write description + tags to the active file's frontmatter | AI curation on |
 | `Generate descriptions for current results` | Batch description for the current sidebar results | AI curation on |
-| `Generate MOC (topic-grouped)` | HDBSCAN cluster + LLM-name each group | AI curation on |
+| `Generate MOC (topic-grouped)` | Auto-cluster results by topic, AI-name each group, output a table-of-contents note | AI curation on |
 
 Right-click menus expose these directly on a note: **VC: Find similar notes**, **VC: Generate relation graph**, **VC: Generate semantic path**, **VC: Expand in this graph** (while a `.canvas` is open), and **VC: Generate description** (AI curation on). Right-clicking a `.canvas` file offers **VC: Apply purple edges as wikilinks**.
 
