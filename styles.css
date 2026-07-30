@@ -423,3 +423,58 @@ body:has(.vault-curate-promote-list) .popover.hover-popover {
     font-size: 0.85em;
     margin-top: 4px;
 }
+
+/* 013: dismiss ✕ on result rows — hidden until the row is hovered */
+.vc-result-dismiss {
+    opacity: 0;
+    float: right;
+    padding: 0 4px;
+    background: none;
+    border: none;
+    box-shadow: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 0.85em;
+}
+.vault-curate-result-item:hover .vc-result-dismiss {
+    opacity: 1;
+}
+.vc-result-dismiss:hover {
+    color: var(--text-error);
+}
+
+/* 013 D6: dismissed-suggestions management modal */
+.vault-curate-dismissed-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+.vault-curate-dismissed-label {
+    overflow-wrap: anywhere;
+    font-size: 0.9em;
+    flex: 1;
+}
+.vault-curate-dismissed-link {
+    cursor: pointer;
+    color: var(--text-accent);
+}
+.vault-curate-dismissed-link:hover {
+    text-decoration: underline;
+}
+.vault-curate-dismissed-copy {
+    padding: 0 6px;
+    font-size: 0.85em;
+}
+
+/* 013 D5: per-row "don't suggest" in the promote modal */
+.vault-curate-promote-dismiss {
+    margin-left: auto;
+    font-size: 0.8em;
+    color: var(--text-muted);
+}
+.vault-curate-promote-dismiss:hover {
+    color: var(--text-error);
+}

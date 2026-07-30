@@ -77,6 +77,19 @@ export interface Locale {
     noSimilar: string;
     notIndexed: string;
     similarTo: (title: string) => string;
+    dismissTooltip: string;
+    dismissedNotice: string;
+    dismissedHeading: string;
+    dismissedManageDesc: (n: number) => string;
+    dismissedManage: string;
+    dismissedRestore: string;
+    dismissedEmpty: string;
+    dismissedPairsSection: string;
+    dismissedNotesSection: string;
+    dismissedOpenTooltip: string;
+    dismissedCopyTooltip: string;
+    dismissedCopied: string;
+    dismissedFileMissing: string;
     descNoLlmConfigured: string;
     descGenerating: (done: number, total: number) => string;
     descGeneratingOne: (name: string) => string;
@@ -198,6 +211,7 @@ export interface Locale {
     promoteHint: string;
     promoteApply: string;
     promoteCancel: string;
+    promoteDismiss: string;
     promoteSelectedCount: (n: number) => string;
     noticePromoteEmpty: string;
     noticePromoteInvalidCanvas: string;
@@ -318,6 +332,19 @@ const en: Locale = {
     noSimilar: "No similar notes found",
     notIndexed: "This note is not indexed",
     similarTo: (title) => `Similar to: ${title}`,
+    dismissTooltip: "Don't suggest this again",
+    dismissedNotice: "Suggestion hidden. Restore it under Settings → Hidden suggestions.",
+    dismissedHeading: "Hidden suggestions",
+    dismissedManageDesc: (n) => `${n} hidden. Hidden pairs and notes never appear in suggestions again until restored.`,
+    dismissedManage: "Manage",
+    dismissedRestore: "Restore",
+    dismissedEmpty: "Nothing hidden yet. Use the ✕ on a suggestion to hide it.",
+    dismissedPairsSection: "Hidden pairs",
+    dismissedNotesSection: "Hidden notes (global discover)",
+    dismissedOpenTooltip: "Open note",
+    dismissedCopyTooltip: "Copy path",
+    dismissedCopied: "Path copied to clipboard.",
+    dismissedFileMissing: "Note not found — it may have been renamed or deleted. Use the copy button to search manually.",
     descNoLlmConfigured: "LLM not configured. Set the LLM model in Settings first.",
     descGenerating: (done, total) => `Generating descriptions: ${done}/${total}...`,
     descGeneratingOne: (name) => `Generating description for ${name}...`,
@@ -447,6 +474,7 @@ const en: Locale = {
     promoteHint: "Each checked note gets a real wikilink with the group's source note — written into both notes' Related section, or only the source note when bidirectional promotion is off — and its edge turns gray. Nothing is written without a check. Cmd/Ctrl+hover a note name to preview it.",
     promoteApply: "Apply",
     promoteCancel: "Cancel",
+    promoteDismiss: "Don't suggest",
     promoteSelectedCount: (n: number) => `${n} selected`,
     noticePromoteEmpty: "Vault Curate: No promotable purple edges on this canvas.",
     noticePromoteInvalidCanvas: "Vault Curate: Could not read this canvas file.",
@@ -591,6 +619,19 @@ const zhTW: Locale = {
     noSimilar: "找不到相似筆記",
     notIndexed: "此筆記尚未索引",
     similarTo: (title) => `與「${title}」相似`,
+    dismissTooltip: "不再建議這個配對",
+    dismissedNotice: "已隱藏這個建議，可在設定的「已隱藏的建議」中恢復。",
+    dismissedHeading: "已隱藏的建議",
+    dismissedManageDesc: (n) => `已隱藏 ${n} 筆。被隱藏的配對與筆記不會再出現在建議中，恢復後才會重新出現。`,
+    dismissedManage: "管理",
+    dismissedRestore: "恢復",
+    dismissedEmpty: "還沒有隱藏任何建議。在建議結果上按 ✕ 即可隱藏。",
+    dismissedPairsSection: "已隱藏的配對",
+    dismissedNotesSection: "已隱藏的筆記（全域發掘）",
+    dismissedOpenTooltip: "開啟筆記",
+    dismissedCopyTooltip: "複製路徑",
+    dismissedCopied: "已複製路徑。",
+    dismissedFileMissing: "找不到這篇筆記，可能已改名或刪除。可用複製按鈕取得路徑後手動搜尋。",
     descNoLlmConfigured: "尚未設定 LLM，請先在設定中指定 LLM 模型。",
     descGenerating: (done, total) => `生成 description：${done}/${total}...`,
     descGeneratingOne: (name) => `正在為 ${name} 生成 description…`,
@@ -720,6 +761,7 @@ const zhTW: Locale = {
     promoteHint: "勾選的筆記會與該組來源筆記建立真正的 wikilink（依「雙向寫入」設定寫進兩篇、或僅來源筆記的相關筆記小節），該邊改為灰色。未勾選的不會有任何寫入。Cmd/Ctrl+滑過筆記名可預覽內容。",
     promoteApply: "套用",
     promoteCancel: "取消",
+    promoteDismiss: "不再建議",
     promoteSelectedCount: (n: number) => `已選 ${n} 對`,
     noticePromoteEmpty: "Vault Curate：此圖沒有可升級的紫邊。",
     noticePromoteInvalidCanvas: "Vault Curate：無法讀取此 canvas 檔案。",

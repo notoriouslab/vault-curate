@@ -34,8 +34,11 @@ import {
 } from "./search/semanticPath";
 import { PathTargetModal } from "./ui/PathTargetModal";
 import { PromoteModal } from "./ui/PromoteModal";
-import { collectPurpleEdges, promoteEdgesInCanvas, type PurplePair } from "./canvas/promote";
+import { collectPurpleEdges, promoteEdgesInCanvas, pairKey, type PurplePair } from "./canvas/promote";
 import { insertRelatedLink } from "./utils/insertRelatedLink";
+import { mergeSettings } from "./utils/mergeSettings";
+import { renameInDismissed, deleteFromDismissed } from "./utils/dismissMaintenance";
+import { createWriteQueue } from "./utils/writeQueue";
 import { makeTierResolver, resolveCreated } from "./heat/makeTierResolver";
 import { SELF_WRITE_TOLERANCE_MS, type TierResolver } from "./heat/deriveTier";
 import { relatedKwRank, kwRankForQuery } from "./search/relatedKwRank";
@@ -69,6 +72,8 @@ export default class VaultSearchPlugin extends Plugin {
     } | null = null;
     private ortWasmBinary: ArrayBuffer | null = null;
     private debounceTimers: Map<string, number> = new Map();
+    /** 013 D10: serializes saveSettings writes (one in flight). */
+    private saveQueue = createWriteQueue();
     /** Debounce for the background BM25 warm (011 perf follow-up). */
     private bm25WarmTimer: number | null = null;
     /** 010 D6: self-write exemption ledger — mtimes of the plugin's own
@@ -369,12 +374,18 @@ export default class VaultSearchPlugin extends Plugin {
                 this.app.vault.on("delete", (file) => {
                     if (file instanceof TFile) this.notifyPinOnFileDelete(file.path);
                     this.onFileChange(file, "delete");
+                    // 013 D7: unconditional branch — the event fires once
+                    // for a FOLDER too, and onFileChange early-outs on
+                    // non-TFile, so this must not ride inside either guard.
+                    this.maintainDismissedOnDelete(file.path);
                 })
             );
             this.registerEvent(
                 this.app.vault.on("rename", (file, oldPath) => {
                     if (file instanceof TFile) this.notifyPinOnFileRename(file);
                     void this.onFileRename(file, oldPath);
+                    // 013 D7: unconditional branch (see delete handler).
+                    this.maintainDismissedOnRename(oldPath, file.path);
                 })
             );
         });
@@ -574,6 +585,7 @@ export default class VaultSearchPlugin extends Plugin {
             sameFolderCap: this.settings.sameFolderCap,
             tierResolver: this.tierResolver(),
             kwRank: this.relatedKwRankFor(file),
+            dismissedPairs: this.settings.dismissedPairs,
         });
 
         if (topResults.length === 0) {
@@ -584,7 +596,7 @@ export default class VaultSearchPlugin extends Plugin {
         await this.activateView();
         const view = this.getReadySearchView();
         if (view) {
-            view.showResults(topResults, t.similarTo(note.title));
+            view.showResults(topResults, t.similarTo(note.title), file.path);
         }
     }
 
@@ -612,6 +624,7 @@ export default class VaultSearchPlugin extends Plugin {
             sameFolderCap: this.settings.sameFolderCap,
             tierResolver,
             kwRank: this.relatedKwRankFor(file),
+            dismissedPairs: this.settings.dismissedPairs,
         });
         if (neighbors.length === 0) {
             new Notice(t.noticeGraphNoResults);
@@ -801,6 +814,7 @@ export default class VaultSearchPlugin extends Plugin {
             sameFolderCap: this.settings.sameFolderCap,
             tierResolver: this.tierResolver(),
             kwRank: this.relatedKwRankFor(noteFile),
+            dismissedPairs: this.settings.dismissedPairs,
         });
         if (neighbors.length === 0) {
             new Notice(t.noticeExpandNothingNew);
@@ -901,6 +915,37 @@ export default class VaultSearchPlugin extends Plugin {
         if (!this.store.getMeta("bootstrapped")) return;
 
         await this.indexer.renameNote(oldPath, file.path, file);
+    }
+
+    // ── Dismissed-records maintenance (013 D7) ─────────
+    // Path-keyed judgments rot without this: a renamed pair "comes back",
+    // a deleted note leaves a dead entry forever. Only writes when
+    // something actually changed, so rename/delete storms of unrelated
+    // files don't hammer data.json.
+
+    private static dismissedKeysEqual(a: Record<string, number>, b: Record<string, number>): boolean {
+        const ak = Object.keys(a);
+        return ak.length === Object.keys(b).length && ak.every((k) => b[k] !== undefined);
+    }
+
+    private maintainDismissedOnRename(oldPath: string, newPath: string) {
+        const s = this.settings;
+        const next = renameInDismissed(s.dismissedPairs, s.dismissedNotes, oldPath, newPath);
+        if (VaultSearchPlugin.dismissedKeysEqual(next.pairs, s.dismissedPairs) &&
+            VaultSearchPlugin.dismissedKeysEqual(next.notes, s.dismissedNotes)) return;
+        s.dismissedPairs = next.pairs;
+        s.dismissedNotes = next.notes;
+        void this.saveSettings();
+    }
+
+    private maintainDismissedOnDelete(path: string) {
+        const s = this.settings;
+        const next = deleteFromDismissed(s.dismissedPairs, s.dismissedNotes, path);
+        if (VaultSearchPlugin.dismissedKeysEqual(next.pairs, s.dismissedPairs) &&
+            VaultSearchPlugin.dismissedKeysEqual(next.notes, s.dismissedNotes)) return;
+        s.dismissedPairs = next.pairs;
+        s.dismissedNotes = next.notes;
+        void this.saveSettings();
     }
 
     /**
@@ -1098,6 +1143,11 @@ export default class VaultSearchPlugin extends Plugin {
         }
         new PromoteModal(this.app, pairs, (chosen) => {
             void this.applyPromotions(canvasFile, chosen);
+        }, (dismissed) => {
+            // 013 D5: the modal is the relation graph's only dismiss entry
+            // (canvas edges expose no interaction API).
+            this.settings.dismissedPairs[pairKey(dismissed.from, dismissed.to)] = Date.now();
+            void this.saveSettings();
         }).open();
     }
 
@@ -1324,7 +1374,7 @@ export default class VaultSearchPlugin extends Plugin {
         const data = (raw && typeof raw === "object" && !Array.isArray(raw))
             ? raw as Partial<VaultSearchData>
             : null;
-        this.settings = Object.assign({}, DEFAULT_SETTINGS, data?.settings);
+        this.settings = mergeSettings(data?.settings, DEFAULT_SETTINGS);
 
         // 010 D6: self-write ledger rides the same data.json (own top-level
         // key, no Settings UI). Same tamper surface as the hidden settings:
@@ -1395,10 +1445,16 @@ export default class VaultSearchPlugin extends Plugin {
     }
 
     async saveSettings() {
-        const data: VaultSearchData = { settings: this.settings, selfWrites: this.selfWrites };
-        await this.saveData(data);
-        // 007 D5: keep the store's blend weight in sync with settings.
-        this.store?.setComposeAlpha(this.settings.descWeight);
+        // 013 D10: serialize saves — the snapshot is taken when the queued
+        // job RUNS, not when saveSettings is called, so a queued save always
+        // writes the freshest state and an older overlapping call can never
+        // clobber a newer one on slow disk I/O.
+        await this.saveQueue(async () => {
+            const data: VaultSearchData = { settings: this.settings, selfWrites: this.selfWrites };
+            await this.saveData(data);
+            // 007 D5: keep the store's blend weight in sync with settings.
+            this.store?.setComposeAlpha(this.settings.descWeight);
+        });
     }
 
     /** Snapshot a malformed data.json before defaults overwrite it. Best-effort. */

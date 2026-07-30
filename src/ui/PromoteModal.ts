@@ -34,6 +34,9 @@ export class PromoteModal extends Modal {
         app: App,
         private pairs: PurplePair[],
         private onApply: (chosen: PurplePair[]) => void,
+        /** 013 D5: "don't suggest again" per row. The settings write stays
+         *  with the caller (main.ts) — the modal holds no plugin ref. */
+        private onDismiss: (pair: PurplePair) => void,
     ) {
         super(app);
     }
@@ -87,6 +90,7 @@ export class PromoteModal extends Modal {
         }
 
         for (const [from, pairs] of groups) {
+            let liveRows = pairs.length;
             const header = list.createDiv({ cls: "vault-curate-promote-group" });
             const headerName = header.createEl("span", {
                 text: basename(from),
@@ -123,6 +127,29 @@ export class PromoteModal extends Modal {
                         cls: "vault-curate-promote-score",
                     });
                 }
+
+                // 013 D5: "don't suggest again". Order matters — clear the
+                // checkbox selection FIRST: Apply filters on this.selected
+                // (below), so a checked-then-dismissed pair would still be
+                // promoted (驗收 12).
+                const dismissBtn = row.createEl("button", {
+                    text: t.promoteDismiss,
+                    cls: "vault-curate-promote-dismiss",
+                    attr: { "aria-label": t.dismissTooltip, title: t.dismissTooltip },
+                });
+                dismissBtn.addEventListener("click", (e) => {
+                    // The row is a <label>: an unhandled click would also
+                    // toggle the checkbox.
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.selected.delete(key);
+                    this.pairs = this.pairs.filter((p) => p !== pair);
+                    row.remove();
+                    liveRows--;
+                    if (liveRows === 0) header.remove();
+                    refresh();
+                    this.onDismiss(pair);
+                });
             }
         }
 

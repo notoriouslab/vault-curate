@@ -9,6 +9,7 @@ import type VaultSearchPlugin from "./main";
 import type { EmbeddingProviderType } from "./types";
 import { checkLLMReachable, fetchOllamaModels, formatLocalDateTime, isLoopbackHost } from "./utils";
 import { t } from "./i18n";
+import { DismissedModal } from "./ui/DismissedModal";
 
 export class VaultSearchSettingTab extends PluginSettingTab {
     plugin: VaultSearchPlugin;
@@ -345,6 +346,22 @@ export class VaultSearchSettingTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                 });
             });
+
+        // 013 D6: dismissed suggestions — count + manage modal.
+        const dismissedCount = () =>
+            Object.keys(this.plugin.settings.dismissedPairs).length +
+            Object.keys(this.plugin.settings.dismissedNotes).length;
+        const dismissedSetting = new Setting(adv)
+            .setName(t.dismissedHeading)
+            .setDesc(t.dismissedManageDesc(dismissedCount()));
+        dismissedSetting.addButton(btn => {
+            btn.setButtonText(t.dismissedManage);
+            btn.onClick(() => {
+                new DismissedModal(this.app, this.plugin, () => {
+                    dismissedSetting.setDesc(t.dismissedManageDesc(dismissedCount()));
+                }).open();
+            });
+        });
 
         new Setting(adv)
             .setName(t.maxEmbedChars)

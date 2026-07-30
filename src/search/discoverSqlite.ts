@@ -17,6 +17,7 @@ import type { TierResolver } from "../heat/deriveTier";
 import { folderOf } from "../utils/folderOf";
 import { fuseRanks, FUSION_POOL } from "./relatedFusion";
 import { groupedGlobalRank, type ColdRow, type GroupedResults } from "./globalProfile";
+import { filterDismissedPairs, filterDismissedNotes } from "./dismissFilter";
 
 function cosineNormalized(a: Float32Array, b: Float32Array): number {
     let dot = 0;
@@ -40,6 +41,10 @@ export interface DiscoverSettings {
      *  RRF-fused with it before any downstream step; absent/empty = pure
      *  cosine order. */
     kwRank?: Map<string, number>;
+    /** 013 D3: pairs the user dismissed (pairKey → dismissedAt). Filtered
+     *  inside the producing functions, pre-truncation, so every caller is
+     *  protected and the freed slot is refilled. Absent/empty = no-op. */
+    dismissedPairs?: Record<string, number>;
 }
 
 /** RRF re-rank of the top FUSION_POOL entries of a score-descending
@@ -111,7 +116,10 @@ export async function discoverForNoteSqlite(
     // 2026-07-23: the block-promotion drowned relevant Hot notes once 010
     // made tiers honest; dedicated cold mining lives in Global Discover).
     results.sort((a, b) => b.score - a.score);
-    const ordered = applyFusion(results, settings.kwRank);
+    // 013 D3 #1: drop dismissed pairs before truncation — the next-ranked
+    // candidate refills the slot instead of the list shrinking.
+    const ordered = filterDismissedPairs(
+        applyFusion(results, settings.kwRank), currentPath, settings.dismissedPairs);
     return ordered.slice(0, settings.topResults);
 }
 
@@ -130,6 +138,8 @@ export async function globalDiscoverGroupedSqlite(
         centroid: Float32Array;
         kwRank: Map<string, number>;
         tierResolver?: TierResolver;
+        /** 013 D3 #3: note-level dismissals (path → dismissedAt). */
+        dismissedNotes?: Record<string, number>;
     },
     onProgress?: (done: number, total: number) => void,
     cancelled?: { value: boolean },
@@ -163,7 +173,10 @@ export async function globalDiscoverGroupedSqlite(
         console.warn(`vault-curate: globalDiscover skipped ${dimMismatchCount} notes with mismatched embedding dim. Provider switched? Re-index to recover.`);
     }
 
-    return groupedGlobalRank(coldRows, settings.centroid, settings.kwRank, {
+    // 013 D3 #3: filter BEFORE ranking/grouping/truncation so groups are
+    // built from a clean candidate set and per-group slots refill naturally.
+    const kept = filterDismissedNotes(coldRows, settings.dismissedNotes);
+    return groupedGlobalRank(kept, settings.centroid, settings.kwRank, {
         minScore: settings.minScore,
     });
 }
@@ -206,7 +219,11 @@ export function findSimilarSqlite(
     results.sort((a, b) => b.score - a.score);
     // 011: fuse before the folder cap — the cap prunes whatever order it
     // is handed, so template siblings still can't crowd the output (D4).
-    const fused = applyFusion(results, settings.kwRank);
+    // 013 D3 #2: dismissed pairs drop out here, BEFORE the cap branch —
+    // both returns below then serve a clean list, and all three callers
+    // (Find Similar / graph purple edges / expand-in-canvas) are covered.
+    const fused = filterDismissedPairs(
+        applyFusion(results, settings.kwRank), currentPath, settings.dismissedPairs);
 
     // 008 D7: cap same-folder results. Scores are untouched — capped
     // entries are simply skipped and the next-ranked notes move up.

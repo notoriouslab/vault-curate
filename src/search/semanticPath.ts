@@ -13,6 +13,7 @@
  */
 
 import { folderOf } from '../utils/folderOf';
+import { pairKey } from '../utils/pairKey';
 
 /** Starting K (design D1); G4 dogfood re-tunes over {5,10,15}. */
 export const DEFAULT_KNN_K = 10;
@@ -87,7 +88,6 @@ export function buildKnnGraph(
     for (const n of notes) graph.set(n.path, []);
     if (k <= 0 || notes.length < 2) return graph;
 
-    const edgeKey = (a: string, b: string) => (a < b ? `${a}\n${b}` : `${b}\n${a}`);
     const added = new Set<string>();
     const folders = notes.map((n) => folderOf(n.path));
 
@@ -108,7 +108,7 @@ export function buildKnnGraph(
                 sameFolder++;
             }
             picked++;
-            const key = edgeKey(notes[i].path, notes[j].path);
+            const key = pairKey(notes[i].path, notes[j].path);
             if (added.has(key)) continue;
             added.add(key);
             graph.get(notes[i].path)!.push({ path: notes[j].path, sim });
@@ -130,7 +130,7 @@ export function edgeSimPercentile(graph: KnnGraph, p: number): number {
     for (const [from, edges] of graph) {
         for (const e of edges) {
             if (!Number.isFinite(e.sim)) continue; // NaN would poison the interpolation
-            const key = from < e.path ? `${from}\n${e.path}` : `${e.path}\n${from}`;
+            const key = pairKey(from, e.path);
             if (seen.has(key)) continue;
             seen.add(key);
             sims.push(e.sim);

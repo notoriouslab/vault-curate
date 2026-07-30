@@ -18,6 +18,14 @@ import type { GroupedResults } from "./search/globalProfile";
 import { classifyMocSize } from "./clustering";
 import { FallbackToFlatError, generateMocGrouped, NoteForMoc, renderMocGrouped } from "./moc-generator";
 import { t } from "./i18n";
+import { pairKey } from "./utils/pairKey";
+
+/** 013 D11: how a result row resolves its dismiss write. Pair-level rows
+ *  (Find Similar / Discover-current) carry the anchor note the results were
+ *  computed FOR — never `getActiveFile()` at click time, which records the
+ *  wrong pair once the user switches files. Note-level rows (global
+ *  discover) have no anchor. Rows without a context (Search tab) get no ✕. */
+type DismissContext = { kind: "pair"; anchor: string } | { kind: "note" };
 
 export const VIEW_TYPE_SEARCH = "vault-curate-view";
 
@@ -52,6 +60,9 @@ export class SearchView extends ItemView {
      *  fix shape as perFileAbort below. */
     private globalAbort: { value: boolean } | null = null;
     private lastDiscoverResults: SearchResult[] = [];
+    /** 013 D11: grouped global-discover results kept as data so a dismiss
+     *  can re-render with correct header counts. */
+    private lastGroups: GroupedResults[] = [];
     // Pin state — session-only (plugin reload resets). Locks Discover sidebar
     // to a specific note so file-open events don't refresh away the context.
     private pinnedFile: TFile | null = null;
@@ -153,14 +164,14 @@ export class SearchView extends ItemView {
         }
     }
 
-    showResults(results: SearchResult[], label: string) {
+    showResults(results: SearchResult[], label: string, anchorPath: string) {
         this.lastResults = results;
         this.lastDiscoverResults = results;
         this.inputEl.value = "";
         this.switchTab("discover");
         this.setDiscoverMode("current");
         this.discoverStatusEl.setText(label);
-        this.renderDiscoverResults(results);
+        this.renderDiscoverResults(results, anchorPath);
     }
 
     async onClose() {
@@ -389,6 +400,7 @@ export class SearchView extends ItemView {
             topResults: this.plugin.settings.topResults,
             tierResolver: this.plugin.tierResolver(),
             kwRank: this.plugin.relatedKwRankFor(file),
+            dismissedPairs: this.plugin.settings.dismissedPairs,
         }, localAbort);
         // Discard stale result if another file took over while we were
         // computing. Two guards: localAbort flipped by a later sweep AND
@@ -399,7 +411,7 @@ export class SearchView extends ItemView {
                 ? t.discoverRelatedTo(note.title)
                 : t.discoverEmpty,
         );
-        this.renderDiscoverResults(results);
+        this.renderDiscoverResults(results, file.path);
     }
 
     private async runGlobalDiscover() {
@@ -421,7 +433,7 @@ export class SearchView extends ItemView {
         const profile = this.plugin.globalProfileFor();
         if (!profile.centroid) {
             this.discoverStatusEl.setText(t.discoverGlobalNoProfile);
-            this.renderDiscoverResults([]);
+            this.renderDiscoverResults([], null);
             return;
         }
 
@@ -432,6 +444,7 @@ export class SearchView extends ItemView {
                 centroid: profile.centroid,
                 kwRank: profile.kwRank,
                 tierResolver: this.plugin.tierResolver(),
+                dismissedNotes: this.plugin.settings.dismissedNotes,
             },
             (done, total) => {
                 if (!abort.value) {
@@ -453,7 +466,7 @@ export class SearchView extends ItemView {
             this.discoverStatusEl.setText(
                 !hasCold ? t.discoverGlobalNoCold : t.discoverGlobalAllFiltered,
             );
-            this.renderDiscoverResults([]);
+            this.renderDiscoverResults([], null);
             return;
         }
         this.discoverStatusEl.setText(t.discoverGlobalDesc);
@@ -464,6 +477,7 @@ export class SearchView extends ItemView {
      *  usual result items beneath. MOC generation keeps working off the
      *  flattened list. */
     private renderGroupedResults(groups: GroupedResults[]) {
+        this.lastGroups = groups;
         this.lastDiscoverResults = groups.flatMap(g => g.results);
         this.discoverResultsEl.empty();
         for (const g of groups) {
@@ -472,16 +486,32 @@ export class SearchView extends ItemView {
                 text: `${g.group} · ${g.results.length}`,
             });
             for (const result of g.results) {
-                this.createResultItem(this.discoverResultsEl, result);
+                this.createResultItem(this.discoverResultsEl, result, { kind: "note" });
             }
         }
     }
 
-    private renderDiscoverResults(results: SearchResult[]) {
+    /** 013 D11: a dismissed note-level row re-renders the grouped list from
+     *  data, so the group header count stays honest and an emptied group
+     *  disappears with its header (驗收 11). */
+    private removeNoteFromGroups(path: string) {
+        const groups = this.lastGroups
+            .map((g) => ({ ...g, results: g.results.filter((r) => r.path !== path) }))
+            .filter((g) => g.results.length > 0);
+        this.renderGroupedResults(groups);
+        // Dismissing the last row leaves an empty panel — the status line
+        // must follow, or it keeps narrating results that no longer exist
+        // (red-team W3).
+        if (groups.length === 0) this.discoverStatusEl.setText(t.discoverEmpty);
+    }
+
+    private renderDiscoverResults(results: SearchResult[], anchorPath: string | null) {
         this.lastDiscoverResults = results;
         this.discoverResultsEl.empty();
+        const dismiss: DismissContext | undefined =
+            anchorPath !== null ? { kind: "pair", anchor: anchorPath } : undefined;
         for (const result of results) {
-            this.createResultItem(this.discoverResultsEl, result);
+            this.createResultItem(this.discoverResultsEl, result, dismiss);
         }
     }
 
@@ -755,7 +785,7 @@ export class SearchView extends ItemView {
 
     // ── Shared result item (click + right-click menu + drag to Canvas) ──
 
-    private createResultItem(parent: HTMLElement, result: SearchResult) {
+    private createResultItem(parent: HTMLElement, result: SearchResult, dismiss?: DismissContext) {
         const item = parent.createDiv({ cls: "vault-curate-result-item" });
 
         // Click → open file
@@ -800,6 +830,34 @@ export class SearchView extends ItemView {
 
         renderResultItem(item, result, this.app);
         this.maybeAddGenerateDescriptionButton(item, result);
+        if (dismiss) this.addDismissButton(item, result, dismiss);
+    }
+
+    /** 013 D4/D11: hover ✕ — "don't suggest this again". Only rows with a
+     *  DismissContext get one; the Search tab passes none (驗收 10). */
+    private addDismissButton(item: HTMLElement, result: SearchResult, dismiss: DismissContext) {
+        const btn = item.createEl("button", {
+            text: "✕",
+            cls: "vc-result-dismiss",
+            attr: { "aria-label": t.dismissTooltip, title: t.dismissTooltip },
+        });
+        btn.addEventListener("click", (e) => {
+            // The parent row's click handler opens the file — swallow it.
+            e.stopPropagation();
+            if (dismiss.kind === "pair") {
+                this.plugin.settings.dismissedPairs[pairKey(dismiss.anchor, result.path)] = Date.now();
+            } else {
+                this.plugin.settings.dismissedNotes[result.path] = Date.now();
+            }
+            void this.plugin.saveSettings();
+            if (dismiss.kind === "note") {
+                this.removeNoteFromGroups(result.path);
+            } else {
+                this.lastDiscoverResults = this.lastDiscoverResults.filter((r) => r.path !== result.path);
+                item.remove();
+            }
+            new Notice(t.dismissedNotice);
+        });
     }
 
     /**

@@ -57,6 +57,15 @@ export interface VaultSearchSettings {
      *  of a promoted pair (the semantic relation is symmetric, and the
      *  rescued Cold note keeps a visible trail). Off = source note only. */
     promoteBidirectional: boolean;
+    /** Dismissed suggestions (013 D1): pairKey → dismissedAt (ms). A pair
+     *  the user rejected is hidden from Find Similar / Discover-current /
+     *  the relation graph, pre-truncation so the slot is refilled. Lives
+     *  in data.json, never SQLite — survives rebuilds and provider
+     *  switches (D9). */
+    dismissedPairs: Record<string, number>;
+    /** Dismissed notes (013 D1): notePath → dismissedAt (ms). Note-level
+     *  set for global discover, which has no anchor note. */
+    dismissedNotes: Record<string, number>;
 }
 
 export const DEFAULT_SETTINGS: VaultSearchSettings = {
@@ -84,6 +93,8 @@ export const DEFAULT_SETTINGS: VaultSearchSettings = {
     canvasFolder: "Vault Curate Canvases",
     relatedSectionTitle: "",
     promoteBidirectional: true,
+    dismissedPairs: {},
+    dismissedNotes: {},
 };
 
 /** data.json stores settings only — index lives in SQLite (Phase 4+). */

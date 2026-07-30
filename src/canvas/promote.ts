@@ -14,6 +14,7 @@ import {
     type CanvasJson,
     type ResolvedLinks,
 } from "./graphCanvas";
+import { pairKey } from "../utils/pairKey";
 
 export interface PurplePair {
     /** File path of the edge's fromNode — the source note the wikilink is
@@ -24,10 +25,6 @@ export interface PurplePair {
     /** Max numeric edge label across this pair's purple edges; undefined
      *  when no label parses as a number (hand-edited canvas). */
     score?: number;
-}
-
-function pairKey(a: string, b: string): string {
-    return a < b ? `${a}\n${b}` : `${b}\n${a}`;
 }
 
 /** Both endpoints resolved to .md file paths, or null. Non-file nodes
@@ -158,4 +155,4 @@ export function promoteEdgesInCanvas(
     };
 }
 
-export { pairKey };
+export { pairKey } from "../utils/pairKey";

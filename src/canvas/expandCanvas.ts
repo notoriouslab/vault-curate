@@ -32,6 +32,7 @@ import {
     type GraphNeighborInput,
     type ResolvedLinks,
 } from "./graphCanvas";
+import { pairKey } from "../utils/pairKey";
 
 const COLLISION_MARGIN = 100;
 const RADIUS_STEP = 200;
@@ -142,12 +143,12 @@ export function expandCanvas(
         const a = idToFile.get(e.fromNode);
         const b = idToFile.get(e.toNode);
         if (a !== undefined && b !== undefined) {
-            connectedPairs.add(a < b ? `${a}\n${b}` : `${b}\n${a}`);
+            connectedPairs.add(pairKey(a, b));
         }
     }
     const toLink = neighbors.filter((n) => {
         if (!existingPaths.has(n.path) || n.path === centerPath) return false;
-        const key = centerPath < n.path ? `${centerPath}\n${n.path}` : `${n.path}\n${centerPath}`;
+        const key = pairKey(centerPath, n.path);
         return !connectedPairs.has(key);
     });
 
