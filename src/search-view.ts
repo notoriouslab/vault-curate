@@ -1,4 +1,5 @@
-import { ItemView, Menu, Notice, TFile, WorkspaceLeaf } from "obsidian";
+import { ItemView, Keymap, Menu, Notice, TFile, WorkspaceLeaf } from "obsidian";
+import type { PaneType } from "obsidian";
 
 // Obsidian's dragManager is not in public types but exists at runtime
 declare module "obsidian" {
@@ -788,12 +789,21 @@ export class SearchView extends ItemView {
     private createResultItem(parent: HTMLElement, result: SearchResult, dismiss?: DismissContext) {
         const item = parent.createDiv({ cls: "vault-curate-result-item" });
 
-        // Click → open file
-        item.addEventListener("click", () => {
+        // Click → open file. Keymap.isModEvent maps Obsidian's conventions:
+        // Cmd/Ctrl+click → new tab, +Alt → split, +Shift → window (issue #8).
+        const openFile = (paneType: PaneType | boolean) => {
             const file = this.app.vault.getAbstractFileByPath(result.path);
             if (file instanceof TFile) {
-                void this.app.workspace.getLeaf(false).openFile(file);
+                void this.app.workspace.getLeaf(paneType).openFile(file);
             }
+        };
+        item.addEventListener("click", (e) => openFile(Keymap.isModEvent(e)));
+        // Middle-click never fires "click"; the in-row buttons (✕ / generate
+        // description) only swallow "click", so exclude them here explicitly.
+        item.addEventListener("auxclick", (e) => {
+            if (e.button !== 1) return;
+            if (e.target instanceof Element && e.target.closest("button")) return;
+            openFile("tab");
         });
 
         // Hover → trigger Obsidian native Page Preview (gated by Cmd/Ctrl

@@ -3,7 +3,8 @@
 // two sections, newest dismissal first; restoring deletes the entry so the
 // pair/note may reappear in future suggestions.
 
-import { App, Modal, Notice, TFile } from "obsidian";
+import { App, Keymap, Modal, Notice, TFile } from "obsidian";
+import type { PaneType } from "obsidian";
 import type VaultSearchPlugin from "../main";
 import { unpairKey } from "../utils/pairKey";
 import { t } from "../i18n";
@@ -50,7 +51,7 @@ export class DismissedModal extends Modal {
                 });
                 link.addEventListener("click", (e) => {
                     e.preventDefault();
-                    this.openPath(p);
+                    this.openPath(p, Keymap.isModEvent(e));
                 });
             });
             const copyBtn = row.createEl("button", {
@@ -89,11 +90,11 @@ export class DismissedModal extends Modal {
     /** Open the note behind a dismissed entry. Stale paths (renamed outside
      *  the maintenance hooks, or deleted) get a Notice instead of a silent
      *  no-op; the copy button still works for manual searching. */
-    private openPath(path: string) {
+    private openPath(path: string, paneType: PaneType | boolean = false) {
         const file = this.app.vault.getAbstractFileByPath(path);
         if (file instanceof TFile) {
             this.close();
-            void this.app.workspace.getLeaf(false).openFile(file);
+            void this.app.workspace.getLeaf(paneType).openFile(file);
         } else {
             new Notice(t.dismissedFileMissing);
         }

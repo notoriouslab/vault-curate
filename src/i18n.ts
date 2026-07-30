@@ -239,6 +239,7 @@ export interface Locale {
     mocDescGlobal: string;
     instructNav: string;
     instructOpen: string;
+    instructOpenTab: string;
     instructDismiss: string;
     // MOC 2.0
     languageLabel: string;  // e.g. "English" / "繁體中文", embedded in LLM prompts
@@ -509,6 +510,7 @@ const en: Locale = {
     mocDescGlobal: "Cold notes most related to current Hot notes",
     instructNav: "navigate",
     instructOpen: "open note",
+    instructOpenTab: "open in new tab",
     instructDismiss: "dismiss",
     languageLabel: "English",
     cmdGenerateMocGrouped: "Generate MOC (topic-grouped)",
@@ -800,6 +802,7 @@ const zhTW: Locale = {
     mocDescGlobal: "與現有熱門筆記最相關的冷門筆記",
     instructNav: "瀏覽",
     instructOpen: "開啟筆記",
+    instructOpenTab: "新分頁開啟",
     instructDismiss: "關閉",
     languageLabel: "繁體中文",
     cmdGenerateMocGrouped: "生成 MOC（主題分群）",
