@@ -45,6 +45,13 @@ export class Indexer {
     indexing = false;
     private emptySkippedCount = 0;
 
+    /** 014 D8: single-file mutation hook for the k-NN graph maintainer.
+     *  Fired by indexSingleFile ('upsert') and removeNote ('remove') —
+     *  rename decomposes into both. Bulk passes (scanVault/rebuild) go
+     *  through indexOne directly and deliberately do NOT fire this; the
+     *  manager's revision backstop covers them. */
+    onMutation?: (type: 'upsert' | 'remove', path: string) => void;
+
     constructor(
         private plugin: VaultSearchPlugin,
         private store: SQLiteStore,
@@ -412,6 +419,7 @@ export class Indexer {
         // background so relatedness fusion stays consistently available
         // (011 perf follow-up; sliced build, never blocks this path).
         this.plugin.scheduleBM25Warm();
+        this.onMutation?.('upsert', file.path);
     }
 
     removeNote(path: string): void {
@@ -419,13 +427,21 @@ export class Indexer {
         // Deletion invalidates the BM25 index just like an upsert does —
         // re-warm so fusion availability has no delete-shaped hole (F7).
         this.plugin.scheduleBM25Warm();
+        this.onMutation?.('remove', path);
     }
 
     async renameNote(oldPath: string, newPath: string, file: TFile): Promise<void> {
         // SQLite has no atomic rename across primary key, so we re-index the file
         // under the new path then delete the old row. Cheaper than a full re-embed
         // would be a row-level update, but renames are rare enough that this is fine.
-        this.store.deleteNote(oldPath);
+        // 014 D6#5: MUST go through removeNote (not store.deleteNote directly) so
+        // the rename fires a 'remove' hook for oldPath — bypassing it leaves the
+        // old node permanently stranded in the k-NN graph, and the revision
+        // backstop cannot see it (the upsert hook absorbs the revision bump).
+        // The extra scheduleBM25Warm inside removeNote merges into the same
+        // debounce window as the one indexSingleFile schedules — no behaviour
+        // change beyond the hook.
+        this.removeNote(oldPath);
         await this.indexSingleFile(file);
     }
 

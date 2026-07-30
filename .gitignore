@@ -6,6 +6,7 @@ openspec/
 # Build output
 main.js
 worker.js
+knn-worker.js
 *.js.map
 *.wasm
 

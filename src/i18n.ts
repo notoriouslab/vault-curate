@@ -188,7 +188,11 @@ export interface Locale {
     menuSemanticPath: string;
     pathModalPlaceholder: string;
     pathFilePrefix: string;
-    noticePathBuilding: (n: number, estSeconds: number | null) => string;
+    noticePathProgress: (n: number, percent: number) => string;
+    noticePathCancel: string;
+    noticePathCancelled: string;
+    noticePathFallback: string;
+    noticePathFallbackBuilding: string;
     noticePathNotConnected: (k: number, hops: number) => string;
     noticePathWeak: (bottleneck: number, threshold: number) => string;
     noticePathSameNote: string;
@@ -447,7 +451,11 @@ const en: Locale = {
     menuSemanticPath: "VC: Generate semantic path",
     pathModalPlaceholder: "Select the destination note…",
     pathFilePrefix: "Semantic path",
-    noticePathBuilding: (n, estSeconds) => `Vault Curate: Building semantic graph over ${n} notes…${estSeconds ? ` (first build ~${estSeconds}s; repeat queries reuse it)` : ""}`,
+    noticePathProgress: (n, percent) => `Vault Curate: Building semantic graph over ${n} notes… ${percent}%`,
+    noticePathCancel: "Cancel",
+    noticePathCancelled: "Vault Curate: Graph build cancelled.",
+    noticePathFallback: "Vault Curate: Background build unavailable — built on the main thread instead.",
+    noticePathFallbackBuilding: "Vault Curate: Background build unavailable — building on the main thread (UI may pause)…",
     noticePathNotConnected: (k, hops) => `Vault Curate: Not connected within ${hops} hops in the K=${k} neighborhood — these two notes are semantically distant. (That's information, not an error.)`,
     noticePathWeak: (bottleneck, threshold) => `Vault Curate: The strongest chain bottoms out at ${bottleneck.toFixed(3)}, below this graph's threshold ${threshold.toFixed(3)} — no chain of consistently strong links exists. Treating as not connected.`,
     noticePathSameNote: "Vault Curate: Start and destination are the same note — pick a different one.",
@@ -734,7 +742,11 @@ const zhTW: Locale = {
     menuSemanticPath: "VC: 生成語意路徑",
     pathModalPlaceholder: "選擇終點筆記…",
     pathFilePrefix: "語意路徑",
-    noticePathBuilding: (n, estSeconds) => `Vault Curate：正在對 ${n} 篇筆記建立語意圖…${estSeconds ? `（首次建圖約 ${estSeconds} 秒，之後同索引免重算）` : ""}`,
+    noticePathProgress: (n, percent) => `Vault Curate：正在對 ${n} 篇筆記建立語意圖… ${percent}%`,
+    noticePathCancel: "取消",
+    noticePathCancelled: "Vault Curate：已取消建圖。",
+    noticePathFallback: "Vault Curate：背景建圖不可用，已改在主執行緒建圖。",
+    noticePathFallbackBuilding: "Vault Curate：背景建圖不可用，改在主執行緒建圖中（介面可能短暫停頓）…",
     noticePathNotConnected: (k, hops) => `Vault Curate：${hops} 跳內在 K=${k} 鄰域不連通——兩篇筆記語意距離遠（這是有價值的資訊，不是錯誤）。`,
     noticePathWeak: (bottleneck, threshold) => `Vault Curate：最強鏈的瓶頸僅 ${bottleneck.toFixed(3)}，低於本圖門檻 ${threshold.toFixed(3)}——不存在全程夠強的關聯鏈，視為語意不連通。`,
     noticePathSameNote: "Vault Curate：起點與終點是同一篇筆記，請選擇不同筆記。",

@@ -63,11 +63,10 @@ function isFiniteVec(v: Float32Array): boolean {
 }
 
 /**
- * Build the undirected k-NN graph: each node contributes edges to its
- * top-`k` most similar neighbours; the edge set is the union of both
- * directions (an edge exists if EITHER endpoint ranked the other in its
- * top-K). Vectors are assumed unit-norm (noteVec contract, 007 D4) so
- * dot product is cosine similarity.
+ * Each node's own top-`k` picks (DIRECTED, 014 D5) — the provenance layer
+ * the incremental maintainer needs ("who picked whom"). Vectors are
+ * assumed unit-norm (noteVec contract, 007 D4) so dot product is cosine
+ * similarity.
  *
  * `sameFolderCap` (> 0) limits how many of a node's k picks may share its
  * folder — skip-and-backfill, same semantics as 008's Find Similar cap:
@@ -75,23 +74,26 @@ function isFiniteVec(v: Float32Array): boolean {
  * fill the freed slots. Without it, template siblings monopolize the
  * top-K and cross-cluster paths get forced through garbage bridges.
  *
- * O(N²) similarity sweep — built on demand per invocation (009 D1-A);
- * ~2-5s at 2.5k notes, callers show a Notice.
+ * O(N²) similarity sweep — 014 runs the full build in a worker;
+ * ~2-5s at 2.5k notes on the main thread (the fallback path).
  */
-export function buildKnnGraph(
+export function buildKnnPicks(
     notes: Array<{ path: string; vec: Float32Array }>,
     k: number,
     sameFolderCap = 0,
-): KnnGraph {
+    /** 014 D9: coarse progress for the worker's Notice — invoked every 256
+     *  rows. Optional; main-thread callers omit it. */
+    onProgress?: (done: number, total: number) => void,
+): Map<string, KnnEdge[]> {
     notes = notes.filter((n) => isFiniteVec(n.vec));
-    const graph: KnnGraph = new Map();
-    for (const n of notes) graph.set(n.path, []);
-    if (k <= 0 || notes.length < 2) return graph;
+    const picks = new Map<string, KnnEdge[]>();
+    for (const n of notes) picks.set(n.path, []);
+    if (k <= 0 || notes.length < 2) return picks;
 
-    const added = new Set<string>();
     const folders = notes.map((n) => folderOf(n.path));
 
     for (let i = 0; i < notes.length; i++) {
+        if (onProgress && i % 256 === 0) onProgress(i, notes.length);
         const sims: Array<{ j: number; sim: number }> = [];
         for (let j = 0; j < notes.length; j++) {
             if (j === i) continue;
@@ -101,6 +103,7 @@ export function buildKnnGraph(
         sims.sort((a, b) => b.sim - a.sim);
         let picked = 0;
         let sameFolder = 0;
+        const mine = picks.get(notes[i].path)!;
         for (const { j, sim } of sims) {
             if (picked >= k) break;
             if (sameFolderCap > 0 && folders[j] === folders[i]) {
@@ -108,14 +111,45 @@ export function buildKnnGraph(
                 sameFolder++;
             }
             picked++;
-            const key = pairKey(notes[i].path, notes[j].path);
+            mine.push({ path: notes[j].path, sim });
+        }
+    }
+    return picks;
+}
+
+/**
+ * Undirected union of the directed picks: an edge exists if EITHER
+ * endpoint ranked the other in its top-K; pairKey dedup keeps one edge
+ * per pair (dot is commutative, so both directions carry the same sim).
+ * Iteration order matches the historical single-pass build, keeping
+ * adjacency-list order — and thus every pinned test — byte-identical.
+ */
+export function graphFromPicks(picks: Map<string, KnnEdge[]>): KnnGraph {
+    const graph: KnnGraph = new Map();
+    for (const p of picks.keys()) graph.set(p, []);
+    const added = new Set<string>();
+    for (const [from, edges] of picks) {
+        for (const e of edges) {
+            const key = pairKey(from, e.path);
             if (added.has(key)) continue;
             added.add(key);
-            graph.get(notes[i].path)!.push({ path: notes[j].path, sim });
-            graph.get(notes[j].path)!.push({ path: notes[i].path, sim });
+            graph.get(from)!.push({ path: e.path, sim: e.sim });
+            graph.get(e.path)!.push({ path: from, sim: e.sim });
         }
     }
     return graph;
+}
+
+/**
+ * Build the undirected k-NN graph — wrapper over the two layers above
+ * (014 D5); signature and behaviour unchanged since 009.
+ */
+export function buildKnnGraph(
+    notes: Array<{ path: string; vec: Float32Array }>,
+    k: number,
+    sameFolderCap = 0,
+): KnnGraph {
+    return graphFromPicks(buildKnnPicks(notes, k, sameFolderCap));
 }
 
 /**

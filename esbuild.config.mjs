@@ -44,28 +44,37 @@ if (!existsSync(sqlJsWasmSrc)) {
 copyFileSync(sqlJsWasmSrc, path.join(PLUGIN_ROOT, 'sql-wasm.wasm'));
 
 const WORKER_BUNDLE_PATH = path.join(PLUGIN_ROOT, 'worker.js');
+const KNN_WORKER_BUNDLE_PATH = path.join(PLUGIN_ROOT, 'knn-worker.js');
 
-const inlineWorkerSourcePlugin = {
-  name: 'inline-worker-source',
+// 014: generalized from the single-worker version — one plugin instance per
+// inline bundle, each with its own magic-import name and namespace.
+const inlineSourcePlugin = (importName, bundlePath) => ({
+  name: `inline-${importName}-source`,
   setup(build) {
-    build.onResolve({ filter: /^@inline\/worker$/ }, () => ({
-      path: WORKER_BUNDLE_PATH,
-      namespace: 'inline-worker',
+    build.onResolve({ filter: new RegExp(`^@inline/${importName}$`) }, () => ({
+      path: bundlePath,
+      namespace: `inline-${importName}`,
     }));
-    build.onLoad({ filter: /.*/, namespace: 'inline-worker' }, () => {
-      if (!existsSync(WORKER_BUNDLE_PATH)) {
+    build.onLoad({ filter: /.*/, namespace: `inline-${importName}` }, () => {
+      if (!existsSync(bundlePath)) {
         throw new Error(
-          `Worker bundle not built yet at ${WORKER_BUNDLE_PATH}. Step 1 must run before Step 2.`,
+          `Bundle not built yet at ${bundlePath}. Step 1 must run before Step 2.`,
         );
       }
-      const src = readFileSync(WORKER_BUNDLE_PATH, 'utf-8');
+      const src = readFileSync(bundlePath, 'utf-8');
       return {
         contents: `export default ${JSON.stringify(src)};`,
         loader: 'js',
+        // Dev watch: re-inline when the bundle file changes on disk. (The
+        // .ts → bundle step itself still runs once per dev session — edit
+        // a worker source, restart `npm run dev`.)
+        watchFiles: [bundlePath],
       };
     });
   },
-};
+});
+const inlineWorkerSourcePlugin = inlineSourcePlugin('worker', WORKER_BUNDLE_PATH);
+const inlineKnnWorkerSourcePlugin = inlineSourcePlugin('knn-worker', KNN_WORKER_BUNDLE_PATH);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Workaround 1: Electron dedicated workers expose process.release.name === "node".
@@ -188,6 +197,31 @@ await esbuild.build({
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Step 1b (014): bundle the k-NN graph worker. Pure math — deliberately NO
+// banner patch, NO aliases, NO stubs: it imports nothing beyond
+// semanticPath/knnCodec (+ their pure utils). The cleanliness assertion
+// below turns any accidental Obsidian/heavy-dep import into a build error
+// instead of a silent runtime worker crash.
+// ─────────────────────────────────────────────────────────────────────────────
+await esbuild.build({
+  entryPoints: ['src/workers/knnWorker.ts'],
+  bundle: true,
+  format: 'iife',
+  platform: 'browser',
+  target: 'es2020',
+  logLevel: 'info',
+  minify: false,
+  sourcemap: false,
+  outfile: KNN_WORKER_BUNDLE_PATH,
+});
+{
+  const knnSrc = readFileSync(KNN_WORKER_BUNDLE_PATH, 'utf-8');
+  if (/obsidian/i.test(knnSrc)) {
+    throw new Error('knn-worker.js is polluted: bundle contains an "obsidian" reference — the k-NN worker must stay pure math.');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Step 2: main plugin bundle. Loads worker.js + sibling ort WASM at runtime.
 // sql.js WASM is inlined via loader '.wasm': 'binary' (smaller ~1MB).
 // ─────────────────────────────────────────────────────────────────────────────
@@ -211,7 +245,7 @@ const context = await esbuild.context({
   // when process.type !== "renderer"). Resolves Dashboard audit Finding 1
   // (Direct Filesystem Access). Worker bundle does NOT apply this plugin —
   // transformers.js / ONNX may need node:crypto for model load / random seed.
-  plugins: [nativeStubPlugin, inlineWorkerSourcePlugin, stripNodeBuiltinsPlugin],
+  plugins: [nativeStubPlugin, inlineWorkerSourcePlugin, inlineKnnWorkerSourcePlugin, stripNodeBuiltinsPlugin],
 });
 
 if (prod) {
@@ -223,6 +257,8 @@ if (prod) {
   // at runtime via wasmPaths).
   const workerBundle = path.join(PLUGIN_ROOT, 'worker.js');
   if (existsSync(workerBundle)) unlinkSync(workerBundle);
+  // 014: same treatment for the k-NN worker intermediate.
+  if (existsSync(KNN_WORKER_BUNDLE_PATH)) unlinkSync(KNN_WORKER_BUNDLE_PATH);
   process.exit(0);
 }
 

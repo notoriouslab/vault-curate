@@ -23,14 +23,10 @@ import { buildGraphCanvas, graphCanvasFileName, type CanvasJson } from "./canvas
 import { buildPathCanvas, pathCanvasFileName } from "./canvas/pathCanvas";
 import { expandCanvas, CROWDED_NODE_COUNT, type ExpandResult } from "./canvas/expandCanvas";
 import {
-    buildKnnGraph,
     widestPath,
-    edgeSimPercentile,
     DEFAULT_KNN_K,
     DEFAULT_MAX_HOPS,
     KNN_SAME_FOLDER_CAP,
-    BOTTLENECK_PERCENTILE,
-    type KnnGraph,
 } from "./search/semanticPath";
 import { PathTargetModal } from "./ui/PathTargetModal";
 import { PromoteModal } from "./ui/PromoteModal";
@@ -39,6 +35,8 @@ import { insertRelatedLink } from "./utils/insertRelatedLink";
 import { mergeSettings } from "./utils/mergeSettings";
 import { renameInDismissed, deleteFromDismissed } from "./utils/dismissMaintenance";
 import { createWriteQueue } from "./utils/writeQueue";
+import { KnnGraphManager } from "./search/knnGraphManager";
+import knnWorkerSource from "@inline/knn-worker";
 import { makeTierResolver, resolveCreated } from "./heat/makeTierResolver";
 import { SELF_WRITE_TOLERANCE_MS, type TierResolver } from "./heat/deriveTier";
 import { relatedKwRank, kwRankForQuery } from "./search/relatedKwRank";
@@ -61,15 +59,15 @@ export default class VaultSearchPlugin extends Plugin {
     store: SQLiteStore | null = null;
     provider: EmbeddingProvider | null = null;
     private sqlWasmBinary: Uint8Array | null = null;
-    /** Session memo for the semantic-path k-NN graph (009): keyed on the
-     *  store instance + its mutation revision, so any index change or
-     *  provider-switch store swap invalidates it automatically. */
-    private knnCache: {
-        store: SQLiteStore;
-        revision: number;
-        graph: KnnGraph;
-        threshold: number;
-    } | null = null;
+    /** 014: k-NN graph lifecycle — worker full builds, main-thread
+     *  incremental maintenance, revision backstop. Replaces the 009
+     *  whole-graph knnCache (which any single edit invalidated). */
+    private knnManager = new KnnGraphManager({
+        spawnWorker: () => this.spawnKnnWorker(),
+        k: DEFAULT_KNN_K,
+        sameFolderCap: KNN_SAME_FOLDER_CAP,
+        isBulkIndexing: () => this.indexer?.indexing ?? false,
+    });
     private ortWasmBinary: ArrayBuffer | null = null;
     private debounceTimers: Map<string, number> = new Map();
     /** 013 D10: serializes saveSettings writes (one in flight). */
@@ -113,6 +111,10 @@ export default class VaultSearchPlugin extends Plugin {
             this.store = await this.openStore();
             this.provider = await this.buildProvider();
             this.indexer = new Indexer(this, this.store, this.provider);
+            // 014 D8: feed single-file mutations to the k-NN graph maintainer.
+            this.indexer.onMutation = (type, path) => {
+                if (this.store) this.knnManager.onMutation(type, path, this.store);
+            };
         } catch (err) {
             console.error("vault-curate: backend init failed", err);
             new Notice(
@@ -438,6 +440,7 @@ export default class VaultSearchPlugin extends Plugin {
         // SQLiteStore.dispose() flushes synchronously when pending mutations.
         void this.store?.dispose();
         this.provider?.dispose();
+        this.knnManager.dispose(); // 014: terminate in-flight build + free matrix
         console.debug("Vault Curate unloaded");
     }
 
@@ -698,6 +701,30 @@ export default class VaultSearchPlugin extends Plugin {
         }).open();
     }
 
+    /** 014 D3: per-build worker from the inlined bundle (same Blob URL
+     *  pattern as WasmEmbeddingProvider). terminate() is wrapped so the
+     *  Blob URL is revoked exactly when the manager discards the worker. */
+    private spawnKnnWorker(): Worker {
+        const blob = new Blob([knnWorkerSource], { type: "application/javascript" });
+        const url = URL.createObjectURL(blob);
+        let worker: Worker;
+        try {
+            worker = new Worker(url);
+        } catch (e) {
+            // Constructor threw → the wrapped terminate below never exists
+            // to revoke the URL; do it here or every failed spawn leaks a
+            // Blob URL (四路總檢 紅隊 W4).
+            URL.revokeObjectURL(url);
+            throw e;
+        }
+        const terminate = worker.terminate.bind(worker);
+        worker.terminate = () => {
+            terminate();
+            URL.revokeObjectURL(url);
+        };
+        return worker;
+    }
+
     private async buildSemanticPathCanvas(from: TFile, to: TFile) {
         const store = this.store;
         if (!store) {
@@ -709,36 +736,50 @@ export default class VaultSearchPlugin extends Plugin {
             return;
         }
 
-        const all = store.getAllNotesLight();
-
-        // The O(N²) sweep only depends on index content — memoize per
-        // store revision so repeat queries in one session skip the 4s
-        // (2.5k notes) build entirely. ~66s at 10k notes: worker-izing
-        // the first build is backlogged with the BM25 worker item.
-        let graph: KnnGraph;
-        let threshold: number;
-        if (this.knnCache && this.knnCache.store === store
-            && this.knnCache.revision === store.getRevision()) {
-            ({ graph, threshold } = this.knnCache);
-        } else {
-            // Estimate from the measured quadratic: ~4s at 2.5k notes.
-            const estSeconds = Math.round((all.length / 2500) ** 2 * 4);
-            new Notice(t.noticePathBuilding(all.length, estSeconds >= 8 ? estSeconds : null));
-            // Let the notice paint before the synchronous sweep.
-            const PAINT_DELAY_MS = 30;
-            await new Promise((resolve) => window.setTimeout(resolve, PAINT_DELAY_MS));
-
-            graph = buildKnnGraph(
-                all.map((r) => ({ path: r.path, vec: r.noteVec })),
-                DEFAULT_KNN_K,
-                KNN_SAME_FOLDER_CAP,
-            );
-            // D4 amendment: a chain is only as strong as its weakest hop.
-            // Below the graph's own p45 edge percentile → honest "not
-            // connected", with both numbers shown (evidence/option-study.md).
-            threshold = edgeSimPercentile(graph, BOTTLENECK_PERCENTILE);
-            this.knnCache = { store, revision: store.getRevision(), graph, threshold };
+        // 014: the manager answers instantly from the maintained resident
+        // graph; a full build (first use / backstop) runs in the worker with
+        // a live progress Notice + cancel button — the main thread never
+        // freezes. The p45 verdict threshold rides along (D4 amendment
+        // heritage: below the graph's own percentile → honest "not
+        // connected", evidence/option-study.md).
+        // Boxed so TS keeps the closure-assigned values visible after await.
+        const ui = { notice: null as Notice | null, progressEl: null as HTMLSpanElement | null };
+        let lastPaint = 0;
+        const outcome = await this.knnManager.getGraph(store, {
+            onBuildStart: (total) => {
+                // Fragment built ONCE — progress updates only touch the
+                // retained span, so the cancel button keeps its listener.
+                const frag = createFragment();
+                ui.progressEl = frag.createSpan({ text: t.noticePathProgress(total, 0) });
+                const btn = frag.createEl("button", {
+                    text: t.noticePathCancel,
+                    cls: "vault-curate-knn-cancel",
+                });
+                btn.addEventListener("click", () => this.knnManager.cancel());
+                ui.notice = new Notice(frag, 0);
+            },
+            onProgress: (done, total) => {
+                const nowMs = Date.now();
+                if (nowMs - lastPaint < 500) return; // ≤2Hz (驗收 9)
+                lastPaint = nowMs;
+                ui.progressEl?.setText(t.noticePathProgress(total, Math.round((done / total) * 100)));
+            },
+            onFallback: async () => {
+                // The sync O(N²) sweep is about to freeze the main thread —
+                // surface it and let the Notice paint first (30ms, same as
+                // the 1.4.0 flow this path degrades to).
+                if (ui.progressEl) ui.progressEl.setText(t.noticePathFallbackBuilding);
+                else ui.notice = new Notice(t.noticePathFallbackBuilding, 0);
+                await new Promise((resolve) => window.setTimeout(resolve, 30));
+            },
+        });
+        ui.notice?.hide();
+        if (outcome.cancelled) {
+            new Notice(t.noticePathCancelled);
+            return;
         }
+        if (outcome.fallback) new Notice(t.noticePathFallback);
+        const { graph, threshold } = outcome;
 
         const result = widestPath(graph, from.path, to.path, DEFAULT_MAX_HOPS);
         if (!result) {
