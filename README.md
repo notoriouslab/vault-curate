@@ -31,8 +31,8 @@ Finding a note is only the first step. The harder parts come after: *seeing* how
 
 | Feature | How it works |
 |---|---|
-| **A closed loop: find → connect → rediscover** | Semantic search (hybrid BM25 + embeddings + fuzzy) finds the note; a relation graph and semantic paths surface related notes you never linked; Hot/Cold tiering resurfaces ones you'd forgotten. Each exists elsewhere as a separate single-point plugin — combining all three is what makes this a second brain, not just a search box. |
-| **Helps you see, not think for you** | No background LLM calls, no auto-rewriting your notes, no chatbot answering *for* you. AI curation (descriptions, grouped MOCs) is opt-in and explicit. You stay the editor of your own vault. |
+| **A closed loop: find → connect → rediscover** | Semantic search (hybrid BM25 + embeddings + fuzzy) finds the note; a relation graph and semantic paths surface related notes you never linked; Hot/Cold tiering resurfaces ones you'd forgotten. And your verdicts close the loop: a suggestion you accept becomes a real wikilink, one you reject never comes back. Each piece exists elsewhere as a single-point plugin — the loop is what makes this a second brain, not a search box. |
+| **Helps you see, not think for you** | No background LLM calls, no auto-rewriting your notes, no chatbot answering *for* you. Every connection the plugin shows is a suggestion awaiting your yes or no — nothing is written, hidden, or re-ranked without your explicit action. AI curation (descriptions, grouped MOCs) is opt-in. You stay the editor of your own vault. |
 | **Local-first, strong on Chinese/CJK** | Runs on-device via WebGPU (~110 MB model once, 5,004 chunks in about **1m23s**; WASM fallback works too), no API keys. The built-in `bge-small-zh-v1.5` gives Chinese names, religious terms, and colloquial phrases an edge generic multilingual models miss — switch to Ollama/OpenAI for other languages. |
 
 ---
@@ -40,6 +40,8 @@ Finding a note is only the first step. The harder parts come after: *seeing* how
 ## How it works: find → connect → rediscover
 
 Four layers form one closed loop. The first three are zero-config and work out of the box; the fourth (curation) is off by default and only runs when you explicitly turn it on.
+
+**And the loop answers to you.** Everything it surfaces is a suggestion, not a decision — and both of your possible answers stick: say **yes** to a suggested connection and it becomes a real wikilink (never suggested again — it's a fact now); say **no** with a hover **✕** and that pair is gone from every suggestion surface, surviving renames, deletions, and index rebuilds. Even Hot/Cold listens the same way: *editing* a note is a judgment that re-heats it, merely opening one is not. The longer you use it, the more the loop reflects your map of the vault — not an algorithm's guess.
 
 ![Semantic relation overview](./docs/concept-graph.png)
 
@@ -54,7 +56,8 @@ Search by meaning, not just literal characters. Three signals fused via [Recipro
 | **Fuzzy title** (Jaro–Winkler) | Typos, spelling variants |
 
 - Cmd/Ctrl+P → `Vault Curate: Semantic search (modal)` for a quick jump; the sidebar **Search** tab for persistent results.
-- **Find similar notes**: right-click any `.md` → **VC: Find similar notes**; results land in the sidebar and drag straight to Canvas. Similarity is template-resistant (since 1.2.0): markdown structure symbols are stripped from the embedding input and the frontmatter `description` blends into the ranking vector, so a person card finds *that person's* conversations, not its nine template siblings. Embedding input is additionally converted Traditional→Simplified (since 1.2.2; stored text, keyword search, and snippets stay Traditional) to sharpen ranking on Traditional-Chinese vaults.
+- **Find similar notes**: right-click any `.md` → **VC: Find similar notes**; results land in the sidebar and drag straight to Canvas. Similarity is template-resistant: markdown structure symbols are stripped from the embedding input and the frontmatter `description` blends into the ranking vector, so a person card finds *that person's* conversations, not its nine template siblings. On Traditional-Chinese vaults, embedding input is converted Traditional→Simplified under the hood (stored text, keyword search, and snippets stay Traditional) to sharpen ranking.
+- Ranking is also keyword-aware: Find Similar, the relation graph, and current-note Discover fuse your frontmatter **tags** with semantic similarity, so notes that merely share your writing style stop crowding out notes that share the topic. No tags? Pure semantic ranking.
 
 ![Search results + Canvas drag](./docs/search-canvas.png)
 
@@ -72,13 +75,14 @@ Entry points: the command palette, right-click **VC: Generate relation graph**, 
 
 ![Relation graph — semantic neighborhood on Canvas](./docs/relation-graph.png)
 
-**Semantic path (Canvas)** — pick any two notes and get the **chain of stepping-stone notes** that connects them: a widest-path search over the vault's semantic k-NN graph, judged by the chain's *weakest* hop so one far-fetched link can't hide behind strong ones. Run **Generate semantic path (Canvas)** on the start note, then pick the destination in the fuzzy picker. If no chain of consistently strong links exists, you get an honest "not connected" notice with the actual numbers — that's information, not an error. Since 1.4.5 the underlying graph builds in a **background worker** — a progress notice with a Cancel button instead of a frozen UI — and editing notes updates it **incrementally in milliseconds**, so repeat queries stay instant even while you keep writing.
+**Semantic path (Canvas)** — pick any two notes and get the **chain of stepping-stone notes** that connects them: a widest-path search over the vault's semantic k-NN graph, judged by the chain's *weakest* hop so one far-fetched link can't hide behind strong ones. Run **Generate semantic path (Canvas)** on the start note, then pick the destination in the fuzzy picker. If no chain of consistently strong links exists, you get an honest "not connected" notice with the actual numbers — information, not an error. The underlying graph builds once in a **background worker** (a progress notice with a Cancel button; the UI never freezes) and then follows your edits **incrementally in milliseconds** — repeat queries answer instantly even while you keep writing, no matter how large your vault grows.
 
 **Expand in this graph** — right-click any node inside a generated canvas → **VC: Expand in this graph** grows the graph *in place*: the clicked note's neighborhood slots into free space around it, notes already on the canvas get connecting edges instead of duplicates, and a note pointed at by two or more edges turns **orange** (several expansions independently converged on it, which usually means it matters). Your layout edits and manually applied colors are never touched.
 
-**Apply purple edges as wikilinks** (since 1.4.0) — the graph suggests, you decide, one click makes it real. Right-click a generated `.canvas` (or run the command) → a checkbox dialog lists every purple edge grouped by source note; Cmd/Ctrl+hover any name for a native page preview. Checked pairs are written into the notes' **Related** section as real wikilinks — both notes by default, source-only via **Advanced → Bidirectional promotion** — and the edges turn gray with direction arrows on the spot. Nothing is written unchecked, and accepted suggestions never come back as suggestions. The section heading is customizable (**Advanced → Related section heading**).
+**Your verdict on every pair** — the graph suggests, you decide, and both answers are one click:
 
-Since 1.4.0, "related" itself got smarter: Find Similar, the relation graph, and current-note Discover fuse your frontmatter **tags** (as a keyword signal) with semantic similarity, so notes that merely share your writing style stop crowding out notes that share the topic. No tags? Pure semantic ranking, exactly as before.
+- **Yes → Apply purple edges as wikilinks.** Right-click a generated `.canvas` (or run the command) → a checkbox dialog lists every purple edge grouped by source note; Cmd/Ctrl+hover any name for a native page preview. Checked pairs are written into the notes' **Related** section as real wikilinks — both notes by default, source-only via **Advanced → Bidirectional promotion** — and the edges turn gray with direction arrows on the spot. Nothing is written unchecked, and accepted pairs never come back as suggestions: they're real links now.
+- **No → Don't suggest this again.** The same dialog carries a per-pair *Don't suggest* button, and every suggestion row in the sidebar (Find Similar, Discover) has a hover **✕**. A dismissed pair vanishes from all suggestion surfaces, its slot refilled by the next candidate — rejecting never shrinks your results. Changed your mind? Everything is reviewable and restorable under **Settings → Advanced → Hidden suggestions**, each entry with an open-note link and a copy-path button.
 
 ### ♻️ Rediscover: Hot/Cold tiering + Discover
 
@@ -89,7 +93,7 @@ Discover works on **notes**, not query strings — it actively surfaces semantic
 - **Current note**: opening a file surfaces related notes ranked purely by relatedness, with Cold ones visually highlighted ("you haven't read this one")
 - **Global**: forgotten notes most related to your **recent focus** — the notes you've recently edited or created, their topic tags, and their semantic centroid — grouped by top-level folder so each corner of your vault surfaces its own best forgotten notes. Intentional blind-spot mining
 - Results export to a topic-grouped Map of Content via **Generate MOC** (falls back to a flat MOC when results are too few or too similar)
-- **Say no once, and it sticks**: hover any suggestion and hit **✕** — that pair (or note, in global Discover) never comes back as a suggestion, its slot refilled by the next candidate. Review and restore under Settings → Advanced → **Hidden suggestions**
+- Every row takes your verdict: hover **✕** dismisses a suggestion for good (in global Discover, the note itself), with the freed slot refilled — see *Your verdict on every pair* above
 
 ![Discover sidebar — current note](./docs/discover-current-note.png)
 
@@ -161,7 +165,7 @@ Right-click menus expose these directly on a note: **VC: Find similar notes**, *
 |---|---|---|
 | **Quick setup** | Embedding provider (Built-in / Ollama / OpenAI-compatible); excluded folders | Built-in; empty |
 | **AI Curation** | Enable toggle; LLM provider; LLM model | off; Ollama; qwen3:1.7b |
-| **Advanced** | top results, min score, relation graph folder, related section heading, bidirectional promotion, Hot window (days), default search scope, chunk size + overlap, synonym list, auto-index toggle, rebuild + update buttons, index stats | see panel |
+| **Advanced** | top results, min score, relation graph folder, related section heading, bidirectional promotion, hidden suggestions (count + manage/restore), Hot window (days), default search scope, chunk size + overlap, synonym list, auto-index toggle, rebuild + update buttons, index stats | see panel |
 
 Changing the embedding provider or model triggers a confirmation modal — the index is wiped and rebuilt.
 
