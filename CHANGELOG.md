@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.6 — 2026-07-30
+
+### Fixed
+- **Modifier clicks now work on search results** (issue #8). Every place a result opens a note — the sidebar rows (Search / Discover / Global Discover), the quick-search modal, and the hidden-suggestions list — now honors Obsidian's standard conventions: Cmd/Ctrl+click opens in a new tab, Cmd/Ctrl+Alt+click in a split, Cmd/Ctrl+Alt+Shift+click in a new window. Middle-click opens a sidebar result in a new tab. The quick-search modal picked up a `ctrl/⌘ ↵` hint in its instruction bar.
+
 ## 1.4.5 — 2026-07-30
 
 The "say no, and never freeze" release: suggestions you reject finally stay rejected, and the semantic-path graph now builds in the background — the bigger your vault grows, the more this matters.
