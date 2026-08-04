@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Added
+- **Simplified Chinese (zh-CN) interface.** The plugin previously mapped every `zh*` locale to Traditional Chinese. It now ships a dedicated Simplified Chinese locale (mainland wording: 服务器 / 文件夹 / 搜索 / 默认 / 语义, etc.) and `getLocale()` distinguishes Simplified (`zh-cn`, `zh-sg`, `zh-hans`) from Traditional (`zh-tw`, `zh-hk`, `zh-hant`). The Simplified locale's AI-curation prompts (description / MOC naming) also request Simplified-Chinese output.
 - **Programmatic search entrypoint.** The plugin instance now exposes a public `search(query)` method that runs the full hybrid search (BM25 + semantic + fuzzy title, RRF-fused) and returns the ranked results — so the Obsidian CLI (`obsidian eval`) and external scripts/agents can query the vault semantically without the GUI:
   ```bash
   obsidian eval code="app.plugins.plugins['vault-curate'].search('query').then(r=>JSON.stringify(r))"

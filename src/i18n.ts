@@ -845,12 +845,316 @@ ${notesBlock}
 ${content}`,
 };
 
-const locales: Record<string, Locale> = { en, "zh-TW": zhTW };
+// 简体中文（大陆用语）。与 zhTW 的差异不止字形：IT 用词按大陆习惯本地化
+// （伺服器→服务器、資料夾→文件夹、搜尋→搜索、預設→默认、語意→语义 等），
+// LLM 生成 description / MOC 命名也要求输出简体。
+const zhCN: Locale = {
+    ollamaUrl: "服务器地址",
+    ollamaUrlDesc: "Embedding 服务器地址",
+    apiFormat: "API 格式",
+    apiFormatDesc: "Ollama 用于 Ollama；OpenAI-compatible 用于 llama.cpp、LM Studio、MLX、vLLM、OpenAI 等",
+    apiFormatOllama: "Ollama",
+    apiFormatOpenAI: "OpenAI-compatible",
+    embeddingModel: "Embedding 模型",
+    embeddingModelDesc: "模型名称（例如 qwen3-embedding:0.6b、nomic-embed-text、text-embedding-3-small）",
+    topResults: "显示条数",
+    topResultsDesc: "搜索和 Discover 最多显示几条结果",
+    minScore: "最低分数",
+    minScoreDesc: "低于此阈值的结果不显示（0.0 – 1.0）。越低结果越多，越高越严格。",
+    maxEmbedChars: "最大 Embed 字数",
+    maxEmbedCharsDesc: "每篇笔记取前多少字做 embedding。有 description 的笔记会优先用 description。修改后需重建索引。",
+    hotDays: "Hot 天数",
+    hotDaysDesc: "近多少天内创建或编辑过的笔记视为 Hot（活跃）：任何编辑都算主动操作，只是打开笔记不算。Hot 笔记有链接或近期活动；Cold 笔记是孤立的，会被 Discover 发掘出来。修改即时生效，无需重建索引。",
+    searchScope: "默认搜索范围",
+    searchScopeDesc: "Hot = 有链接或近期的笔记。Cold = 孤立笔记（适合重新发现）。全部 = 不筛选。",
+    scopeHot: "仅 Hot",
+    scopeAll: "全部",
+    excludePatterns: "排除路径",
+    excludePatternsDesc: "不索引也不 Discover 的文件夹前缀（每行一个，例如 3_wiki/）",
+    autoIndex: "自动更新索引",
+    autoIndexDesc: "笔记修改时自动重新 embed，保持 Discover 结果即时。",
+    chunkSize: "Chunk 大小",
+    chunkSizeDesc: "每个 chunk 的字数（修改后需重建索引）",
+    chunkOverlap: "Chunk 重叠",
+    chunkOverlapDesc: "相邻 chunk 重叠的字数",
+    synonymsLabel: "同义词",
+    synonymsDesc: "每行一组：关键词 = 同义词1, 同义词2",
+    llmModel: "LLM 模型",
+    llmModelDesc: "AI 整理（description / MOC 分组命名）使用的 LLM 模型。Ollama 推荐：qwen3:1.7b；OpenAI-compatible 可用 gpt-4o-mini 等。",
+    enableAICuration: "启用 AI 整理",
+    enableAICurationDesc: "开启后才会出现 Description 生成与主题分组 MOC 等命令。LLM 沿用上方 Embedding 提供者的 endpoint（Ollama 或 OpenAI-compatible）。",
+    llmEndpointHeading: "LLM 连接状态",
+    llmEndpointProbing: "检测中…",
+    llmEndpointReachable: "✓ 可连接",
+    llmEndpointUnreachable: (reason: string) => `⚠ 无法连接：${reason}`,
+    llmEndpointHint: "请启动 Ollama（ollama.com），或将上方「Embedding 提供者」切换为 OpenAI-compatible。",
+    llmEndpointRecheck: "重新检测",
+    actions: "操作",
+    rebuildIndex: "重建索引",
+    rebuildIndexDesc: "全部重新 embed。大量新增文件或更换 embedding 模型后需要执行。",
+    rebuildBtn: "重建",
+    indexingBtn: "建立中...",
+    updateIndex: "更新索引",
+    updateIndexDesc: "只 embed 新增或修改的笔记，比全部重建快。",
+    updateBtn: "更新",
+    updatingBtn: "更新中...",
+    indexStats: "索引统计",
+    totalNotes: "笔记总数",
+    hot: "Hot",
+    cold: "Cold",
+    model: "模型",
+    dimensions: "向量维度",
+    lastIndexed: "上次索引",
+    searchPlaceholder: "语义搜索...",
+    searchResults: (n) => `${n} 条结果`,
+    indexEmpty: "索引为空，请先执行「重建索引」",
+    searchFailed: "搜索失败",
+    searching: "搜索中...",
+    cmdSemanticSearch: "语义搜索（弹窗）",
+    cmdOpenPanel: "打开搜索面板",
+    cmdFindSimilar: "查找相似笔记",
+    cmdRebuild: "重建索引",
+    cmdUpdate: "更新索引",
+    cmdDescActive: "为当前笔记生成 description",
+    cmdDescSelected: "为当前结果生成 description",
+    menuDescGenerate: "VC: 生成 description",
+    menuFindSimilar: "VC: 查找相似笔记",
+    btnDescGenerate: "生成 description",
+    ollamaNotReady: "无法连接 Ollama，请确认 Ollama 已启动",
+    noSimilar: "找不到相似笔记",
+    notIndexed: "此笔记尚未索引",
+    similarTo: (title) => `与「${title}」相似`,
+    dismissTooltip: "不再建议这个组合",
+    dismissedNotice: "已隐藏这条建议，可在设置的「已隐藏的建议」中恢复。",
+    dismissedHeading: "已隐藏的建议",
+    dismissedManageDesc: (n) => `已隐藏 ${n} 条。被隐藏的组合与笔记不会再出现在建议中，恢复后才会重新出现。`,
+    dismissedManage: "管理",
+    dismissedRestore: "恢复",
+    dismissedEmpty: "还没有隐藏任何建议。在建议结果上按 ✕ 即可隐藏。",
+    dismissedPairsSection: "已隐藏的组合",
+    dismissedNotesSection: "已隐藏的笔记（全局发掘）",
+    dismissedOpenTooltip: "打开笔记",
+    dismissedCopyTooltip: "复制路径",
+    dismissedCopied: "已复制路径。",
+    dismissedFileMissing: "找不到这篇笔记，可能已改名或删除。可用复制按钮获取路径后手动搜索。",
+    descNoLlmConfigured: "尚未设置 LLM，请先在设置中指定 LLM 模型。",
+    descGenerating: (done, total) => `生成 description：${done}/${total}...`,
+    descGeneratingOne: (name) => `正在为 ${name} 生成 description…`,
+    descGeneratedOne: (name) => `已为 ${name} 写入 description`,
+    descBatchDone: (ok, failed) => failed > 0
+        ? `完成 — ${ok} 篇成功、${failed} 篇失败`
+        : `完成 — ${ok} 篇`,
+    descLlmFailed: (name) => `${name} 的 description 生成失败`,
+    descNoEligible: "当前结果中没有缺少 description 的笔记。",
+    descAICurationOff: "AI 整理尚未启用。请到设置开启后再使用此命令。",
+    descOpenSidebarFirst: "请先打开 Vault Curate 面板并执行搜索。",
+    apiKeyLabel: "API key",
+    apiKeyDesc: "选填 — 用于需要认证的服务器",
+    urlPlaceholder: "http://localhost:11434",
+    apiKeyPlaceholder: "sk-...",
+    remoteWarning: "⚠ 远程服务器 — 笔记内容将发送到外部设备",
+    httpApiKeyWarning: "⚠ API key 将以明文通过 HTTP 发送，建议改用 HTTPS。",
+    selectModel: "选择模型",
+    tabSearch: "搜索",
+    tabDiscover: "发掘",
+    discoverCurrentNote: "当前笔记",
+    discoverGlobal: "全局",
+    discoverRelatedTo: (title) => `相关于：${title}`,
+    discoverEmpty: "找不到相关笔记",
+    discoverNoIndex: "请先建立索引",
+    discoverComputing: "计算中...",
+    discoverGlobalDesc: "与你近期关注最相关、但已被遗忘的笔记（按文件夹分组）",
+    discoverGlobalNoProfile: "近期没有活动笔记可构成关注画像，先编辑或创建几篇笔记吧。",
+    discoverProgress: (done, total) => `计算中：${done}/${total}...`,
+    generateMoc: "生成 MOC",
+    mocCreated: (path) => `MOC 已创建：${path}`,
+    mocNoResults: "没有结果可生成 MOC",
+    cmdGlobalDiscover: "发掘相关的 Cold 笔记",
+    scopeCold: "仅 Cold",
+    sectionQuickSetup: "快速设置",
+    sectionAICuration: "AI 整理",
+    sectionAdvanced: "高级",
+    embeddingProvider: "Embedding 提供者",
+    embeddingProviderDesc: "Embedding 在哪里计算。\n• 内置：完全在设备上运行，内容不出网络。\n• Ollama：本机运行的 daemon（127.0.0.1）—— 同样不出网络。\n• OpenAI-compatible：兼容 endpoint，可能是本机（LM Studio、llama.cpp 等）也可能是远程 API（OpenAI 等）—— 笔记内容可能被发送到外部服务器。",
+    embeddingProviderBuiltin: "内置（设备端、WebGPU）",
+    embeddingProviderOllama: "Ollama（本机 daemon）",
+    embeddingProviderOpenAI: "OpenAI-compatible API（本机或远程）",
+    builtinModelNote: "模型：bge-small-zh-v1.5（~33M 参数，首次运行下载 ~110MB），WebGPU 加速。",
+    providerSwitchTitle: "切换 Embedding 提供者？",
+    providerSwitchBody: (notes) =>
+        `这会清空现有索引并重新索引整个 vault。约 ${notes} 篇笔记需要重新 embed，预计 1–10 分钟（视提供者而定）。`,
+    providerSwitchConfirm: "确认并重新索引",
+    providerSwitchCancel: "取消",
+    onboardingTitle: "欢迎使用 Vault Curate",
+    onboardingIntro: "Vault Curate 为 Obsidian 提供高质量的中文语义搜索。请选择 embedding 运行位置。",
+    onboardingProviderHeading: "Embedding 提供者",
+    onboardingOllamaDetected: "✓ 检测到 Ollama（localhost:11434）",
+    onboardingOllamaNotDetected: "⚠ 未检测到 Ollama。请从 ollama.com 安装后重新打开此窗口。",
+    onboardingOpenaiEndpoint: "Endpoint URL",
+    onboardingOpenaiModel: "模型名称",
+    onboardingTestConnection: "测试连接",
+    onboardingTestOk: "✓ 可连接",
+    onboardingTestFail: "✗ 无法连接",
+    onboardingAIHeading: "启用 AI 整理？",
+    onboardingAIYes: "启用 — Description 生成与主题分组 MOC",
+    onboardingAINo: "不用，仅搜索",
+    onboardingAIRequiresLlm: "AI 整理需要 LLM endpoint。请先启动 Ollama（ollama.com）或把 embedding 切换为 OpenAI-compatible。",
+    onboardingIndexNow: "现在开始建立索引",
+    onboardingLater: "稍后再说",
+    backendNotReady: "后端未就绪 — 请重新加载插件（查看 console 看初始化错误）。",
+    rerunOnboarding: "重新执行 Onboarding",
+    rerunOnboardingDesc: "重新打开首次启动设置窗口 — 如果之前关闭了想重新选 provider / AI 整理，可从这里进入。",
+    rerunOnboardingBtn: "打开 Onboarding",
+    dimMismatchNotice: (skipped) =>
+        `${skipped} 篇笔记的 embedding 维度与当前模型不符。请执行「重建索引」修复。`,
+    noticeIndexEmpty: "Vault Curate：索引为空，请先执行「重建索引」",
+    noticeIndexing: (done, total) => `Vault Curate：索引中 ${done}/${total}...`,
+    noticeDescBackfill: (total) => `Vault Curate：补嵌 ${total} 篇 description（升级一次性作业，约 1-3 分钟）...`,
+    noticeDescBackfillDone: (written) => `Vault Curate：description 向量就绪（${written} 篇）`,
+    noticeBuildingSearchIndex: "Vault Curate：正在建立关键词索引...",
+    noticeIndexDone: (total, hot, cold, failed) => {
+        const f = failed > 0 ? `，${failed} 篇失败` : "";
+        return `Vault Curate：完成 — ${total} 篇（${hot} hot、${cold} cold${f}）`;
+    },
+    noticeUpToDate: "Vault Curate：索引已是最新",
+    noticeUpdated: (updated, total, hot) =>
+        `Vault Curate：已更新 ${updated} 篇（共 ${total} 篇，${hot} hot）`,
+    noticeEmptySkipped: (n) => `Vault Curate：跳过 ${n} 篇空白笔记（无内容可索引）`,
+    noticeLargeVault: (chunks) =>
+        `Vault Curate：完成 ${chunks} 个 chunks 的索引。语义搜索可能需要几秒；如果觉得慢，可到「设置 → 高级 → 搜索范围」改为 Hot only。`,
+    discoverGlobalNoCold: "目前没有 Cold 笔记 — vault 中所有笔记都有链接或近期创建，没有可重新发现的内容。",
+    discoverGlobalAllFiltered: "所有 Cold 候选笔记的分数低于最低阈值 — 请到「设置 → 高级 → 最低分数」调低后重试。",
+    discoverPin: "固定",
+    discoverUnpin: "取消固定",
+    discoverPinnedTo: (title) => `已固定：${title}`,
+    discoverPinNoFile: "请先打开笔记，再固定 Discover。",
+    discoverPinFileGone: "已固定的笔记被删除 — Discover 已取消固定。",
+    cmdGenerateGraph: "生成关联图（Canvas）",
+    menuGenerateGraph: "VC: 生成关联图",
+    discoverGraphBtn: "关联图",
+    discoverGraphNoFile: "请先打开笔记，再生成关联图。",
+    noticeGraphNoResults: "Vault Curate：没有超过相似度阈值的笔记，未创建关联图。可到高级设置调低「最低分数」放宽条件。",
+    noticeGraphCreated: (path) => `Vault Curate：关联图已创建 — ${path}`,
+    cmdSemanticPath: "生成语义路径（Canvas）",
+    menuSemanticPath: "VC: 生成语义路径",
+    pathModalPlaceholder: "选择终点笔记…",
+    pathFilePrefix: "语义路径",
+    noticePathProgress: (n, percent) => `Vault Curate：正在对 ${n} 篇笔记建立语义图… ${percent}%`,
+    noticePathCancel: "取消",
+    noticePathCancelled: "Vault Curate：已取消建图。",
+    noticePathFallback: "Vault Curate：后台建图不可用，已改在主线程建图。",
+    noticePathFallbackBuilding: "Vault Curate：后台建图不可用，改在主线程建图中（界面可能短暂卡顿）…",
+    noticePathNotConnected: (k, hops) => `Vault Curate：${hops} 跳内在 K=${k} 邻域不连通——两篇笔记语义距离远（这是有价值的信息，不是错误）。`,
+    noticePathWeak: (bottleneck, threshold) => `Vault Curate：最强链路的瓶颈仅 ${bottleneck.toFixed(3)}，低于本图阈值 ${threshold.toFixed(3)}——不存在全程足够强的关联链，视为语义不连通。`,
+    noticePathSameNote: "Vault Curate：起点与终点是同一篇笔记，请选择不同的笔记。",
+    noticePathCreated: (path) => `Vault Curate：语义路径已创建 — ${path}`,
+    noticePathCreateFailed: "Vault Curate：路径 canvas 写入失败，详见 console。",
+    menuExpandInCanvas: "VC: 在此图中展开",
+    noticeExpandAdded: (added, linked) => {
+        const parts: string[] = [];
+        if (added > 0) parts.push(`展开 ${added} 篇相关笔记`);
+        if (linked > 0) parts.push(`补上 ${linked} 条与图中已有笔记的关联`);
+        return `Vault Curate：已${parts.join("，并")}`;
+    },
+    noticeExpandNothingNew: "Vault Curate：没有可新增的笔记——相似笔记都已在图中（或没有超过阈值的结果）。",
+    noticeExpandCrowded: (n) => `Vault Curate：图中已有 ${n} 个节点，建议另开新图保持可读性。`,
+    noticeExpandCollision: "Vault Curate：空间拥挤，部分新节点可能重叠，请手动整理。",
+    noticeExpandFailed: "Vault Curate：无法解析此 canvas 文件，未做任何更改。",
+    settingCanvasFolder: "关联图文件夹",
+    settingCanvasFolderDesc: "生成的 .canvas 文件存放位置。留空 = vault 根目录。如果指向被同步工具排除的文件夹，生成的图不会同步，请自行留意。",
+    menuPromote: "VC: 将紫边应用为 wikilink",
+    cmdPromote: "将紫边应用为 wikilink",
+    noticePromoteWriting: (pairs: number) =>
+        `Vault Curate：正在写入 ${pairs} 对链接…`,
+    promoteTitle: "将紫边升级为 wikilink",
+    promoteHint: "勾选的笔记会与该组来源笔记建立真正的 wikilink（按「双向写入」设置写进两篇、或仅来源笔记的相关笔记小节），该边改为灰色。未勾选的不会有任何写入。Cmd/Ctrl+悬停笔记名可预览内容。",
+    promoteApply: "应用",
+    promoteCancel: "取消",
+    promoteDismiss: "不再建议",
+    promoteSelectedCount: (n: number) => `已选 ${n} 对`,
+    noticePromoteEmpty: "Vault Curate：此图没有可升级的紫边。",
+    noticePromoteInvalidCanvas: "Vault Curate：无法读取此 canvas 文件。",
+    noticePromoteDone: (links: number, edges: number) =>
+        `Vault Curate：已写入 ${links} 条 wikilink，更新 ${edges} 条边。`,
+    noticePromoteSkipped: (pairs: number) =>
+        `Vault Curate：已跳过 ${pairs} 对（图在对话框打开期间被修改）。`,
+    noticePromotePartial: (n: number) =>
+        `Vault Curate：${n} 次写入失败，详见开发者 console。`,
+    noticePromoteCanvasFailed: "Vault Curate：链接已写入，但图更新失败；下次执行升级扫描时会自动校正。",
+    relatedSectionDefault: "## 相关笔记",
+    settingRelatedSection: "相关笔记小节标题",
+    settingRelatedSectionDesc: "升级的 wikilink 会写在这个标题下（笔记没有此节时自动在文末新建）。留空 = 跟随界面语言。",
+    settingPromoteBidirectional: "双向写入",
+    settingPromoteBidirectionalDesc: "升级时把 wikilink 同时写进两篇笔记。关闭后只写入边的来源笔记。",
+    noticeIndexCorrupt: "Vault Curate：索引文件已损坏，请重建索引。",
+    indexingInProgress: "Vault Curate：正在索引中，请稍候",
+    viewDisplayName: "语义搜索",
+    mocTitleSearch: (query) => `MOC：${query}`,
+    mocDescSearch: (query) => `「${query}」的搜索结果`,
+    mocTitleRelated: (title) => `MOC：${title}`,
+    mocDescRelated: (title) => `与「${title}」相关的笔记`,
+    mocTitleGlobal: "MOC：全局发掘",
+    mocDescGlobal: "与现有热门笔记最相关的冷门笔记",
+    instructNav: "浏览",
+    instructOpen: "打开笔记",
+    instructOpenTab: "在新标签页打开",
+    instructDismiss: "关闭",
+    languageLabel: "简体中文",
+    cmdGenerateMocGrouped: "生成 MOC（主题分组）",
+    mocGroupedDescription: (query) => `主题分组的 MOC，来自查询：${query}`,
+    mocMiscellaneous: "其他",
+    mocMiscIntro: "与查询相关但未归入上述分组的笔记。",
+    mocClusteringStatus: (current, total) => `正在分组 ${current}/${total} 篇笔记…`,
+    mocNamingStatus: (current, total) => `正在命名分组 ${current}/${total}…`,
+    mocTooFewResults: "结果少于 5 条，改为生成扁平 MOC",
+    mocClusteringDegenerate: "结果主题过于相近，改为生成扁平 MOC",
+    mocTooManyResults: (n) => `结果过多（${n} 条），请先用标签或文件夹过滤`,
+    mocConfirmLarge: (n, seconds) => `${n} 篇笔记约需 ${seconds} 秒整理，是否继续？`,
+    mocFallbackGroup: (n) => `分组 ${n}`,
+    mocCanceled: "MOC 生成已取消，已保存部分结果。",
+    mocLlmUnavailable: "LLM 不可用，分组已保存但未命名",
+    mocClusterNamingPrompt: (languageLabel, notesBlock) => `你正在整理一个知识库。以下笔记因为讨论相关主题而被分为一组。根据共同主题，产出：
+
+- title：精炼标题（3-8 个${languageLabel}字）
+- intro：1-2 句介绍（40-80 字），描述这组笔记的共同主题
+
+笔记：
+${notesBlock}
+
+只回复有效的 JSON（使用${languageLabel}）：
+{"title": "...", "intro": "..."}`,
+    llmPrompt: (title, content) => `任务：为笔记生成 description 和 tags。
+
+规则：
+1. description 必须使用简体中文，50-100 字，禁止使用英文或繁体中文
+2. description 必须描述具体内容，禁止重复标题
+3. 只描述笔记的内容主题，禁止描述笔记的格式或结构（如表格、统计、图表、字段）
+4. tags 必须使用简体中文，3-5 个，不要 # 前缀，不能有空格
+5. 只回复 JSON，不要解释
+
+{"description": "...", "tags": ["...", "...", "..."]}
+
+笔记标题：${title}
+
+笔记内容：
+${content}`,
+};
+
+const locales: Record<string, Locale> = { en, "zh-TW": zhTW, "zh-CN": zhCN };
 
 export function getLocale(): Locale {
-    // Use moment locale set by Obsidian (avoids direct localStorage access)
+    // Use moment locale set by Obsidian (avoids direct localStorage access).
+    // moment 的小写 locale 形如 "zh-cn" / "zh-tw" —— 按地区分发简繁。
     const lang = window.moment?.locale?.() ?? "en";
-    if (lang.startsWith("zh")) return zhTW;
+    if (lang.startsWith("zh")) {
+        // 简体中文：大陆（zh-cn）、新加坡（zh-sg）、通用简体（zh-hans）
+        if (lang === "zh-cn" || lang === "zh-sg" || lang.startsWith("zh-hans")) {
+            return zhCN;
+        }
+        // 繁体：zh-tw / zh-hk / zh-hant，以及不带地区的裸 "zh"
+        // （保持原作者的默认，避免改变既有繁体用户的体验）
+        return zhTW;
+    }
     return locales[lang] ?? en;
 }
 
