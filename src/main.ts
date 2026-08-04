@@ -13,9 +13,11 @@ import {
     VaultSearchData,
     VaultSearchSettings,
     DEFAULT_SETTINGS,
+    SearchResult,
 } from "./types";
 import { Indexer } from "./indexer";
 import { SearchModal } from "./searcher";
+import { searchHybrid } from "./search/searchHybrid";
 import { SearchView, VIEW_TYPE_SEARCH } from "./search-view";
 import { VaultSearchSettingTab } from "./settings";
 import { findSimilarSqlite } from "./search/discoverSqlite";
@@ -601,6 +603,26 @@ export default class VaultSearchPlugin extends Plugin {
         if (view) {
             view.showResults(topResults, t.similarTo(note.title), file.path);
         }
+    }
+
+    /**
+     * Public entrypoint for `obsidian eval` / external scripting: run the full
+     * hybrid search (BM25 + semantic + fuzzy title, RRF-fused) and return the
+     * ranked results. Reach from the Obsidian CLI via:
+     *   obsidian eval code="app.plugins.plugins['vault-curate'].search('q').then(r=>JSON.stringify(r))"
+     * Returns [] when the backend (store/provider) isn't ready yet.
+     */
+    async search(query: string): Promise<SearchResult[]> {
+        if (!this.store || !this.provider) return [];
+        return searchHybrid(
+            query,
+            { store: this.store, provider: this.provider },
+            {
+                topResults: this.settings.topResults,
+                searchScope: this.settings.searchScope,
+                tierResolver: this.tierResolver(),
+            },
+        );
     }
 
     // ── Semantic Canvas Graph (006) ────────────────────

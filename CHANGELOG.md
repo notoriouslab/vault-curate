@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **Programmatic search entrypoint.** The plugin instance now exposes a public `search(query)` method that runs the full hybrid search (BM25 + semantic + fuzzy title, RRF-fused) and returns the ranked results — so the Obsidian CLI (`obsidian eval`) and external scripts/agents can query the vault semantically without the GUI:
+  ```bash
+  obsidian eval code="app.plugins.plugins['vault-curate'].search('query').then(r=>JSON.stringify(r))"
+  ```
+  Pure addition; no change to existing behavior. Returns `[]` when the backend (store/provider) isn't ready yet.
+
 ## 1.4.6 — 2026-07-30
 
 ### Fixed
