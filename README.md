@@ -3,6 +3,7 @@
 # Vault Curate
 
 [![Release](https://img.shields.io/github/v/release/notoriouslab/vault-curate?style=flat-square)](https://github.com/notoriouslab/vault-curate/releases)
+[![Downloads](https://img.shields.io/badge/dynamic/json?style=flat-square&logo=obsidian&color=7C3AED&label=downloads&query=%24%5B%22vault-curate%22%5D.downloads&url=https%3A%2F%2Fraw.githubusercontent.com%2Fobsidianmd%2Fobsidian-releases%2Fmaster%2Fcommunity-plugin-stats.json)](https://obsidian.md/plugins?id=vault-curate)
 [![License](https://img.shields.io/github/license/notoriouslab/vault-curate?style=flat-square)](LICENSE)
 [![Obsidian Desktop](https://img.shields.io/badge/Obsidian-Desktop-7C3AED?style=flat-square&logo=obsidian)](https://obsidian.md/)
 [![WebGPU Accelerated](https://img.shields.io/badge/WebGPU-Accelerated-FF6A00?style=flat-square)]()
@@ -158,6 +159,27 @@ From the Command Palette (Cmd/Ctrl+P), type `Vault Curate:` to see them all.
 | `Generate MOC (topic-grouped)` | Auto-cluster results by topic, AI-name each group, output a table-of-contents note | AI curation on |
 
 Right-click menus expose these directly on a note: **VC: Find similar notes**, **VC: Generate relation graph**, **VC: Generate semantic path**, **VC: Expand in this graph** (while a `.canvas` is open), and **VC: Generate description** (AI curation on). Right-clicking a `.canvas` file offers **VC: Apply purple edges as wikilinks**.
+
+### Scripting & agents (Obsidian CLI)
+
+Obsidian 1.12+ ships an official CLI, and Vault Curate is scriptable through it — the same search the panel runs, callable from your terminal, shell scripts, or AI agents:
+
+```bash
+# Semantic search from the terminal (returns ranked results as JSON)
+obsidian vault="your-vault" eval code="app.plugins.plugins['vault-curate'].search('embedding models').then(r => JSON.stringify(r))"
+
+# Only search forgotten (Cold) notes
+obsidian vault="your-vault" eval code="app.plugins.plugins['vault-curate'].search('embedding models', { scope: 'cold' }).then(r => JSON.stringify(r))"
+```
+
+`search(query, { scope? })` searches the whole vault by default (`scope: "all"`); pass `"hot"` or `"cold"` to narrow it. On invalid arguments or an index backend that isn't ready yet it throws instead of returning an empty list, so `[]` always genuinely means "no matches" — useful, because the CLI always exits 0.
+
+Every command in the table above is also reachable by id:
+
+```bash
+obsidian vault="your-vault" command id="vault-curate:update-index"
+obsidian commands filter=vault-curate   # list all ids
+```
 
 ### Settings
 

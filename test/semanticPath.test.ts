@@ -171,7 +171,11 @@ describe('buildKnnGraph（009 D1）', () => {
         expect(capped.get('a')!.map(e => e.path).sort()).toEqual(['b', 'f/x']);
     });
 
-    it('效能：1k 節點建圖 + 尋路 < 1s', () => {
+    // 門檻 3s 而非 1s：全套件並行時 worker 搶 CPU，單獨跑 ~0.3s 的本測試
+    // 會膨脹到 1.1-2.6s（實測），1s 門檻抓的是機器負載不是回歸。
+    // 真正要擋的複雜度回歸（如 O(n²k) 變 O(n³)）在 1k 節點下是數十秒起跳，
+    // 3s 仍然擋得住。
+    it('效能：1k 節點建圖 + 尋路 < 3s', () => {
         const notes = Array.from({ length: 1000 }, (_, i) => {
             const vec = new Float32Array(64);
             for (let d = 0; d < 64; d++) vec[d] = Math.sin(i * 37.1 + d * 5.3);
@@ -184,7 +188,7 @@ describe('buildKnnGraph（009 D1）', () => {
         const t0 = performance.now();
         const graph = buildKnnGraph(notes, 10);
         widestPath(graph, 'n0', 'n999');
-        expect(performance.now() - t0).toBeLessThan(1000);
+        expect(performance.now() - t0).toBeLessThan(3000);
     });
 });
 

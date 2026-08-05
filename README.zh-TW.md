@@ -3,6 +3,7 @@
 # Vault Curate
 
 [![Release](https://img.shields.io/github/v/release/notoriouslab/vault-curate?style=flat-square)](https://github.com/notoriouslab/vault-curate/releases)
+[![Downloads](https://img.shields.io/badge/dynamic/json?style=flat-square&logo=obsidian&color=7C3AED&label=downloads&query=%24%5B%22vault-curate%22%5D.downloads&url=https%3A%2F%2Fraw.githubusercontent.com%2Fobsidianmd%2Fobsidian-releases%2Fmaster%2Fcommunity-plugin-stats.json)](https://obsidian.md/plugins?id=vault-curate)
 [![License](https://img.shields.io/github/license/notoriouslab/vault-curate?style=flat-square)](LICENSE)
 [![Obsidian Desktop](https://img.shields.io/badge/Obsidian-Desktop-7C3AED?style=flat-square&logo=obsidian)](https://obsidian.md/)
 [![WebGPU 加速](https://img.shields.io/badge/WebGPU-加速-FF6A00?style=flat-square)]()
@@ -158,6 +159,27 @@ AI 模型在「**設定 → AI 整理**」獨立指定（本機 Ollama，或任�
 | `生成 MOC（主題分群）` | 自動按主題分組、AI 命名，產出目錄筆記 | 需啟用 AI 整理 |
 
 筆記右鍵選單：**VC: 尋找相似筆記**、**VC: 生成關聯圖**、**VC: 生成語意路徑**、**VC: 在此圖展開**（canvas 開啟時）、**VC: 生成 description**（需啟用 AI 整理）。對 `.canvas` 檔右鍵另有 **VC: 套用紫邊為 wikilink**。
+
+### 腳本與 AI agent（Obsidian CLI）
+
+Obsidian 1.12 起內建官方 CLI，Vault Curate 可以直接被它腳本化：搜尋面板跑的那套搜尋，從終端機、shell 腳本或 AI agent 都呼叫得到：
+
+```bash
+# 從終端機做語意搜尋（回傳排序後的 JSON 結果）
+obsidian vault="你的vault" eval code="app.plugins.plugins['vault-curate'].search('嵌入模型').then(r => JSON.stringify(r))"
+
+# 只搜被遺忘的（Cold）筆記
+obsidian vault="你的vault" eval code="app.plugins.plugins['vault-curate'].search('嵌入模型', { scope: 'cold' }).then(r => JSON.stringify(r))"
+```
+
+`search(query, { scope? })` 預設搜整個 vault（`scope: "all"`），傳 `"hot"` 或 `"cold"` 可縮小範圍。參數不合法、或索引後端還沒就緒時，它會直接拋錯而不是回空陣列：所以拿到 `[]` 一定代表「真的沒有結果」（CLI 的 exit code 永遠是 0，能不能從輸出分辨錯誤很重要）。
+
+上表每個命令也都能用 id 觸發：
+
+```bash
+obsidian vault="你的vault" command id="vault-curate:update-index"
+obsidian commands filter=vault-curate   # 列出全部 id
+```
 
 ### 設定
 

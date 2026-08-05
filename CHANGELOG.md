@@ -1,14 +1,17 @@
 # Changelog
 
-## Unreleased
+## 1.4.7 — 2026-08-06
 
 ### Added
-- **Simplified Chinese (zh-CN) interface.** The plugin previously mapped every `zh*` locale to Traditional Chinese. It now ships a dedicated Simplified Chinese locale (mainland wording: 服务器 / 文件夹 / 搜索 / 默认 / 语义, etc.) and `getLocale()` distinguishes Simplified (`zh-cn`, `zh-sg`, `zh-hans`) from Traditional (`zh-tw`, `zh-hk`, `zh-hant`). The Simplified locale's AI-curation prompts (description / MOC naming) also request Simplified-Chinese output.
-- **Programmatic search entrypoint.** The plugin instance now exposes a public `search(query)` method that runs the full hybrid search (BM25 + semantic + fuzzy title, RRF-fused) and returns the ranked results — so the Obsidian CLI (`obsidian eval`) and external scripts/agents can query the vault semantically without the GUI:
+- **Simplified Chinese (zh-CN) interface** (#10, contributed by @woheme). The plugin previously mapped every `zh*` locale to Traditional Chinese. It now ships a dedicated Simplified Chinese locale (mainland wording: 服务器 / 文件夹 / 搜索 / 默认 / 语义, etc.) and `getLocale()` distinguishes Simplified (`zh-cn`, `zh-sg`, `zh-hans`) from Traditional (`zh-tw`, `zh-hk`, `zh-hant`). The Simplified locale's AI-curation prompts (description / MOC naming) also request Simplified-Chinese output.
+- **Programmatic search entrypoint** (#9, contributed by @woheme). The plugin instance now exposes a public `search(query)` method that runs the full hybrid search (BM25 + semantic + fuzzy title, RRF-fused) and returns the ranked results — so the Obsidian CLI (`obsidian eval`) and external scripts/agents can query the vault semantically without the GUI:
   ```bash
   obsidian eval code="app.plugins.plugins['vault-curate'].search('query').then(r=>JSON.stringify(r))"
   ```
   Pure addition; no change to existing behavior. Accepts an optional `{ scope }` (`"hot"` / `"cold"` / `"all"`) which defaults to `"all"` — programmatic callers expect the whole vault, independent of the GUI's configured default scope. Throws on invalid arguments (non-string query, unknown scope) and when the backend isn't ready yet, so scripts can tell those apart from "no matches" (the CLI always exits 0).
+
+### Docs
+- README (EN/zh-TW) gains a **Scripting & agents (Obsidian CLI)** reference section and a community-downloads badge.
 
 ## 1.4.6 — 2026-07-30
 
