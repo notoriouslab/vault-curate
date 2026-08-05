@@ -1145,6 +1145,11 @@ const locales: Record<string, Locale> = { en, "zh-TW": zhTW, "zh-CN": zhCN };
 export function getLocale(): Locale {
     // Use moment locale set by Obsidian (avoids direct localStorage access).
     // moment 的小写 locale 形如 "zh-cn" / "zh-tw" —— 按地区分发简繁。
+    // ⚠ Migration trap: Obsidian 1.8+ offers getLanguage(), whose value space
+    // differs from moment's — there bare "zh" means SIMPLIFIED ("zh-TW" is
+    // Traditional), while in moment's space we map bare "zh" to Traditional.
+    // Porting these rules to getLanguage() verbatim would flip Simplified
+    // users back to Traditional. (Also: minAppVersion is currently < 1.8.)
     const lang = window.moment?.locale?.() ?? "en";
     if (lang.startsWith("zh")) {
         // 简体中文：大陆（zh-cn）、新加坡（zh-sg）、通用简体（zh-hans）

@@ -612,13 +612,22 @@ export default class VaultSearchPlugin extends Plugin {
      *   obsidian eval code="app.plugins.plugins['vault-curate'].search('q').then(r=>JSON.stringify(r))"
      * Scope defaults to "all" (not the GUI's configured scope): programmatic
      * callers expect the whole vault unless they ask otherwise.
-     * Throws when the backend (store/provider) isn't ready — the CLI always
-     * exits 0, so an empty result must mean "no matches", never "not ready".
+     * Throws on invalid input and when the backend (store/provider) isn't
+     * ready — the CLI always exits 0, so an empty result must mean
+     * "no matches", never "not ready" or "bad arguments".
      */
     async search(
         query: string,
         opts?: { scope?: "hot" | "cold" | "all" },
     ): Promise<SearchResult[]> {
+        // TS types don't bind external JS callers (obsidian eval) — validate.
+        if (typeof query !== "string") {
+            throw new Error(`vault-curate: search() query must be a string, got ${typeof query}`);
+        }
+        const scope = opts?.scope ?? "all";
+        if (scope !== "hot" && scope !== "cold" && scope !== "all") {
+            throw new Error(`vault-curate: search() scope must be "hot" | "cold" | "all", got ${JSON.stringify(scope)}`);
+        }
         if (!this.store || !this.provider) {
             throw new Error("vault-curate: backend not ready (still initializing, or failed to load — check the app console)");
         }
@@ -627,7 +636,7 @@ export default class VaultSearchPlugin extends Plugin {
             { store: this.store, provider: this.provider },
             {
                 topResults: this.settings.topResults,
-                searchScope: opts?.scope ?? "all",
+                searchScope: scope,
                 tierResolver: this.tierResolver(),
             },
         );
