@@ -8,7 +8,7 @@
   ```bash
   obsidian eval code="app.plugins.plugins['vault-curate'].search('query').then(r=>JSON.stringify(r))"
   ```
-  Pure addition; no change to existing behavior. Returns `[]` when the backend (store/provider) isn't ready yet.
+  Pure addition; no change to existing behavior. Accepts an optional `{ scope }` (`"hot"` / `"cold"` / `"all"`) which defaults to `"all"` — programmatic callers expect the whole vault, independent of the GUI's configured default scope. Throws when the backend isn't ready yet, so scripts can tell "not ready" apart from "no matches" (the CLI always exits 0).
 
 ## 1.4.6 — 2026-07-30
 

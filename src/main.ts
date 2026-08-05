@@ -610,16 +610,24 @@ export default class VaultSearchPlugin extends Plugin {
      * hybrid search (BM25 + semantic + fuzzy title, RRF-fused) and return the
      * ranked results. Reach from the Obsidian CLI via:
      *   obsidian eval code="app.plugins.plugins['vault-curate'].search('q').then(r=>JSON.stringify(r))"
-     * Returns [] when the backend (store/provider) isn't ready yet.
+     * Scope defaults to "all" (not the GUI's configured scope): programmatic
+     * callers expect the whole vault unless they ask otherwise.
+     * Throws when the backend (store/provider) isn't ready — the CLI always
+     * exits 0, so an empty result must mean "no matches", never "not ready".
      */
-    async search(query: string): Promise<SearchResult[]> {
-        if (!this.store || !this.provider) return [];
+    async search(
+        query: string,
+        opts?: { scope?: "hot" | "cold" | "all" },
+    ): Promise<SearchResult[]> {
+        if (!this.store || !this.provider) {
+            throw new Error("vault-curate: backend not ready (still initializing, or failed to load — check the app console)");
+        }
         return searchHybrid(
             query,
             { store: this.store, provider: this.provider },
             {
                 topResults: this.settings.topResults,
-                searchScope: this.settings.searchScope,
+                searchScope: opts?.scope ?? "all",
                 tierResolver: this.tierResolver(),
             },
         );
