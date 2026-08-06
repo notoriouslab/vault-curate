@@ -32,7 +32,9 @@ export type HybridWeights = { bm25: number; semantic: number; fuzzy: number };
 
 export type SearchHybridDeps = {
     store: SQLiteStore;
-    provider: EmbeddingProvider;
+    /** 015: null on mobile when no remote endpoint is configured — the
+     *  semantic leg is skipped and BM25 + fuzzy carry the search. */
+    provider: EmbeddingProvider | null;
 };
 
 export type SearchHybridSettings = {
@@ -75,10 +77,18 @@ export async function searchHybrid(
         console.debug(`vault-curate: BM25 ${m.size} hits (${Date.now() - tBm25}ms)`);
         return m;
     });
-    const semanticP = runSemantic(deps.store, deps.provider, q).then((m) => {
-        console.debug(`vault-curate: semantic ${m.size} hits (${Date.now() - tSemantic}ms)`);
-        return m;
-    });
+    // 015: no provider → the semantic leg is a no-op (layer 0, expected on
+    // mobile); a present-but-failing provider degrades to keyword-only
+    // instead of poisoning the whole Promise.all (rrfFuse skips empty maps).
+    const semanticP = deps.provider === null
+        ? Promise.resolve(new Map<string, number>())
+        : runSemantic(deps.store, deps.provider, q).then((m) => {
+            console.debug(`vault-curate: semantic ${m.size} hits (${Date.now() - tSemantic}ms)`);
+            return m;
+        }).catch((e) => {
+            console.warn("vault-curate: semantic leg failed, falling back to keyword-only", e);
+            return new Map<string, number>();
+        });
     const fuzzyP = Promise.resolve(fuzzyTitleSearch(q, deps.store.getAllTitles(), candidatePool)).then((m) => {
         console.debug(`vault-curate: fuzzy ${m.size} hits (${Date.now() - tFuzzy}ms)`);
         return m;

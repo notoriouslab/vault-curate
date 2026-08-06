@@ -6,5 +6,5 @@
   "description": "Find, connect, rediscover your notes. Local semantic search (BM25 + embeddings), relation graph + semantic paths for related, unlinked notes, Hot/Cold surfacing of forgotten ones, strong Chinese/CJK. A second brain, no API keys, optional AI curation.",
   "author": "Jacob Mei",
   "authorUrl": "https://github.com/notoriouslab",
-  "isDesktopOnly": true
+  "isDesktopOnly": false
 }

@@ -569,7 +569,14 @@ export class SQLiteStore {
     }
 
     /** Force-flush to disk. Returns when bytes are persisted. */
+    /** 015 spike: read-only mode — flush becomes a no-op so the on-disk
+     *  index can never be modified by this instance. Set by the mobile
+     *  branch right after open(); the full opts-based readOnly lands in
+     *  Task 2. */
+    readOnly = false;
+
     async flush(): Promise<void> {
+        if (this.readOnly) return;
         if (this.disposed) return;
         if (this.flushInFlight) return this.flushInFlight;
         this.flushInFlight = (async () => {

@@ -1,4 +1,4 @@
-import { FileView, Menu, normalizePath, Notice, Plugin, TFile, TFolder, requestUrl } from "obsidian";
+import { FileView, Menu, normalizePath, Notice, Platform, Plugin, TFile, TFolder, requestUrl } from "obsidian";
 import workerSource from "@inline/worker";
 import { SQLiteStore, type PersistAdapter } from "./storage/SQLiteStore";
 import { DENOISE_VERSION } from "./indexer/denoise";
@@ -97,26 +97,33 @@ export default class VaultSearchPlugin extends Plugin {
         // `app://obsidian.md` is not permitted to make against github.com.
         try {
             const sqlWasm = await loadWasmAsset(this, "sql-wasm.wasm", SQL_WASM_URL);
-            const ortWasm = await loadWasmAsset(
-                this,
-                "ort-wasm-simd-threaded.wasm",
-                ORT_WASM_URL,
-            );
             this.sqlWasmBinary = sqlWasm;
-            // Copy into a fresh ArrayBuffer (Uint8Array.buffer may be a
-            // SharedArrayBuffer in some runtimes; postMessage transfer list
-            // and ORT's wasmBinary both expect ArrayBuffer).
-            const ortAb = new ArrayBuffer(ortWasm.byteLength);
-            new Uint8Array(ortAb).set(ortWasm);
-            this.ortWasmBinary = ortAb;
+
+            // 015 spike: mobile skips ORT / provider / indexer entirely —
+            // query-only mode over the desktop-built index.
+            if (!Platform.isMobile) {
+                const ortWasm = await loadWasmAsset(
+                    this,
+                    "ort-wasm-simd-threaded.wasm",
+                    ORT_WASM_URL,
+                );
+                // Copy into a fresh ArrayBuffer (Uint8Array.buffer may be a
+                // SharedArrayBuffer in some runtimes; postMessage transfer list
+                // and ORT's wasmBinary both expect ArrayBuffer).
+                const ortAb = new ArrayBuffer(ortWasm.byteLength);
+                new Uint8Array(ortAb).set(ortWasm);
+                this.ortWasmBinary = ortAb;
+            }
 
             this.store = await this.openStore();
-            this.provider = await this.buildProvider();
-            this.indexer = new Indexer(this, this.store, this.provider);
-            // 014 D8: feed single-file mutations to the k-NN graph maintainer.
-            this.indexer.onMutation = (type, path) => {
-                if (this.store) this.knnManager.onMutation(type, path, this.store);
-            };
+            if (!Platform.isMobile) {
+                this.provider = await this.buildProvider();
+                this.indexer = new Indexer(this, this.store, this.provider);
+                // 014 D8: feed single-file mutations to the k-NN graph maintainer.
+                this.indexer.onMutation = (type, path) => {
+                    if (this.store) this.knnManager.onMutation(type, path, this.store);
+                };
+            }
         } catch (err) {
             console.error("vault-curate: backend init failed", err);
             new Notice(
@@ -148,7 +155,8 @@ export default class VaultSearchPlugin extends Plugin {
             id: "semantic-search",
             name: t.cmdSemanticSearch,
             callback: () => {
-                if (!this.store || !this.provider) {
+                // 015: mobile searches without a provider (BM25 + fuzzy).
+                if (!this.store || (!this.provider && !Platform.isMobile)) {
                     new Notice(t.noticeIndexEmpty);
                     return;
                 }
@@ -411,7 +419,9 @@ export default class VaultSearchPlugin extends Plugin {
             }
             const indexed = this.store.getMeta("last_indexed_at");
             const dismissed = this.store.getMeta("onboarding_dismissed");
-            if (!indexed && !dismissed) {
+            // 015: onboarding is a desktop flow (its first line writes meta;
+            // mobile is read-only and index-less setup makes no sense there).
+            if (!indexed && !dismissed && !Platform.isMobile) {
                 this.showOnboardingModal();
             }
             // 007 D2: upgrade re-embed scans live at the top of update(), but
@@ -425,7 +435,8 @@ export default class VaultSearchPlugin extends Plugin {
             const denoiseStale = this.store.getMeta("denoise_version") !== DENOISE_VERSION;
             const t2sStale = this.store.getMeta("t2s_version") !== T2S_VERSION;
             const descPending = this.store.countDescBackfillPending(this.settings.minDescChars) > 0;
-            if (indexed && (denoiseStale || t2sStale || descPending)) {
+            // 015: staleness auto-update is a full-embed write path — desktop only.
+            if (indexed && !Platform.isMobile && (denoiseStale || t2sStale || descPending)) {
                 console.debug(`vault-curate: upgrade work pending (denoiseStale=${denoiseStale}, t2sStale=${t2sStale}, descBackfill=${descPending}) — kicking incremental update`);
                 void this.updateIndex();
             }
@@ -1088,10 +1099,15 @@ export default class VaultSearchPlugin extends Plugin {
             exists: (path) => this.app.vault.adapter.exists(path),
         };
         const store = await SQLiteStore.open(adapter, this.dbPath(), this.sqlWasmBinary);
+        // 015 spike: mobile is read-only — flush no-ops, and the legacy
+        // index.json cleanup (an adapter.remove) is desktop housekeeping.
+        store.readOnly = Platform.isMobile;
         // 007 D5: inject the desc/body blend weight (store must not read
         // plugin settings itself). Re-injected on every saveSettings().
         store.setComposeAlpha(this.settings.descWeight);
-        await this.dropLegacyIndexJson();
+        if (!Platform.isMobile) {
+            await this.dropLegacyIndexJson();
+        }
         return store;
     }
 

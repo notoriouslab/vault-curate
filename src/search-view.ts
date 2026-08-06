@@ -1,4 +1,4 @@
-import { ItemView, Keymap, Menu, Notice, TFile, WorkspaceLeaf } from "obsidian";
+import { ItemView, Keymap, Menu, Notice, Platform, TFile, WorkspaceLeaf } from "obsidian";
 import type { PaneType } from "obsidian";
 
 // Obsidian's dragManager is not in public types but exists at runtime
@@ -195,7 +195,9 @@ export class SearchView extends ItemView {
     private async executeSearch(query: string) {
         this.currentQuery = query;
 
-        if (!this.plugin.store || !this.plugin.provider) {
+        // 015: mobile searches without a provider (BM25 + fuzzy); desktop
+        // keeps requiring one so a broken provider stays loud, not silent.
+        if (!this.plugin.store || (!this.plugin.provider && !Platform.isMobile)) {
             this.searchStatusEl.setText(t.indexEmpty);
             return;
         }

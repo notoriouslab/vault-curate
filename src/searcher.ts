@@ -1,4 +1,4 @@
-import { Keymap, SuggestModal, TFile } from "obsidian";
+import { Keymap, Platform, SuggestModal, TFile } from "obsidian";
 import type VaultSearchPlugin from "./main";
 import { SearchResult } from "./types";
 import { renderResultItem } from "./utils";
@@ -53,7 +53,8 @@ export class SearchModal extends SuggestModal<SearchResult> {
     }
 
     private async executeSearch(query: string) {
-        if (!this.plugin.store || !this.plugin.provider) return;
+        // 015: mobile searches without a provider (BM25 + fuzzy).
+        if (!this.plugin.store || (!this.plugin.provider && !Platform.isMobile)) return;
         try {
             if (query !== this.lastQuery) return;
             const results = await searchHybrid(
