@@ -21,7 +21,15 @@ import { searchHybrid } from "./search/searchHybrid";
 import { SearchView, VIEW_TYPE_SEARCH } from "./search-view";
 import { VaultSearchSettingTab } from "./settings";
 import { findSimilarSqlite } from "./search/discoverSqlite";
-import { buildGraphCanvas, graphCanvasFileName, type CanvasJson } from "./canvas/graphCanvas";
+import {
+    buildGraphCanvas,
+    graphCanvasFileName,
+    buildResultsCanvas,
+    resultsCanvasFileName,
+    sanitizeQueryBasename,
+    RESULTS_CANVAS_CAP,
+    type CanvasJson,
+} from "./canvas/graphCanvas";
 import { buildPathCanvas, pathCanvasFileName } from "./canvas/pathCanvas";
 import { expandCanvas, CROWDED_NODE_COUNT, type ExpandResult } from "./canvas/expandCanvas";
 import {
@@ -695,6 +703,33 @@ export default class VaultSearchPlugin extends Plugin {
     }
 
     // ── Semantic Canvas Graph (006) ────────────────────
+
+    /** 017: export a search-result snapshot as a query-centered canvas.
+     *  Takes the {query, results} pair captured at result-landing time
+     *  (never the live input box — red-team C1), caps at the readability
+     *  limit with a loud truncation notice (never silent). */
+    async exportResultsCanvas(snapshot: { query: string; results: SearchResult[] }): Promise<void> {
+        const { query, results } = snapshot;
+        if (results.length === 0) return; // view guards; belt and suspenders
+        const shown = results.slice(0, RESULTS_CANVAS_CAP);
+        const tierResolver = this.tierResolver();
+        const canvas = buildResultsCanvas(
+            query,
+            shown.map((r) => ({ path: r.path, tier: tierResolver(r.path), score: r.score })),
+        );
+        const { folder, existingNames } = await this.resolveCanvasFolder();
+        const stamp = window.moment().format("YYYYMMDD-HHmmss");
+        const name = resultsCanvasFileName(
+            normalizePath(sanitizeQueryBasename(query)),
+            stamp,
+            existingNames,
+        );
+        const path = await this.writeAndOpenCanvas(folder, name, canvas);
+        if (results.length > shown.length) {
+            new Notice(t.noticeResultsCanvasTruncated(shown.length, results.length));
+        }
+        new Notice(t.noticeResultsCanvasCreated(path));
+    }
 
     /** Generate an editable .canvas neighborhood graph for `file` and open
      *  it. Shared by the command palette, file-menu, and Discover sidebar
