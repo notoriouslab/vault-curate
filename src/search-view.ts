@@ -204,6 +204,9 @@ export class SearchView extends ItemView {
 
         try {
             if (query !== this.currentQuery) return;
+            // 015: a mid-query semantic failure degrades to keyword-only —
+            // say so in the status line instead of failing the whole search.
+            let degraded = false;
             const results = await searchHybrid(
                 query,
                 { store: this.plugin.store, provider: this.plugin.provider },
@@ -211,12 +214,17 @@ export class SearchView extends ItemView {
                     topResults: this.plugin.settings.topResults,
                     searchScope: this.plugin.settings.searchScope,
                     tierResolver: this.plugin.tierResolver(),
+                    onDegrade: () => { degraded = true; },
                 },
             );
             if (query !== this.currentQuery) return;
             this.lastResults = results;
             this.renderSearchResults();
-            this.searchStatusEl.setText(t.searchResults(this.lastResults.length));
+            this.searchStatusEl.setText(
+                degraded
+                    ? `${t.searchResults(this.lastResults.length)} · ${t.semanticDegraded}`
+                    : t.searchResults(this.lastResults.length),
+            );
         } catch (e) {
             this.searchStatusEl.setText(t.searchFailed);
             console.error("vault-curate: hybrid search failed", e);

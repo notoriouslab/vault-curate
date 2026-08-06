@@ -61,6 +61,8 @@ export interface Locale {
     searchResults: (n: number) => string;
     indexEmpty: string;
     searchFailed: string;
+    /** 015: semantic leg failed mid-query; results are keyword-only. */
+    semanticDegraded: string;
     searching: string;
     // Commands
     cmdSemanticSearch: string;
@@ -322,6 +324,7 @@ const en: Locale = {
     searchResults: (n) => `${n} results`,
     indexEmpty: "Index is empty. Run 'Rebuild index' first.",
     searchFailed: "Search failed",
+    semanticDegraded: "Semantic search temporarily unavailable — showing keyword results",
     searching: "Searching...",
     cmdSemanticSearch: "Semantic search (modal)",
     cmdOpenPanel: "Open search panel",
@@ -614,6 +617,7 @@ const zhTW: Locale = {
     searchResults: (n) => `${n} 筆結果`,
     indexEmpty: "索引為空，請先執行「重建索引」",
     searchFailed: "搜尋失敗",
+    semanticDegraded: "語意搜尋暫時不可用，以下為關鍵字結果",
     searching: "搜尋中...",
     cmdSemanticSearch: "語意搜尋（彈窗）",
     cmdOpenPanel: "開啟搜尋面板",
@@ -909,6 +913,7 @@ const zhCN: Locale = {
     searchResults: (n) => `${n} 条结果`,
     indexEmpty: "索引为空，请先执行「重建索引」",
     searchFailed: "搜索失败",
+    semanticDegraded: "语义搜索暂时不可用，以下为关键字结果",
     searching: "搜索中...",
     cmdSemanticSearch: "语义搜索（弹窗）",
     cmdOpenPanel: "打开搜索面板",

@@ -42,6 +42,10 @@ export type SearchHybridSettings = {
     searchScope: 'hot' | 'cold' | 'all';
     /** 010 D5: query-time tier derivation; stored tier is the fallback. */
     tierResolver?: (path: string) => 'hot' | 'cold';
+    /** 015: fired when a present-but-failing retrieval leg degrades to
+     *  keyword-only, so the UI can say so instead of failing silently.
+     *  NOT fired for a null provider — layer 0 is a mode, not a failure. */
+    onDegrade?: (leg: 'semantic') => void;
 };
 
 export function readHybridWeights(store: SQLiteStore): HybridWeights {
@@ -87,6 +91,7 @@ export async function searchHybrid(
             return m;
         }).catch((e) => {
             console.warn("vault-curate: semantic leg failed, falling back to keyword-only", e);
+            settings.onDegrade?.("semantic");
             return new Map<string, number>();
         });
     const fuzzyP = Promise.resolve(fuzzyTitleSearch(q, deps.store.getAllTitles(), candidatePool)).then((m) => {

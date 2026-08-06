@@ -639,7 +639,9 @@ export default class VaultSearchPlugin extends Plugin {
         if (scope !== "hot" && scope !== "cold" && scope !== "all") {
             throw new Error(`vault-curate: search() scope must be "hot" | "cold" | "all", got ${JSON.stringify(scope)}`);
         }
-        if (!this.store || !this.provider) {
+        // 015: mobile serves keyword+fuzzy search without a provider; desktop
+        // keeps treating a missing provider as not-ready (loud, not silent).
+        if (!this.store || (!this.provider && !Platform.isMobile)) {
             throw new Error("vault-curate: backend not ready (still initializing, or failed to load — check the app console)");
         }
         return searchHybrid(
