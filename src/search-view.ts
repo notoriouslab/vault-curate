@@ -195,10 +195,13 @@ export class SearchView extends ItemView {
         });
 
         const searchActions = container.createDiv({ cls: "vault-curate-mode-toggle" });
-        searchActions.createEl("button", {
-            text: t.generateMoc,
-            cls: "vault-curate-mode-btn vault-curate-moc-btn",
-        }).addEventListener("click", () => void this.generateMocFromSearch());
+        // 015 D5 (ruling M5): flat MOC stays desktop-only — it writes a .md.
+        if (!Platform.isMobile) {
+            searchActions.createEl("button", {
+                text: t.generateMoc,
+                cls: "vault-curate-mode-btn vault-curate-moc-btn",
+            }).addEventListener("click", () => void this.generateMocFromSearch());
+        }
 
         this.searchStatusEl = container.createDiv({ cls: "vault-curate-status" });
         this.searchResultsEl = container.createDiv({ cls: "vault-curate-results" });
@@ -302,7 +305,11 @@ export class SearchView extends ItemView {
         });
         this.mocBtn = modeBar.createEl("button", {
             text: t.generateMoc,
-            cls: "vault-curate-mode-btn vault-curate-moc-btn",
+            // 015 D5 (ruling M5): flat MOC is desktop-only. Created but
+            // hidden on mobile so the field's two references stay non-null.
+            cls: Platform.isMobile
+                ? "vault-curate-mode-btn vault-curate-moc-btn vault-curate-hidden"
+                : "vault-curate-mode-btn vault-curate-moc-btn",
         });
         // Semantic Canvas Graph (006) — graphs the pinned note if any,
         // otherwise the active note (same target semantics as pin).
@@ -316,7 +323,7 @@ export class SearchView extends ItemView {
                 new Notice(t.discoverGraphNoFile);
                 return;
             }
-            void this.plugin.generateGraphCanvas(file);
+            void this.plugin.runMobileQuery(() => this.plugin.generateGraphCanvas(file));
         });
         // Pin toggle — rightmost in mode bar, adjacent to mocBtn.
         this.pinBtn = modeBar.createEl("button", {
