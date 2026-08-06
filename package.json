@@ -1,7 +1,7 @@
 {
   "name": "vault-curate",
-  "version": "1.4.7",
-  "description": "Find, connect, rediscover your notes. Local semantic search (BM25 + embeddings), relation graph + semantic paths for related, unlinked notes, Hot/Cold surfacing of forgotten ones, strong Chinese/CJK. A second brain, no API keys, optional AI curation.",
+  "version": "1.5.0",
+  "description": "Find, connect, rediscover your notes. Local semantic search (BM25 + embeddings), relation graph + semantic paths for related, unlinked notes, Hot/Cold surfacing of forgotten ones, strong Chinese/CJK. Mobile reads your desktop-built index. No API keys",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",

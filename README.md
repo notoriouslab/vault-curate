@@ -5,14 +5,14 @@
 [![Release](https://img.shields.io/github/v/release/notoriouslab/vault-curate?style=flat-square)](https://github.com/notoriouslab/vault-curate/releases)
 [![Downloads](https://img.shields.io/badge/dynamic/json?style=flat-square&logo=obsidian&color=7C3AED&label=downloads&query=%24%5B%22vault-curate%22%5D.downloads&url=https%3A%2F%2Fraw.githubusercontent.com%2Fobsidianmd%2Fobsidian-releases%2Fmaster%2Fcommunity-plugin-stats.json)](https://obsidian.md/plugins?id=vault-curate)
 [![License](https://img.shields.io/github/license/notoriouslab/vault-curate?style=flat-square)](LICENSE)
-[![Obsidian Desktop](https://img.shields.io/badge/Obsidian-Desktop-7C3AED?style=flat-square&logo=obsidian)](https://obsidian.md/)
+[![Obsidian Desktop + Mobile](https://img.shields.io/badge/Obsidian-Desktop%20%2B%20Mobile-7C3AED?style=flat-square&logo=obsidian)](https://obsidian.md/)
 [![WebGPU Accelerated](https://img.shields.io/badge/WebGPU-Accelerated-FF6A00?style=flat-square)]()
 [![Ollama Optional](https://img.shields.io/badge/Ollama-Optional-000?style=flat-square)](https://ollama.com/)
 [![Last Commit](https://img.shields.io/github/last-commit/notoriouslab/vault-curate?style=flat-square)](https://github.com/notoriouslab/vault-curate)
 
 **Find, connect, and rediscover your notes.**
 
-A local-first second brain for Obsidian — semantic search · relation graph · semantic paths · Hot/Cold rediscovery · strong Chinese/CJK · WebGPU on-device · no API keys
+A local-first second brain for Obsidian — semantic search · relation graph · semantic paths · Hot/Cold rediscovery · strong Chinese/CJK · desktop builds, mobile searches · no API keys
 
 [繁體中文](https://github.com/notoriouslab/vault-curate/blob/main/README.zh-TW.md)
 
@@ -28,13 +28,14 @@ Finding a note is only the first step. The harder parts come after: *seeing* how
 
 [Andrej Karpathy shared](https://venturebeat.com/data/karpathy-shares-llm-knowledge-base-architecture-that-bypasses-rag-with-an/) his vision of LLM-maintained knowledge bases — letting AI "compile" your notes into structured wikis. Compelling, but it asks you to hand over full editorial control. **Vault Curate takes a different stance: AI should help you *see*, not think for you.**
 
-### Three differentiators
+### Four differentiators
 
 | Feature | How it works |
 |---|---|
 | **A closed loop: find → connect → rediscover** | Semantic search (keyword + meaning + fuzzy title, fused) finds the note; a relation graph and semantic paths surface related notes you never linked; Hot/Cold tiering resurfaces ones you'd forgotten. And your verdicts close the loop: a suggestion you accept becomes a real wikilink, one you reject never comes back. Each piece exists elsewhere as a single-point plugin — the loop is what makes this a second brain, not a search box. |
 | **Helps you see, not think for you** | No background LLM calls, no auto-rewriting your notes, no chatbot answering *for* you. Every connection the plugin shows is a suggestion awaiting your yes or no — nothing is written, hidden, or re-ranked without your explicit action. AI curation (descriptions, grouped MOCs) is opt-in. You stay the editor of your own vault. |
 | **Local-first, strong on Chinese/CJK** | Runs on-device via WebGPU (~110 MB model once, 5,004 chunks in about **1m23s**; WASM fallback works too), no API keys. The built-in `bge-small-zh-v1.5` gives Chinese names, religious terms, and colloquial phrases an edge generic multilingual models miss — switch to Ollama/OpenAI for other languages. |
+| **One index, every device** | The desktop-built index lives inside the vault and travels with whatever sync you already use (iCloud, Obsidian Sync, Syncthing). Phones and tablets open it **read-only**: search, Discover, and graphs on the go with zero setup. One writer means zero sync conflicts — and no re-indexing or model downloads on your phone. |
 
 ---
 
@@ -76,7 +77,7 @@ Entry points: the command palette, right-click **VC: Generate relation graph**, 
 
 ![Relation graph — semantic neighborhood on Canvas](./docs/relation-graph.png)
 
-**Semantic path (Canvas)** — pick any two notes and get the **chain of stepping-stone notes** that connects them. It searches the vault-wide semantic map for a route where *every* step holds up: the chain is judged by its weakest hop, so one far-fetched link can't hide behind strong ones. Run **Generate semantic path (Canvas)** on the start note, then pick the destination in the fuzzy picker. If no chain of consistently strong links exists, you get an honest "not connected" notice with the actual numbers — information, not an error. The underlying semantic map builds once **in the background** (a progress notice with a Cancel button; the UI never freezes) and then follows your edits in real time — repeat queries answer instantly even while you keep writing, no matter how large your vault grows.
+**Semantic path (Canvas)** — pick any two notes and get the **chain of stepping-stone notes** that connects them. The chain is judged by its weakest hop, so one far-fetched link can't hide behind strong ones; if no consistently strong chain exists, you get an honest "not connected" notice with the actual numbers — information, not an error. The underlying semantic map builds once **in the background** (progress shown, cancellable, UI never freezes) and then follows your edits in real time — queries stay instant no matter how large your vault grows.
 
 **Expand in this graph** — right-click any node inside a generated canvas → **VC: Expand in this graph** grows the graph *in place*: the clicked note's neighborhood slots into free space around it, notes already on the canvas get connecting edges instead of duplicates, and a note pointed at by two or more edges turns **orange** (several expansions independently converged on it, which usually means it matters). Your layout edits and manually applied colors are never touched.
 
@@ -108,11 +109,28 @@ Turn it on under **Settings → AI Curation → Enable AI curation** to unlock t
 
 The LLM provider is configured separately under **Settings → AI Curation** (local Ollama or any OpenAI-compatible endpoint).
 
+### 📱 One vault, every device
+
+All four layers run on desktop. On phones and tablets (since 1.5.0) the plugin works as a **read-only consumer** of the index your desktop maintains — here is exactly what that means per feature:
+
+| Feature | Desktop | Phone / tablet |
+|---|---|---|
+| Search — keyword + fuzzy title | ✅ | ✅ always available |
+| Search — semantic ranking | ✅ built-in model | ✅ point the semantic engine at a remote server (phones can't reach `localhost`); without one, keyword mode |
+| Find Similar / Discover (both modes) | ✅ | ✅ full-featured (they read the desktop-built index; no model needed on the device) |
+| Dismiss suggestions (✕) and manage them | ✅ | ✅ your verdicts sync with the vault |
+| Relation graph / semantic path / expand in place | ✅ | ✅ generation works (tablets are the sweet spot for canvas editing) |
+| Promote purple edges to wikilinks | ✅ | desktop only |
+| Build / update the index | ✅ | desktop only — the index reaches your phone through vault sync |
+| AI curation (descriptions, grouped MOC) and flat MOC export | ✅ | desktop only |
+
+On mobile nothing heavy runs at startup: the index loads the first time you open the search panel (with a visible loading state). The settings page shows when the index was last built, with a **Reload index** button for after a desktop rebuild; notes written on your phone appear in search once your desktop has indexed them. Oversized indexes (over 300 MB — roughly a 10k-note vault) are politely refused instead of crashing the app.
+
 ---
 
 ## Getting started
 
-**Requirements**: [Obsidian](https://obsidian.md/) desktop (v1.0.0+). The advanced paths (Ollama / OpenAI-compatible) additionally need a local [Ollama](https://ollama.com/) instance or any OpenAI-compatible server.
+**Requirements**: [Obsidian](https://obsidian.md/) v1.7.2+ — desktop for building the index, and (since 1.5.0) phones/tablets for searching it. The advanced paths (Ollama / OpenAI-compatible) additionally need a local [Ollama](https://ollama.com/) instance or any OpenAI-compatible server.
 
 ### Installation
 
@@ -135,6 +153,10 @@ The LLM provider is configured separately under **Settings → AI Curation** (lo
 
 The **Welcome to Vault Curate** modal opens automatically: under **Embedding provider** pick **Built-in (on-device, WebGPU)**, then click **Index my vault now**. After the ~110 MB model download and WebGPU indexing finish, click the sidebar compass icon and start searching.
 
+### On your phone or tablet
+
+Install the plugin from Community plugins on mobile the same way. Two prerequisites, then everything in the [availability table](#-one-vault-every-device) just works: your desktop has built the index at least once, and your sync has carried the vault (index included) to the device. Open the sidebar search panel and the index loads on the spot.
+
 ---
 
 ## Reference
@@ -148,15 +170,15 @@ From the Command Palette (Cmd/Ctrl+P), type `Vault Curate:` to see them all.
 | `Semantic search (modal)` | Modal-style semantic search with quick jump | always available |
 | `Open search panel` | Open the sidebar panel | always available |
 | `Find similar notes` | Find semantically related notes to the active `.md` | always available |
-| `Rebuild index` | Wipe the existing index and re-index everything | always available |
-| `Update index` | Incremental update (re-index files with newer mtime) | always available |
+| `Rebuild index` | Wipe the existing index and re-index everything | desktop only |
+| `Update index` | Incremental update (re-index files with newer mtime) | desktop only |
 | `Discover related Cold notes` | Global discover: forgotten notes most related to your recent focus, grouped by folder | always available |
 | `Generate relation graph (Canvas)` | Editable Canvas of the active note's semantic neighborhood | always available |
 | `Generate semantic path (Canvas)` | Widest-path chain between the active note and a picked destination | always available |
-| `Apply purple edges as wikilinks` | Promote a canvas's purple (unlinked) edges into real wikilinks via a checkbox dialog | a `.canvas` is active |
-| `Generate description for active note` | LLM-write description + tags to the active file's frontmatter | AI curation on |
-| `Generate descriptions for current results` | Batch description for the current sidebar results | AI curation on |
-| `Generate MOC (topic-grouped)` | Auto-cluster results by topic, AI-name each group, output a table-of-contents note | AI curation on |
+| `Apply purple edges as wikilinks` | Promote a canvas's purple (unlinked) edges into real wikilinks via a checkbox dialog | a `.canvas` is active; desktop only |
+| `Generate description for active note` | LLM-write description + tags to the active file's frontmatter | AI curation on; desktop only |
+| `Generate descriptions for current results` | Batch description for the current sidebar results | AI curation on; desktop only |
+| `Generate MOC (topic-grouped)` | Auto-cluster results by topic, AI-name each group, output a table-of-contents note | AI curation on; desktop only |
 
 Right-click menus expose these directly on a note: **VC: Find similar notes**, **VC: Generate relation graph**, **VC: Generate semantic path**, **VC: Expand in this graph** (while a `.canvas` is open), and **VC: Generate description** (AI curation on). Right-clicking a `.canvas` file offers **VC: Apply purple edges as wikilinks**.
 
@@ -193,7 +215,7 @@ Changing the embedding provider or model triggers a confirmation modal — the i
 
 ### Troubleshooting
 
-- **A full rebuild right after a major OS update can be much slower than usual** — the system is busy reindexing itself (Spotlight, iCloud, shader caches). It's transient: speeds return to normal once the post-update dust settles; nothing in the plugin needs fixing.
+- **A full rebuild right after a major OS update can be much slower than usual** — the OS itself is busy in the background (rebuilding Spotlight, re-syncing iCloud) and competes for the same resources. It passes on its own; nothing in the plugin needs fixing.
 
 ---
 

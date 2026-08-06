@@ -1,9 +1,9 @@
 {
   "id": "vault-curate",
   "name": "Vault Curate",
-  "version": "1.4.7",
+  "version": "1.5.0",
   "minAppVersion": "1.7.2",
-  "description": "Find, connect, rediscover your notes. Local semantic search (BM25 + embeddings), relation graph + semantic paths for related, unlinked notes, Hot/Cold surfacing of forgotten ones, strong Chinese/CJK. A second brain, no API keys, optional AI curation.",
+  "description": "Find, connect, rediscover your notes. Local semantic search (BM25 + embeddings), relation graph + semantic paths for related, unlinked notes, Hot/Cold surfacing of forgotten ones, strong Chinese/CJK. Mobile reads your desktop-built index. No API keys",
   "author": "Jacob Mei",
   "authorUrl": "https://github.com/notoriouslab",
   "isDesktopOnly": false

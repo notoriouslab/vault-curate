@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.5.0 — 2026-08-06
+
+The mobile release: your desktop builds the index, your phone searches it.
+
+### Added
+- **Mobile support (phones & tablets).** `isDesktopOnly` is gone. The index your desktop already maintains syncs with the vault (iCloud / Obsidian Sync / Syncthing — no setup), and mobile reads it strictly **read-only**: a single writer means no sync conflicts, ever. Available on mobile: search (keyword + fuzzy title; semantic too when the embedding endpoint points at a remote server), Find Similar, both Discover modes, dismissing suggestions, and relation graph / semantic path generation (best on tablets). Desktop-only: building/updating the index, AI curation, MOC generation, purple-edge promotion.
+- **Query-intent loading.** On mobile nothing heavy runs at startup — the index loads when you first open the search panel or run a query command, with a visible loading state, a retry button on failure, and a size guard that politely refuses indexes over 300 MB instead of crashing the app. The settings page becomes a mobile-specific view: index status card with freshness timestamp, a **Reload index** button (for after a desktop rebuild), remote-endpoint fields with a `localhost` warning, query parameters, and the hidden-suggestions manager.
+- **Visible semantic degradation (desktop too).** If the semantic leg fails mid-query (endpoint down, provider hiccup), results no longer vanish into a blanket "Search failed" — keyword + fuzzy results still arrive and the status line says semantic search is temporarily unavailable.
+
+### Notes
+- Notes written on your phone appear in search after your desktop has indexed them (the settings card shows when that last happened).
+- Obsidian's minimum version stays 1.7.2.
+
 ## 1.4.7 — 2026-08-06
 
 ### Added

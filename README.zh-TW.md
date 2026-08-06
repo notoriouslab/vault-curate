@@ -5,14 +5,14 @@
 [![Release](https://img.shields.io/github/v/release/notoriouslab/vault-curate?style=flat-square)](https://github.com/notoriouslab/vault-curate/releases)
 [![Downloads](https://img.shields.io/badge/dynamic/json?style=flat-square&logo=obsidian&color=7C3AED&label=downloads&query=%24%5B%22vault-curate%22%5D.downloads&url=https%3A%2F%2Fraw.githubusercontent.com%2Fobsidianmd%2Fobsidian-releases%2Fmaster%2Fcommunity-plugin-stats.json)](https://obsidian.md/plugins?id=vault-curate)
 [![License](https://img.shields.io/github/license/notoriouslab/vault-curate?style=flat-square)](LICENSE)
-[![Obsidian Desktop](https://img.shields.io/badge/Obsidian-Desktop-7C3AED?style=flat-square&logo=obsidian)](https://obsidian.md/)
+[![Obsidian Desktop + Mobile](https://img.shields.io/badge/Obsidian-Desktop%20%2B%20Mobile-7C3AED?style=flat-square&logo=obsidian)](https://obsidian.md/)
 [![WebGPU 加速](https://img.shields.io/badge/WebGPU-加速-FF6A00?style=flat-square)]()
 [![Ollama 可選](https://img.shields.io/badge/Ollama-可選-000?style=flat-square)](https://ollama.com/)
 [![Last Commit](https://img.shields.io/github/last-commit/notoriouslab/vault-curate?style=flat-square)](https://github.com/notoriouslab/vault-curate)
 
 **找得到、看得見關聯、不遺忘。**
 
-Obsidian 的本地第二大腦。語意搜尋 · 關聯圖 · 語意路徑 · Hot/Cold 遺忘再發現 · 中文/CJK 特強 · WebGPU 加速 · 不上傳資料
+Obsidian 的本地第二大腦。語意搜尋 · 關聯圖 · 語意路徑 · Hot/Cold 遺忘再發現 · 中文/CJK 特強 · 桌機建索引、手機直接搜 · 不上傳資料
 
 [English](./README.md)
 
@@ -28,13 +28,14 @@ Obsidian 的本地第二大腦。語意搜尋 · 關聯圖 · 語意路徑 · Ho
 
 [Andrej Karpathy 分享了](https://venturebeat.com/data/karpathy-shares-llm-knowledge-base-architecture-that-bypasses-rag-with-an/)他讓 AI 維護知識庫的願景：由 AI「編譯」你的筆記成結構化 wiki。願景很吸引人，但前提是把編輯權完全交給 AI。**Vault Curate 走另一條路：AI 應該幫你「看見」，不是替你思考。**
 
-### 三大差異化特色
+### 四大差異化特色
 
 | 特色 | 如何做到 |
 |---|---|
 | **找到 → 看見 → 不遺忘的閉環** | 語意搜尋（關鍵字、語意、模糊標題三路並用）幫你找到；關聯圖與語意路徑浮現你從沒連過的相關筆記；Hot/Cold 分級把你遺忘的舊筆記重新撈回眼前。而你的判定會收攏這個閉環：說要的建議變成真連結（wikilink），說不要的永遠不再出現。這些事在別處都是各自獨立的外掛，閉環才讓它是「第二大腦」而不只是搜尋框。 |
 | **幫你看見，不替你思考** | 不在背景偷跑 AI，不自動改你的筆記，不用聊天機器人「代替你」回答。它給你看的每條關聯都是等你點頭或搖頭的建議：沒有你的明確動作，一個字都不寫、一筆都不藏。AI 整理（寫摘要、生成主題目錄）一律手動開啟。你始終是自己筆記庫的編輯者。 |
 | **本地優先，中文/CJK 特強** | 全程在你的電腦上運算（模型約 110 MB 只下載一次，顯示卡加速；五千段筆記約 1 分 23 秒建完索引），免 API key、資料不出門。內建中文模型讓人名、宗教、口語詞的搜尋命中率勝過通用多語模型；其他語言可切換 Ollama 或 OpenAI。 |
+| **一份索引，每台裝置** | 桌機建好的索引放在 vault 裡，隨你原本的同步（iCloud、Obsidian Sync、Syncthing）到達手機和平板，那裡以**唯讀**方式直接用：搜尋、發掘、關聯圖隨身可用，零設定。只有桌機一個寫入者，所以永遠不會有同步衝突；手機也不用重算、不用下載模型。 |
 
 ---
 
@@ -76,7 +77,7 @@ Obsidian 的本地第二大腦。語意搜尋 · 關聯圖 · 語意路徑 · Ho
 
 ![關聯圖（語意鄰域 Canvas）](./docs/relation-graph.png)
 
-**語意路徑（Canvas）**：選任意兩篇筆記，找出連接它們的**中繼筆記鏈**。它在整個筆記庫的語意關聯地圖上，找一條「每一步都夠強」的路：整條鏈以*最弱的一跳*評分，牽強的環節藏不進強環節裡。跑「**生成語意路徑（Canvas）**」再挑終點；若不存在全程夠強的鏈，會誠實告知「不連通」並附實際數字，這是資訊，不是錯誤。這張語意地圖只需在**背景**建一次（有進度提示、可隨時取消，介面完全不會卡住），之後跟著你的編輯即時更新：邊寫邊查照樣秒回，筆記庫再大也一樣。
+**語意路徑（Canvas）**：選任意兩篇筆記，找出連接它們的**中繼筆記鏈**。整條鏈以*最弱的一跳*評分，牽強的環節藏不進強環節裡；若不存在全程夠強的鏈，會誠實告知「不連通」並附實際數字，這是資訊，不是錯誤。底層的語意地圖在**背景**建一次（有進度、可取消、不卡介面），之後跟著你的編輯即時更新，筆記庫再大查詢照樣秒回。
 
 **在此圖展開**：對 canvas 內任一節點右鍵選 **VC: 在此圖展開**，讓圖原地生長，鄰域落到空位、已在圖上的筆記補連線而不重複、被兩條以上邊指到的筆記變**橙色**（多次展開匯聚到它，通常代表它重要）。你拖過的布局與手動上的顏色一律不動。
 
@@ -94,7 +95,7 @@ Discover 作用在**筆記**上而非查詢字串，主動浮現你最近沒碰�
 - **當前筆記**：打開某篇時自動出現相關筆記（純相關度排序），Cold 視覺標示（「你還沒讀過這篇」）
 - **全域**：與你**近期關注**最相關、但已被遺忘的筆記。它從你近期編輯或建立的筆記與其主題 tags 描出「關注剖繪」，結果按頂層資料夾分組，讓筆記庫每個角落最好的遺忘筆記都露臉。這是刻意的盲點挖掘
 - 結果可透過 **生成 MOC** 匯出成主題分群的 Map of Content
-- 每列建議都接受你的判定：滑過按 **✕** 永久隱藏這對配對（全域發掘則是這篇筆記），名額自動補滿，詳見上方「每對配對都等你判定」
+- 每列建議滑過都有 **✕**，判定規則同上方「每對配對都等你判定」
 
 ![Discover 側邊欄（當前筆記）](./docs/discover-current-note.png)
 
@@ -108,11 +109,28 @@ Discover 作用在**筆記**上而非查詢字串，主動浮現你最近沒碰�
 
 AI 模型在「**設定 → AI 整理**」獨立指定（本機 Ollama，或任何 OpenAI 相容服務）。
 
+### 📱 一個 vault，每台裝置
+
+四個層次在桌機全部可用。手機和平板（1.5.0 起）則是桌機索引的**唯讀使用者**，各功能在哪裡可用，一張表說清楚：
+
+| 功能 | 桌機 | 手機／平板 |
+|---|---|---|
+| 搜尋：關鍵字＋模糊標題 | ✅ | ✅ 隨時可用 |
+| 搜尋：語意排序 | ✅ 內建模型 | ✅ 把語意引擎指向遠端伺服器即可（手機連不到 `localhost`）；沒設就用關鍵字模式 |
+| 尋找相似／Discover 兩種模式 | ✅ | ✅ 全功能（吃桌機算好的索引，手機不需要模型） |
+| 隱藏建議（✕）與管理 | ✅ | ✅ 你的判定隨 vault 同步 |
+| 關聯圖／語意路徑／原地展開 | ✅ | ✅ 生成可用（canvas 編輯在平板上體驗最好） |
+| 紫邊升級 wikilink | ✅ | 桌機限定 |
+| 建立／更新索引 | ✅ | 桌機限定：索引透過 vault 同步到達手機 |
+| AI 整理（摘要、主題分群 MOC）與生成 MOC | ✅ | 桌機限定 |
+
+手機端啟動時不做任何重活：索引在你**第一次打開搜尋面板時**才載入（有載入中提示）。設定頁顯示索引最後建立時間，桌機重建後按「**重新載入索引**」換新；手機上新寫的筆記，等桌機索引過就搜得到。索引太大（超過 300 MB，約萬篇筆記）會禮貌拒載，不會讓 app 閃退。
+
 ---
 
 ## 開始使用
 
-**系統需求**：[Obsidian](https://obsidian.md/) 桌面版（v1.0.0+）。進階路徑才需要本機 [Ollama](https://ollama.com/) 或任何 OpenAI-compatible server。
+**系統需求**：[Obsidian](https://obsidian.md/) v1.7.2+，建索引在桌面版；1.5.0 起手機/平板可以直接搜尋。進階路徑才需要本機 [Ollama](https://ollama.com/) 或任何 OpenAI-compatible server。
 
 ### 安裝
 
@@ -133,7 +151,11 @@ AI 模型在「**設定 → AI 整理**」獨立指定（本機 Ollama，或任�
 
 ### 首次啟動
 
-啟用後會自動跳出「**歡迎使用 Vault Curate**」視窗：**Embedding 提供者**選「**內建（裝置端、WebGPU）**」，再點「**現在開始建立索引**」。約 110 MB 模型一次性下載加 WebGPU 建索引完成後，點側邊欄羅盤 icon 就能開始。
+啟用後會自動跳出「**歡迎使用 Vault Curate**」視窗：**Embedding 提供者**選「**內建（裝置端、WebGPU）**」，再點「**現在開始建立索引**」。模型約 110 MB、只下載一次；建完索引，點側邊欄羅盤 icon 就能開始。
+
+### 在手機或平板上
+
+手機端一樣從社群外掛安裝。兩個前提備齊，上面「一個 vault，每台裝置」表裡的功能就全部就位：桌機至少建過一次索引、同步已把 vault（含索引）帶到這台裝置。打開側邊欄搜尋面板，索引當場載入。
 
 ---
 
@@ -148,15 +170,15 @@ AI 模型在「**設定 → AI 整理**」獨立指定（本機 Ollama，或任�
 | `語意搜尋（彈窗）` | 彈窗式語意搜尋加跳轉 | 永遠可用 |
 | `開啟搜尋面板` | 開啟側邊欄面板 | 永遠可用 |
 | `尋找相似筆記` | 對當前 `.md` 找語意相似筆記 | 永遠可用 |
-| `重建索引` | 砍掉現有索引、全部重新建立 | 永遠可用 |
-| `更新索引` | 增量更新（只重建改動過的筆記） | 永遠可用 |
+| `重建索引` | 砍掉現有索引、全部重新建立 | 桌機限定 |
+| `更新索引` | 增量更新（只重建改動過的筆記） | 桌機限定 |
 | `發掘相關的 Cold 筆記` | 全域發掘：與近期關注最相關的遺忘筆記，按資料夾分組 | 永遠可用 |
 | `生成關聯圖（Canvas）` | 對當前筆記生成語意鄰域 Canvas | 永遠可用 |
 | `生成語意路徑（Canvas）` | 當前筆記到指定終點的中繼筆記鏈 | 永遠可用 |
-| `套用紫邊為 wikilink` | 勾選視窗把 canvas 上的紫邊（未連結配對）寫成真連結 | canvas 開啟時 |
-| `為當前筆記生成 description` | 由 AI 為當前筆記寫摘要加 tags，存進筆記屬性 | 需啟用 AI 整理 |
-| `為目前結果生成 description` | 對側邊欄結果批次寫摘要 | 需啟用 AI 整理 |
-| `生成 MOC（主題分群）` | 自動按主題分組、AI 命名，產出目錄筆記 | 需啟用 AI 整理 |
+| `套用紫邊為 wikilink` | 勾選視窗把 canvas 上的紫邊（未連結配對）寫成真連結 | canvas 開啟時；桌機限定 |
+| `為當前筆記生成 description` | 由 AI 為當前筆記寫摘要加 tags，存進筆記屬性 | 需啟用 AI 整理；桌機限定 |
+| `為目前結果生成 description` | 對側邊欄結果批次寫摘要 | 需啟用 AI 整理；桌機限定 |
+| `生成 MOC（主題分群）` | 自動按主題分組、AI 命名，產出目錄筆記 | 需啟用 AI 整理；桌機限定 |
 
 筆記右鍵選單：**VC: 尋找相似筆記**、**VC: 生成關聯圖**、**VC: 生成語意路徑**、**VC: 在此圖展開**（canvas 開啟時）、**VC: 生成 description**（需啟用 AI 整理）。對 `.canvas` 檔右鍵另有 **VC: 套用紫邊為 wikilink**。
 
@@ -193,7 +215,7 @@ obsidian commands filter=vault-curate   # 列出全部 id
 
 ### 疑難排解
 
-- **系統大版本更新後的第一次全量重建可能比平常慢很多**：更新後 Spotlight、iCloud、著色器快取都在背景重建，跟索引搶資源。這是暫時性的，風頭過了速度自然恢復，plugin 本身不需要任何處理。
+- **系統大版本更新後的第一次全量重建可能比平常慢很多**：更新後作業系統自己也在背景忙（重建 Spotlight 索引、iCloud 重新同步），跟建索引搶資源。過一陣子自然恢復，不用做任何處理。
 
 ---
 
