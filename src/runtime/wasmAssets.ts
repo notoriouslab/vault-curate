@@ -21,7 +21,14 @@ export async function loadWasmAsset(
     plugin: Plugin,
     filename: string,
     releaseUrl: string,
+    opts?: {
+        /** 015: mobile passes false — a cache miss fetches into memory and
+         *  uses the bytes directly, never writing into the (synced, otherwise
+         *  read-only) plugin folder. Desktop keeps the write-back cache. */
+        persistCache?: boolean;
+    },
 ): Promise<Uint8Array> {
+    const persistCache = opts?.persistCache ?? true;
     const dir = plugin.manifest.dir;
     if (dir) {
         const cachePath = normalizePath(`${dir}/${filename}`);
@@ -38,15 +45,17 @@ export async function loadWasmAsset(
             }
         }
         const bytes = await fetchViaRequestUrl(releaseUrl, filename);
-        try {
-            const ab = new ArrayBuffer(bytes.byteLength);
-            new Uint8Array(ab).set(bytes);
-            await adapter.writeBinary(cachePath, ab);
-        } catch (err) {
-            console.warn(
-                `vault-curate: failed to cache ${filename} to plugin folder`,
-                err,
-            );
+        if (persistCache) {
+            try {
+                const ab = new ArrayBuffer(bytes.byteLength);
+                new Uint8Array(ab).set(bytes);
+                await adapter.writeBinary(cachePath, ab);
+            } catch (err) {
+                console.warn(
+                    `vault-curate: failed to cache ${filename} to plugin folder`,
+                    err,
+                );
+            }
         }
         return bytes;
     }

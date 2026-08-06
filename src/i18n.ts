@@ -63,6 +63,14 @@ export interface Locale {
     searchFailed: string;
     /** 015: semantic leg failed mid-query; results are keyword-only. */
     semanticDegraded: string;
+    /** 015 mobile: index loading takes a while (first iCloud download). */
+    noticeMobileIndexLoading: string;
+    /** 015 mobile: index refused — exceeds the mobile size guard. */
+    mobileIndexTooLarge: (mb: number) => string;
+    /** 015 mobile: index failed to open; retry hint. */
+    mobileIndexLoadFailed: string;
+    /** 015 mobile: reload-index button (settings card + retry affordance). */
+    mobileReloadIndex: string;
     searching: string;
     // Commands
     cmdSemanticSearch: string;
@@ -325,6 +333,10 @@ const en: Locale = {
     indexEmpty: "Index is empty. Run 'Rebuild index' first.",
     searchFailed: "Search failed",
     semanticDegraded: "Semantic search temporarily unavailable — showing keyword results",
+    noticeMobileIndexLoading: "Vault Curate: loading index (first load may need to download it)...",
+    mobileIndexTooLarge: (mb) => `Vault Curate: index too large for mobile (${mb} MB) — search stays desktop-only for this vault`,
+    mobileIndexLoadFailed: "Index failed to load — if the vault just synced, retry in a moment",
+    mobileReloadIndex: "Reload index",
     searching: "Searching...",
     cmdSemanticSearch: "Semantic search (modal)",
     cmdOpenPanel: "Open search panel",
@@ -618,6 +630,10 @@ const zhTW: Locale = {
     indexEmpty: "索引為空，請先執行「重建索引」",
     searchFailed: "搜尋失敗",
     semanticDegraded: "語意搜尋暫時不可用，以下為關鍵字結果",
+    noticeMobileIndexLoading: "Vault Curate：索引載入中（首次可能需要下載）...",
+    mobileIndexTooLarge: (mb) => `Vault Curate：索引過大（${mb} MB），手機端暫不載入`,
+    mobileIndexLoadFailed: "索引載入失敗：若 vault 剛同步完成，請稍後重試",
+    mobileReloadIndex: "重新載入索引",
     searching: "搜尋中...",
     cmdSemanticSearch: "語意搜尋（彈窗）",
     cmdOpenPanel: "開啟搜尋面板",
@@ -914,6 +930,10 @@ const zhCN: Locale = {
     indexEmpty: "索引为空，请先执行「重建索引」",
     searchFailed: "搜索失败",
     semanticDegraded: "语义搜索暂时不可用，以下为关键字结果",
+    noticeMobileIndexLoading: "Vault Curate：索引加载中（首次可能需要下载）...",
+    mobileIndexTooLarge: (mb) => `Vault Curate：索引过大（${mb} MB），手机端暂不加载`,
+    mobileIndexLoadFailed: "索引加载失败：若 vault 刚同步完成，请稍后重试",
+    mobileReloadIndex: "重新加载索引",
     searching: "搜索中...",
     cmdSemanticSearch: "语义搜索（弹窗）",
     cmdOpenPanel: "打开搜索面板",

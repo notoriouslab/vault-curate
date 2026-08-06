@@ -108,6 +108,42 @@ export class SearchView extends ItemView {
         this.buildDiscoverUI(this.discoverContainer);
 
         this.switchTab("search");
+
+        // 015 D4: opening the panel IS query intent — trigger the index gate
+        // on mobile and refresh the visible state when it settles. The gate
+        // caches success and clears itself on failure (retry-able).
+        if (Platform.isMobile && !this.plugin.store) {
+            this.renderMobileGateState();
+            this.plugin.ensureStoreLoaded()
+                .then(() => this.renderMobileGateState())
+                .catch(() => this.renderMobileGateState());
+        }
+    }
+
+    /** 015: reflect the mobile index gate in the search status line, with a
+     *  retry affordance in the failed state. */
+    private renderMobileGateState() {
+        if (!Platform.isMobile) return;
+        const state = this.plugin.mobileGateState();
+        this.searchStatusEl.empty();
+        if (state === "ready") {
+            // Re-run a pending query typed while the index was loading.
+            if (this.inputEl?.value) this.scheduleSearch(this.inputEl.value);
+            return;
+        }
+        this.searchStatusEl.createSpan({ text: this.plugin.mobileGateStatusText() });
+        if (state === "failed") {
+            const retry = this.searchStatusEl.createEl("button", {
+                text: t.mobileReloadIndex,
+                cls: "vault-curate-mode-btn",
+            });
+            retry.addEventListener("click", () => {
+                this.renderMobileGateState(); // shows 'loading' (gate cleared on failure)
+                this.plugin.ensureStoreLoaded()
+                    .then(() => this.renderMobileGateState())
+                    .catch(() => this.renderMobileGateState());
+            });
+        }
     }
 
     // ── Tab management ─────────────────────────────────
@@ -198,7 +234,11 @@ export class SearchView extends ItemView {
         // 015: mobile searches without a provider (BM25 + fuzzy); desktop
         // keeps requiring one so a broken provider stays loud, not silent.
         if (!this.plugin.store || (!this.plugin.provider && !Platform.isMobile)) {
-            this.searchStatusEl.setText(t.indexEmpty);
+            if (Platform.isMobile) {
+                this.renderMobileGateState();
+            } else {
+                this.searchStatusEl.setText(t.indexEmpty);
+            }
             return;
         }
 
@@ -395,7 +435,9 @@ export class SearchView extends ItemView {
         this.discoverForPath = file.path;
         const store = this.plugin.store;
         if (!store) {
-            this.discoverStatusEl.setText(t.discoverNoIndex);
+            this.discoverStatusEl.setText(
+                Platform.isMobile ? this.plugin.mobileGateStatusText() : t.discoverNoIndex,
+            );
             this.discoverResultsEl.empty();
             return;
         }
@@ -428,7 +470,9 @@ export class SearchView extends ItemView {
     private async runGlobalDiscover() {
         const store = this.plugin.store;
         if (!store) {
-            this.discoverStatusEl.setText(t.discoverNoIndex);
+            this.discoverStatusEl.setText(
+                Platform.isMobile ? this.plugin.mobileGateStatusText() : t.discoverNoIndex,
+            );
             this.discoverResultsEl.empty();
             return;
         }

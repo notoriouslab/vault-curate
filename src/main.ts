@@ -40,6 +40,8 @@ import { createWriteQueue } from "./utils/writeQueue";
 import { KnnGraphManager } from "./search/knnGraphManager";
 import knnWorkerSource from "@inline/knn-worker";
 import { makeTierResolver, resolveCreated } from "./heat/makeTierResolver";
+import { MobileIndexGate, type MobileGateState } from "./mobile/indexGate";
+import { isLoopbackHost } from "./utils";
 import { SELF_WRITE_TOLERANCE_MS, type TierResolver } from "./heat/deriveTier";
 import { relatedKwRank, kwRankForQuery } from "./search/relatedKwRank";
 import { parseTags } from "./search/relatedFusion";
@@ -60,6 +62,10 @@ export default class VaultSearchPlugin extends Plugin {
     descGenerator!: DescriptionGenerator;
     store: SQLiteStore | null = null;
     provider: EmbeddingProvider | null = null;
+    /** 015 D4: mobile query-intent loading gate (null on desktop). State
+     *  lives here, not in the view — reopening the sidebar reads the same
+     *  gate; the view only renders it. */
+    private mobileGate: MobileIndexGate<SQLiteStore> | null = null;
     private sqlWasmBinary: Uint8Array | null = null;
     /** 014: k-NN graph lifecycle — worker full builds, main-thread
      *  incremental maintenance, revision backstop. Replaces the 009
@@ -95,13 +101,21 @@ export default class VaultSearchPlugin extends Plugin {
         // Both runtimes accept the raw bytes (`wasmBinary` option) instead
         // of a URL, so they never trigger browser-level fetches that
         // `app://obsidian.md` is not permitted to make against github.com.
-        try {
-            const sqlWasm = await loadWasmAsset(this, "sql-wasm.wasm", SQL_WASM_URL);
-            this.sqlWasmBinary = sqlWasm;
-
-            // 015 spike: mobile skips ORT / provider / indexer entirely —
-            // query-only mode over the desktop-built index.
-            if (!Platform.isMobile) {
+        if (Platform.isMobile) {
+            // 015 D4: query-intent loading — onload does no heavy work at all.
+            // The index (and sql-wasm) load on first search/discover via
+            // ensureStoreLoaded(); the provider decision is a pure settings
+            // read (layer 0 = null unless a non-loopback remote is set).
+            try {
+                this.provider = this.buildMobileProvider();
+            } catch (err) {
+                console.warn("vault-curate: mobile provider unavailable — keyword-only search", err);
+                this.provider = null;
+            }
+        } else {
+            try {
+                const sqlWasm = await loadWasmAsset(this, "sql-wasm.wasm", SQL_WASM_URL);
+                this.sqlWasmBinary = sqlWasm;
                 const ortWasm = await loadWasmAsset(
                     this,
                     "ort-wasm-simd-threaded.wasm",
@@ -113,23 +127,21 @@ export default class VaultSearchPlugin extends Plugin {
                 const ortAb = new ArrayBuffer(ortWasm.byteLength);
                 new Uint8Array(ortAb).set(ortWasm);
                 this.ortWasmBinary = ortAb;
-            }
 
-            this.store = await this.openStore();
-            if (!Platform.isMobile) {
+                this.store = await this.openStore();
                 this.provider = await this.buildProvider();
                 this.indexer = new Indexer(this, this.store, this.provider);
                 // 014 D8: feed single-file mutations to the k-NN graph maintainer.
                 this.indexer.onMutation = (type, path) => {
                     if (this.store) this.knnManager.onMutation(type, path, this.store);
                 };
+            } catch (err) {
+                console.error("vault-curate: backend init failed", err);
+                new Notice(
+                    `vault-curate: backend init failed — ${err instanceof Error ? err.message : String(err)}`,
+                    10000,
+                );
             }
-        } catch (err) {
-            console.error("vault-curate: backend init failed", err);
-            new Notice(
-                `vault-curate: backend init failed — ${err instanceof Error ? err.message : String(err)}`,
-                10000,
-            );
         }
         this.descGenerator = new DescriptionGenerator(this);
 
@@ -155,8 +167,12 @@ export default class VaultSearchPlugin extends Plugin {
             id: "semantic-search",
             name: t.cmdSemanticSearch,
             callback: () => {
-                // 015: mobile searches without a provider (BM25 + fuzzy).
-                if (!this.store || (!this.provider && !Platform.isMobile)) {
+                // 015: mobile searches without a provider (BM25 + fuzzy);
+                // opening the modal is query intent — kick the index gate so
+                // typed queries start working as soon as the store lands.
+                if (Platform.isMobile) {
+                    void this.ensureStoreLoaded().catch(() => { /* gate state renders in sidebar */ });
+                } else if (!this.store || !this.provider) {
                     new Notice(t.noticeIndexEmpty);
                     return;
                 }
@@ -176,9 +192,11 @@ export default class VaultSearchPlugin extends Plugin {
             checkCallback: (checking) => {
                 const file = this.app.workspace.getActiveFile();
                 if (!file || file.extension !== "md") return false;
-                if (!this.store) return false;
+                // 015: on mobile the index loads on demand — the command
+                // stays visible and triggers the gate.
+                if (!this.store && !Platform.isMobile) return false;
                 if (checking) return true;
-                void this.findSimilar(file);
+                void this.runMobileQuery(() => this.findSimilar(file));
                 return true;
             },
         });
@@ -190,9 +208,11 @@ export default class VaultSearchPlugin extends Plugin {
             checkCallback: (checking) => {
                 const file = this.app.workspace.getActiveFile();
                 if (!file || file.extension !== "md") return false;
-                if (!this.store) return false;
+                // 015: on mobile the index loads on demand — the command
+                // stays visible and triggers the gate.
+                if (!this.store && !Platform.isMobile) return false;
                 if (checking) return true;
-                void this.generateGraphCanvas(file);
+                void this.runMobileQuery(() => this.generateGraphCanvas(file));
                 return true;
             },
         });
@@ -206,9 +226,11 @@ export default class VaultSearchPlugin extends Plugin {
             checkCallback: (checking) => {
                 const file = this.app.workspace.getActiveFile();
                 if (!file || file.extension !== "md") return false;
-                if (!this.store) return false;
+                // 015: on mobile the index loads on demand — the command
+                // stays visible and triggers the gate.
+                if (!this.store && !Platform.isMobile) return false;
                 if (checking) return true;
-                void this.generateSemanticPath(file);
+                void this.runMobileQuery(() => this.generateSemanticPath(file));
                 return true;
             },
         });
@@ -323,7 +345,7 @@ export default class VaultSearchPlugin extends Plugin {
         this.addCommand({
             id: "global-discover",
             name: t.cmdGlobalDiscover,
-            callback: () => void this.openGlobalDiscover(),
+            callback: () => void this.runMobileQuery(() => this.openGlobalDiscover()),
         });
 
         // Purple-edge promotion (010): only offered while a canvas is the
@@ -414,7 +436,12 @@ export default class VaultSearchPlugin extends Plugin {
         // silent.
         this.app.workspace.onLayoutReady(() => {
             if (!this.store) {
-                new Notice("vault-curate: backend not ready — reload the plugin or check console.", 10000);
+                // 015: a null store is the mobile default (query-intent
+                // loading) — the sidebar renders gate state instead of a
+                // launch-time notice. Desktop keeps the loud recovery hint.
+                if (!Platform.isMobile) {
+                    new Notice("vault-curate: backend not ready — reload the plugin or check console.", 10000);
+                }
                 return;
             }
             const indexed = this.store.getMeta("last_indexed_at");
@@ -1078,6 +1105,88 @@ export default class VaultSearchPlugin extends Plugin {
         }
     }
 
+    // ── 015 D4: mobile query-intent loading ─────────────
+
+    /** Current gate state for UI rendering ('ready' covers desktop-with-store). */
+    mobileGateState(): MobileGateState {
+        if (!Platform.isMobile) return this.store ? "ready" : "failed";
+        return this.mobileGate?.state ?? "idle";
+    }
+
+    /** Localized status line for the gate's non-ready states. */
+    mobileGateStatusText(): string {
+        switch (this.mobileGateState()) {
+            case "loading": return t.noticeMobileIndexLoading;
+            case "failed": return t.mobileIndexLoadFailed;
+            case "too-large": return t.mobileIndexTooLarge(this.mobileGate?.lastTooLargeMb ?? 0);
+            default: return t.noticeMobileIndexLoading; // idle: a trigger is imminent
+        }
+    }
+
+    /** Single entry for "make sure the index is available". Desktop resolves
+     *  from onload's eager open; mobile lazily loads through the gate
+     *  (success cached, failure retryable — see MobileIndexGate). */
+    async ensureStoreLoaded(): Promise<SQLiteStore> {
+        if (!Platform.isMobile) {
+            if (this.store) return this.store;
+            throw new Error("vault-curate: backend not ready");
+        }
+        if (!this.mobileGate) {
+            this.mobileGate = new MobileIndexGate<SQLiteStore>({
+                statSize: async () => {
+                    try {
+                        const st = await this.app.vault.adapter.stat(this.dbPath());
+                        return st?.size ?? null;
+                    } catch {
+                        return null; // stat 不可信：未知大小照走 open 的 try/catch
+                    }
+                },
+                openStore: async () => {
+                    if (!this.sqlWasmBinary) {
+                        this.sqlWasmBinary = await loadWasmAsset(
+                            this, "sql-wasm.wasm", SQL_WASM_URL,
+                            { persistCache: false }, // mobile never writes the plugin folder
+                        );
+                    }
+                    return this.openStore();
+                },
+                onSlowLoad: () => new Notice(t.noticeMobileIndexLoading),
+            });
+        }
+        const store = await this.mobileGate.ensureLoaded();
+        if (this.store !== store) {
+            this.store = store;
+            this.scheduleBM25Warm(0); // warm strictly after the store is ready
+        }
+        return store;
+    }
+
+    /** 015 red-team C3: run a query with deep-read convergence — a store-level
+     *  throw (torn iCloud file that passed open()) resets the gate so the next
+     *  attempt re-reads the file. Desktop calls fn directly (errors keep their
+     *  existing loud paths). Returns null when the query could not run. */
+    async runMobileQuery<T>(fn: (store: SQLiteStore) => T | Promise<T>): Promise<T | null> {
+        if (!Platform.isMobile) {
+            if (!this.store) return null;
+            return await fn(this.store);
+        }
+        let store: SQLiteStore;
+        try {
+            store = await this.ensureStoreLoaded();
+        } catch {
+            return null; // gate state already set; the view renders it
+        }
+        try {
+            return await fn(store);
+        } catch (e) {
+            console.error("vault-curate: mobile query failed — resetting index gate", e);
+            this.store = null;
+            await this.mobileGate?.invalidate();
+            new Notice(t.mobileIndexLoadFailed);
+            return null;
+        }
+    }
+
     private async openStore(): Promise<SQLiteStore> {
         if (!this.sqlWasmBinary) {
             throw new Error("sql.js WASM bytes not loaded (preload step failed)");
@@ -1123,8 +1232,8 @@ export default class VaultSearchPlugin extends Plugin {
      *   - "ollama"            → external Ollama
      *   - "openai-compatible" → external OpenAI-compatible endpoint
      */
-    private async buildProvider(): Promise<EmbeddingProvider> {
-        const httpFetch: HttpFetch = async (req) => {
+    private makeHttpFetch(): HttpFetch {
+        return async (req) => {
             const resp = await requestUrl({
                 url: req.url,
                 method: req.method,
@@ -1136,7 +1245,37 @@ export default class VaultSearchPlugin extends Plugin {
             try { parsedJson = resp.json; } catch { /* may not be JSON */ }
             return { status: resp.status, text: resp.text, json: parsedJson };
         };
+    }
 
+    /** Shared remote-provider config (ollama / openai-compatible). The mobile
+     *  provider path (015 D3) reuses this verbatim so the two never drift. */
+    private remoteEmbeddingCfg(): EmbeddingSettings {
+        return this.settings.embeddingProvider === "openai-compatible"
+            ? {
+                providerType: "openai-compatible",
+                openaiUrl: this.settings.ollamaUrl,
+                openaiModel: this.settings.ollamaModel,
+                apiKey: this.settings.apiKey || undefined,
+            }
+            : {
+                providerType: "ollama",
+                ollamaUrl: this.settings.ollamaUrl,
+                ollamaModel: this.settings.ollamaModel,
+                apiKey: this.settings.apiKey || undefined,
+            };
+    }
+
+    /** 015 D3 decision table: mobile provider — layer 0 (null) unless a
+     *  non-loopback remote endpoint is configured (layer 2). Never builds
+     *  the WASM provider (no ORT on mobile). Pure settings read, no I/O. */
+    private buildMobileProvider(): EmbeddingProvider | null {
+        if (this.settings.embeddingProvider === "wasm") return null;
+        if (isLoopbackHost(this.settings.ollamaUrl)) return null;
+        return createProvider(this.remoteEmbeddingCfg(), { httpFetch: this.makeHttpFetch() });
+    }
+
+    private async buildProvider(): Promise<EmbeddingProvider> {
+        const httpFetch = this.makeHttpFetch();
         const providerType = this.settings.embeddingProvider;
         if (providerType === "wasm") {
             if (!this.ortWasmBinary) {
@@ -1157,21 +1296,7 @@ export default class VaultSearchPlugin extends Plugin {
             );
         }
 
-        const cfg: EmbeddingSettings = providerType === "openai-compatible"
-            ? {
-                providerType: "openai-compatible",
-                openaiUrl: this.settings.ollamaUrl,
-                openaiModel: this.settings.ollamaModel,
-                apiKey: this.settings.apiKey || undefined,
-            }
-            : {
-                providerType: "ollama",
-                ollamaUrl: this.settings.ollamaUrl,
-                ollamaModel: this.settings.ollamaModel,
-                apiKey: this.settings.apiKey || undefined,
-            };
-
-        return createProvider(cfg, { httpFetch });
+        return createProvider(this.remoteEmbeddingCfg(), { httpFetch });
     }
 
     /** Tear down old provider/store, build new from current settings. Used after Settings save. */
