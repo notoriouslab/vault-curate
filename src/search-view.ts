@@ -278,6 +278,12 @@ export class SearchView extends ItemView {
                     : t.searchResults(this.lastResults.length),
             );
         } catch (e) {
+            if (Platform.isMobile) {
+                // 015 review W3: guilt-checked convergence — corrupt store
+                // resets the gate (retry UI); healthy store just reports.
+                void this.plugin.handleMobileQueryError(e).then(() => this.renderMobileGateState());
+                return;
+            }
             this.searchStatusEl.setText(t.searchFailed);
             console.error("vault-curate: hybrid search failed", e);
         }

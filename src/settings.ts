@@ -131,6 +131,7 @@ export class VaultSearchSettingTab extends PluginSettingTab {
                     this.plugin.settings.ollamaUrl = val.trim();
                     await this.plugin.saveSettings();
                     this.updateRemoteWarning(urlSetting, val.trim());
+                    if (Platform.isMobile) this.plugin.refreshMobileProvider(); // 015: layer 0↔2 flip
                 });
             });
         this.updateRemoteWarning(urlSetting, this.plugin.settings.ollamaUrl);
@@ -146,6 +147,7 @@ export class VaultSearchSettingTab extends PluginSettingTab {
                     this.plugin.settings.apiFormat = val as "ollama" | "openai";
                     await this.plugin.saveSettings();
                     void this.loadModelOptions();
+                    if (Platform.isMobile) this.plugin.refreshMobileProvider(); // 015
                 });
             });
 
@@ -159,6 +161,7 @@ export class VaultSearchSettingTab extends PluginSettingTab {
                 text.onChange(async (val) => {
                     this.plugin.settings.apiKey = val.trim();
                     await this.plugin.saveSettings();
+                    if (Platform.isMobile) this.plugin.refreshMobileProvider(); // 015
                 });
             });
 
@@ -168,6 +171,17 @@ export class VaultSearchSettingTab extends PluginSettingTab {
         this.addModelDropdown(embSetting, this.plugin.settings.ollamaModel, async (val) => {
             const old = this.plugin.settings.ollamaModel;
             if (val === old) return;
+            // 015 review C1: on mobile the desktop flow below is wrong twice
+            // over — reloadBackends() bypasses the D3 decision table
+            // (buildMobileProvider) and rebuildIndex() fires a bogus
+            // "backend not ready" notice (no indexer exists on mobile).
+            // Mobile just swaps the provider; the index stays desktop-built.
+            if (Platform.isMobile) {
+                this.plugin.settings.ollamaModel = val;
+                await this.plugin.saveSettings();
+                this.plugin.refreshMobileProvider();
+                return;
+            }
             const confirmed = await this.confirmProviderSwitch();
             if (!confirmed) {
                 // Re-render so dropdown reverts visually.
@@ -362,12 +376,15 @@ export class VaultSearchSettingTab extends PluginSettingTab {
             this.statsEl = parent.createDiv({ cls: "vault-curate-stats" });
             this.renderStats();
         } else {
-            parent.createEl("p", {
-                text: this.plugin.store === null && this.plugin.mobileGateState() === "idle"
-                    ? t.mobileNoIndexYet
-                    : this.plugin.mobileGateStatusText(),
-                cls: "setting-item-description",
-            });
+            // 015 review W4: 'idle' just means "not loaded yet" (open the
+            // search panel to load) — saying "no index yet" would be a lie.
+            // Only loading/failed/too-large states earn a status line here.
+            if (this.plugin.mobileGateState() !== "idle") {
+                parent.createEl("p", {
+                    text: this.plugin.mobileGateStatusText(),
+                    cls: "setting-item-description",
+                });
+            }
         }
         new Setting(parent)
             .setName(t.mobileReloadIndex)

@@ -1172,6 +1172,21 @@ export default class VaultSearchPlugin extends Plugin {
         return store;
     }
 
+    /** 015 review C1: mobile-safe provider swap — endpoint settings changed,
+     *  re-run the D3 decision table. Never touches the index or indexer
+     *  (desktop's reloadBackends+rebuildIndex flow is wrong on mobile). */
+    refreshMobileProvider(): void {
+        if (!Platform.isMobile) return;
+        const old = this.provider;
+        try {
+            this.provider = this.buildMobileProvider();
+        } catch (err) {
+            console.warn("vault-curate: mobile provider refresh failed — keyword-only search", err);
+            this.provider = null;
+        }
+        old?.dispose();
+    }
+
     /** 015: manual refresh channel — desktop rebuilt the index, the user
      *  taps "Reload index" on mobile: drop the snapshot, re-read the file. */
     async reloadMobileIndex(): Promise<SQLiteStore> {
@@ -1199,12 +1214,31 @@ export default class VaultSearchPlugin extends Plugin {
         try {
             return await fn(store);
         } catch (e) {
-            console.error("vault-curate: mobile query failed — resetting index gate", e);
-            this.store = null;
-            await this.mobileGate?.invalidate();
-            new Notice(t.mobileIndexLoadFailed);
+            await this.handleMobileQueryError(e, store);
             return null;
         }
+    }
+
+    /** 015 review W2: convergence with a guilt check — only tear down the
+     *  index when the store itself is sick (a cheap meta read throws). An
+     *  unrelated failure (e.g. a canvas write) must not discard a healthy
+     *  70MB snapshot. Also used by the SearchView's own catch (review W3). */
+    async handleMobileQueryError(e: unknown, store?: SQLiteStore | null): Promise<void> {
+        const probe = store ?? this.store;
+        let storeSick = true;
+        try {
+            probe?.getMeta("schema_version");
+            storeSick = false;
+        } catch { /* the probe itself threw — index is corrupt */ }
+        if (!storeSick) {
+            console.error("vault-curate: mobile query failed (index healthy — not resetting)", e);
+            new Notice(t.searchFailed);
+            return;
+        }
+        console.error("vault-curate: mobile query failed — resetting index gate", e);
+        this.store = null;
+        await this.mobileGate?.invalidate();
+        new Notice(t.mobileIndexLoadFailed);
     }
 
     private async openStore(): Promise<SQLiteStore> {

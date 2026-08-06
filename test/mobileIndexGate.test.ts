@@ -63,6 +63,31 @@ describe('MobileIndexGate（015 Task 4）', () => {
         expect(openStore).toHaveBeenCalledTimes(2);
     });
 
+    it('review C2：載入中 invalidate（重載）→ 舊載入被取代自我作廢，新快照勝出、舊 store 被釋放', async () => {
+        const staleStore = mkStore();
+        const freshStore = mkStore();
+        let releaseStale!: (s: typeof staleStore) => void;
+        const openStore = vi.fn()
+            .mockImplementationOnce(() => new Promise<typeof staleStore>((res) => { releaseStale = res; })) // #1 卡在 iCloud 下載
+            .mockResolvedValueOnce(freshStore); // #2 重載，先完成
+        const gate = new MobileIndexGate({ statSize: async () => 1024, openStore });
+
+        const stalePromise = gate.ensureLoaded();          // 載入 #1 in-flight
+        await Promise.resolve();                            // 讓 #1 跑進 openStore
+        await gate.invalidate();                            // 使用者按重載（#1 尚未完成）
+        const fresh = await gate.ensureLoaded();            // 載入 #2 完成
+        expect(fresh).toBe(freshStore);
+        expect(gate.state).toBe('ready');
+
+        releaseStale(staleStore);                           // 舊 #1 姍姍來遲
+        await expect(stalePromise).rejects.toThrow('superseded');
+        expect(staleStore.dispose).toHaveBeenCalledTimes(1); // 舊 store 被釋放（不洩漏）
+        // 新狀態未被舊載入反殺
+        expect(gate.state).toBe('ready');
+        await expect(gate.ensureLoaded()).resolves.toBe(freshStore);
+        expect(openStore).toHaveBeenCalledTimes(2);
+    });
+
     it('尺寸防線：too-large 時 reject 且 openStore 從未被呼叫、記下 MB 數', async () => {
         const openStore = vi.fn(async () => mkStore());
         const gate = new MobileIndexGate({

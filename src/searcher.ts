@@ -53,6 +53,16 @@ export class SearchModal extends SuggestModal<SearchResult> {
     }
 
     private async executeSearch(query: string) {
+        // 015 review W1: on mobile, wait for the index gate instead of
+        // silently returning [] — a query typed during loading runs as
+        // soon as the store lands.
+        if (Platform.isMobile && !this.plugin.store) {
+            try {
+                await this.plugin.ensureStoreLoaded();
+            } catch {
+                return; // gate state renders in the sidebar
+            }
+        }
         // 015: mobile searches without a provider (BM25 + fuzzy).
         if (!this.plugin.store || (!this.plugin.provider && !Platform.isMobile)) return;
         try {

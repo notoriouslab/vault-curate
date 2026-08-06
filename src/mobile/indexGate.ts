@@ -37,6 +37,12 @@ export class MobileIndexGate<S extends DisposableStore> {
 
     private gate: Promise<S> | null = null;
     private loaded: S | null = null;
+    /** Review C2: bumped by invalidate(); an in-flight load whose generation
+     *  no longer matches was superseded — it must dispose its store and
+     *  reject instead of overwriting the fresh state (stale-load-wins race:
+     *  reload during a slow iCloud first-download would otherwise silently
+     *  revert to the pre-reload snapshot and leak the fresh store). */
+    private generation = 0;
 
     constructor(private readonly deps: MobileGateDeps<S>) {}
 
@@ -44,13 +50,15 @@ export class MobileIndexGate<S extends DisposableStore> {
         if (this.gate) return this.gate;
         this.gate = this.load();
         // Failure is not cached — clear the gate so the next call retries.
-        this.gate.catch(() => { this.gate = null; });
+        this.gate.catch(() => { /* handled per-generation inside load() */ });
         return this.gate;
     }
 
     /** Deep-read failure (torn iCloud file passed open(), then a query hit a
-     *  corrupt page): drop everything so the next attempt re-reads the file. */
+     *  corrupt page) or an explicit reload: drop everything so the next
+     *  attempt re-reads the file. Supersedes any in-flight load. */
     async invalidate(): Promise<void> {
+        this.generation++;
         const store = this.loaded;
         this.loaded = null;
         this.gate = null;
@@ -59,6 +67,7 @@ export class MobileIndexGate<S extends DisposableStore> {
     }
 
     private async load(): Promise<S> {
+        const gen = ++this.generation;
         this.state = 'loading';
         const slowTimer = window.setTimeout(
             () => this.deps.onSlowLoad?.(),
@@ -72,11 +81,19 @@ export class MobileIndexGate<S extends DisposableStore> {
                 throw new Error(`index too large for mobile: ${this.lastTooLargeMb} MB`);
             }
             const store = await this.deps.openStore();
+            if (gen !== this.generation) {
+                // Superseded while awaiting — a newer load owns the state now.
+                await store.dispose();
+                throw new Error('index load superseded by a newer reload');
+            }
             this.loaded = store;
             this.state = 'ready';
             return store;
         } catch (e) {
-            if (this.state !== 'too-large') this.state = 'failed';
+            if (gen === this.generation) {
+                if (this.state !== 'too-large') this.state = 'failed';
+                this.gate = null; // failure is not cached — retry re-loads
+            }
             throw e;
         } finally {
             window.clearTimeout(slowTimer);
