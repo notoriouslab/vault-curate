@@ -137,7 +137,7 @@
    renders behind it. Scope the lift to while THIS modal is open — the
    list class only exists in our promote modal, so no other popover is
    affected. */
-body:has(.vault-curate-promote-list) .popover.hover-popover {
+body.vault-curate-promote-open .popover.hover-popover {
     z-index: var(--layer-menu);
 }
 .vault-curate-promote-list {

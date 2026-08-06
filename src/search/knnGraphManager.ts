@@ -311,7 +311,7 @@ export class KnnGraphManager {
             try {
                 worker = this.opts.spawnWorker();
             } catch (e) {
-                reject(e);
+                reject(e instanceof Error ? e : new Error(String(e)));
                 return;
             }
             this.worker = worker;

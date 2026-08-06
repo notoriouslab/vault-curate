@@ -58,6 +58,10 @@ export class PromoteModal extends Modal {
 
     onOpen() {
         const { contentEl } = this;
+        // Page Preview z-index scope (replaces the :has selector — audit
+        // perf warning): mark the body only while this modal is open.
+        // ownerDocument, not global document — popout-window safe.
+        contentEl.ownerDocument.body.addClass("vault-curate-promote-open");
         contentEl.createEl("h3", { text: t.promoteTitle });
         contentEl.createEl("p", {
             text: t.promoteHint,
@@ -66,7 +70,7 @@ export class PromoteModal extends Modal {
 
         const list = contentEl.createDiv({ cls: "vault-curate-promote-list" });
         const btnRow = contentEl.createDiv({ cls: "vault-curate-modal-btnrow" });
-        const countEl = btnRow.createEl("span", {
+        const countEl = btnRow.createSpan({
             text: t.promoteSelectedCount(0),
             cls: "vault-curate-promote-count",
         });
@@ -92,11 +96,11 @@ export class PromoteModal extends Modal {
         for (const [from, pairs] of groups) {
             let liveRows = pairs.length;
             const header = list.createDiv({ cls: "vault-curate-promote-group" });
-            const headerName = header.createEl("span", {
+            const headerName = header.createSpan({
                 text: basename(from),
                 cls: "vault-curate-promote-group-title",
             });
-            header.createEl("span", {
+            header.createSpan({
                 text: folderOf(from),
                 cls: "vault-curate-promote-folder",
             });
@@ -122,7 +126,7 @@ export class PromoteModal extends Modal {
                 });
                 this.attachHoverPreview(nameBlock, pair.to);
                 if (pair.score !== undefined) {
-                    row.createEl("span", {
+                    row.createSpan({
                         text: pair.score.toFixed(2),
                         cls: "vault-curate-promote-score",
                     });
@@ -163,6 +167,7 @@ export class PromoteModal extends Modal {
     }
 
     onClose() {
+        this.contentEl.ownerDocument.body.removeClass("vault-curate-promote-open");
         this.contentEl.empty();
     }
 }
