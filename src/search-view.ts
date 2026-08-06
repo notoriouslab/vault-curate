@@ -127,6 +127,15 @@ export class SearchView extends ItemView {
         const state = this.plugin.mobileGateState();
         this.searchStatusEl.empty();
         if (state === "ready") {
+            // 015 D5 empty state: the store opened but no index was ever
+            // built (fresh vault synced before desktop ran a rebuild).
+            if (!this.plugin.store?.getMeta("last_indexed_at")) {
+                this.searchStatusEl.createDiv({
+                    cls: "vault-curate-mobile-empty",
+                    text: t.mobileNoIndexYet,
+                });
+                return;
+            }
             // Re-run a pending query typed while the index was loading.
             if (this.inputEl?.value) this.scheduleSearch(this.inputEl.value);
             return;

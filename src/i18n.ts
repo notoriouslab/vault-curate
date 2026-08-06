@@ -71,6 +71,12 @@ export interface Locale {
     mobileIndexLoadFailed: string;
     /** 015 mobile: reload-index button (settings card + retry affordance). */
     mobileReloadIndex: string;
+    /** 015 mobile: empty state — no index yet (desktop builds it). */
+    mobileNoIndexYet: string;
+    /** 015 mobile: settings card explainer — desktop owns the index. */
+    mobileIndexMaintainedByDesktop: string;
+    /** 015 mobile: loopback endpoint can't be reached from a phone. */
+    mobileLoopbackWarning: string;
     searching: string;
     // Commands
     cmdSemanticSearch: string;
@@ -337,6 +343,9 @@ const en: Locale = {
     mobileIndexTooLarge: (mb) => `Vault Curate: index too large for mobile (${mb} MB) — search stays desktop-only for this vault`,
     mobileIndexLoadFailed: "Index failed to load — if the vault just synced, retry in a moment",
     mobileReloadIndex: "Reload index",
+    mobileNoIndexYet: "No index yet — open Vault Curate on your desktop once to build it; the index then syncs to this device with your vault",
+    mobileIndexMaintainedByDesktop: "The index is built and maintained on desktop; this device reads it (read-only).",
+    mobileLoopbackWarning: "⚠ localhost is not reachable from this device — search runs in keyword mode",
     searching: "Searching...",
     cmdSemanticSearch: "Semantic search (modal)",
     cmdOpenPanel: "Open search panel",
@@ -634,6 +643,9 @@ const zhTW: Locale = {
     mobileIndexTooLarge: (mb) => `Vault Curate：索引過大（${mb} MB），手機端暫不載入`,
     mobileIndexLoadFailed: "索引載入失敗：若 vault 剛同步完成，請稍後重試",
     mobileReloadIndex: "重新載入索引",
+    mobileNoIndexYet: "尚無索引：請先在桌機開啟一次 Vault Curate 完成建索引，索引會隨 vault 同步到這台裝置",
+    mobileIndexMaintainedByDesktop: "索引由桌機建立與維護，這台裝置以唯讀方式使用。",
+    mobileLoopbackWarning: "⚠ localhost 在這台裝置上不可達，語意搜尋將以關鍵字模式運作",
     searching: "搜尋中...",
     cmdSemanticSearch: "語意搜尋（彈窗）",
     cmdOpenPanel: "開啟搜尋面板",
@@ -934,6 +946,9 @@ const zhCN: Locale = {
     mobileIndexTooLarge: (mb) => `Vault Curate：索引过大（${mb} MB），手机端暂不加载`,
     mobileIndexLoadFailed: "索引加载失败：若 vault 刚同步完成，请稍后重试",
     mobileReloadIndex: "重新加载索引",
+    mobileNoIndexYet: "尚无索引：请先在桌面端打开一次 Vault Curate 完成建索引，索引会随 vault 同步到这台设备",
+    mobileIndexMaintainedByDesktop: "索引由桌面端建立与维护，这台设备以只读方式使用。",
+    mobileLoopbackWarning: "⚠ localhost 在这台设备上不可达，语义搜索将以关键字模式运作",
     searching: "搜索中...",
     cmdSemanticSearch: "语义搜索（弹窗）",
     cmdOpenPanel: "打开搜索面板",

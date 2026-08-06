@@ -235,17 +235,20 @@ export default class VaultSearchPlugin extends Plugin {
             },
         });
 
-        this.addCommand({
-            id: "rebuild-index",
-            name: t.cmdRebuild,
-            callback: () => this.rebuildIndex(),
-        });
+        // 015 D5: index writing is desktop-only — not registered on mobile.
+        if (!Platform.isMobile) {
+            this.addCommand({
+                id: "rebuild-index",
+                name: t.cmdRebuild,
+                callback: () => this.rebuildIndex(),
+            });
 
-        this.addCommand({
-            id: "update-index",
-            name: t.cmdUpdate,
-            callback: () => this.updateIndex(),
-        });
+            this.addCommand({
+                id: "update-index",
+                name: t.cmdUpdate,
+                callback: () => this.updateIndex(),
+            });
+        }
 
         // Phase 6 (004 rebrand): description generation is now per-note,
         // gated by enableAICuration. checkCallback hides the command from
@@ -254,6 +257,7 @@ export default class VaultSearchPlugin extends Plugin {
             id: "desc-active-note",
             name: t.cmdDescActive,
             checkCallback: (checking) => {
+                if (Platform.isMobile) return false; // 015 D5: LLM flows are desktop-only
                 if (!this.settings.enableAICuration) return false;
                 const file = this.app.workspace.getActiveFile();
                 if (!file || file.extension !== "md") return false;
@@ -267,6 +271,7 @@ export default class VaultSearchPlugin extends Plugin {
             id: "desc-current-results",
             name: t.cmdDescSelected,
             checkCallback: (checking) => {
+                if (Platform.isMobile) return false; // 015 D5: LLM flows are desktop-only
                 // Gate on AI curation only. Empty/no-sidebar runtime check
                 // happens in the handler so the command is discoverable
                 // before the user has searched anything.
@@ -293,7 +298,9 @@ export default class VaultSearchPlugin extends Plugin {
             this.app.workspace.on("file-menu", (menu: Menu, file) => {
                 // Purple-edge promotion (010 D1): right-click on a .canvas
                 // file (tab header / file explorer).
-                if (file instanceof TFile && file.extension === "canvas" && this.store) {
+                // 015 D5: promote is desktop-only (checkbox dialog +
+                // hover-preview UX, writes into note bodies).
+                if (file instanceof TFile && file.extension === "canvas" && this.store && !Platform.isMobile) {
                     menu.addItem((item) => {
                         item.setTitle(t.menuPromote)
                             .setIcon("link")
@@ -302,21 +309,23 @@ export default class VaultSearchPlugin extends Plugin {
                     return;
                 }
                 if (!(file instanceof TFile) || file.extension !== "md") return;
-                if (this.store) {
+                // 015: mobile items stay visible pre-load — the gate loads
+                // the index on first use (runMobileQuery).
+                if (this.store || Platform.isMobile) {
                     menu.addItem((item) => {
                         item.setTitle(t.menuFindSimilar)
                             .setIcon("search")
-                            .onClick(() => void this.findSimilar(file));
+                            .onClick(() => void this.runMobileQuery(() => this.findSimilar(file)));
                     });
                     menu.addItem((item) => {
                         item.setTitle(t.menuGenerateGraph)
                             .setIcon("git-fork")
-                            .onClick(() => void this.generateGraphCanvas(file));
+                            .onClick(() => void this.runMobileQuery(() => this.generateGraphCanvas(file)));
                     });
                     menu.addItem((item) => {
                         item.setTitle(t.menuSemanticPath)
                             .setIcon("route")
-                            .onClick(() => void this.generateSemanticPath(file));
+                            .onClick(() => void this.runMobileQuery(() => this.generateSemanticPath(file)));
                     });
                     // 009 D5: expansion targets the OPEN canvas. The
                     // canvas file is captured HERE, at menu-build time —
@@ -328,11 +337,11 @@ export default class VaultSearchPlugin extends Plugin {
                         menu.addItem((item) => {
                             item.setTitle(t.menuExpandInCanvas)
                                 .setIcon("expand")
-                                .onClick(() => void this.expandInCanvas(file, activeCanvas));
+                                .onClick(() => void this.runMobileQuery(() => this.expandInCanvas(file, activeCanvas)));
                         });
                     }
                 }
-                if (this.settings.enableAICuration) {
+                if (this.settings.enableAICuration && !Platform.isMobile) { // 015 D5: LLM flows desktop-only
                     menu.addItem((item) => {
                         item.setTitle(t.menuDescGenerate)
                             .setIcon("sparkles")
@@ -354,6 +363,7 @@ export default class VaultSearchPlugin extends Plugin {
             id: "promote-purple-edges",
             name: t.cmdPromote,
             checkCallback: (checking) => {
+                if (Platform.isMobile) return false; // 015 D5: desktop-only
                 const canvasFile = this.getActiveCanvasFile();
                 if (!canvasFile || !this.store) return false;
                 if (checking) return true;
@@ -366,6 +376,7 @@ export default class VaultSearchPlugin extends Plugin {
             id: "generate-moc-grouped",
             name: t.cmdGenerateMocGrouped,
             checkCallback: (checking) => {
+                if (Platform.isMobile) return false; // 015 D5: LLM flows are desktop-only
                 // Gate on AI curation only. The grouped flow has its own
                 // fallback-to-flat path when result count < 5, so we keep
                 // the command discoverable regardless of current results.
@@ -1159,6 +1170,15 @@ export default class VaultSearchPlugin extends Plugin {
             this.scheduleBM25Warm(0); // warm strictly after the store is ready
         }
         return store;
+    }
+
+    /** 015: manual refresh channel — desktop rebuilt the index, the user
+     *  taps "Reload index" on mobile: drop the snapshot, re-read the file. */
+    async reloadMobileIndex(): Promise<SQLiteStore> {
+        if (!Platform.isMobile) return this.ensureStoreLoaded();
+        this.store = null;
+        await this.mobileGate?.invalidate();
+        return this.ensureStoreLoaded();
     }
 
     /** 015 red-team C3: run a query with deep-read convergence — a store-level

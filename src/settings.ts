@@ -4,7 +4,7 @@
 // AI Curation is gated behind enableAICuration; Advanced is collapsed
 // behind a <details> element so power-user knobs don't crowd the screen.
 
-import { App, Modal, PluginSettingTab, Setting } from "obsidian";
+import { App, Modal, Platform, PluginSettingTab, Setting } from "obsidian";
 import type VaultSearchPlugin from "./main";
 import type { EmbeddingProviderType } from "./types";
 import { checkLLMReachable, fetchOllamaModels, formatLocalDateTime, isLoopbackHost } from "./utils";
@@ -27,6 +27,13 @@ export class VaultSearchSettingTab extends PluginSettingTab {
     display(): void {
         const { containerEl } = this;
         containerEl.empty();
+        if (Platform.isMobile) {
+            // 015 D5: mobile renders only what works there — no provider
+            // picker, no rebuild/update, no AI curation, no chunk params.
+            this.buildMobileSettings(containerEl);
+            void this.loadModelOptions();
+            return;
+        }
         this.buildQuickSetup(containerEl);
         this.buildAICuration(containerEl);
         this.buildAdvanced(containerEl);
@@ -274,15 +281,10 @@ export class VaultSearchSettingTab extends PluginSettingTab {
 
     // ── Section 3: Advanced (collapsed) ────────────────────────
 
-    private buildAdvanced(parent: HTMLElement) {
-        const details = parent.createEl("details", { cls: "vault-curate-advanced" });
-        details.createEl("summary", {
-            text: t.sectionAdvanced,
-            cls: "vault-curate-advanced-summary",
-        });
-        const adv = details;
-
-        new Setting(adv)
+    /** topResults + minScore controls — shared by Advanced (desktop) and
+     *  the 015 mobile settings page. */
+    private buildTopResultsAndMinScore(parent: HTMLElement) {
+        new Setting(parent)
             .setName(t.topResults)
             .setDesc(t.topResultsDesc)
             .addText(text => {
@@ -296,7 +298,7 @@ export class VaultSearchSettingTab extends PluginSettingTab {
                 });
             });
 
-        new Setting(adv)
+        new Setting(parent)
             .setName(t.minScore)
             .setDesc(t.minScoreDesc)
             .addText(text => {
@@ -309,6 +311,99 @@ export class VaultSearchSettingTab extends PluginSettingTab {
                     }
                 });
             });
+    }
+
+    private buildSearchScope(parent: HTMLElement) {
+        new Setting(parent)
+            .setName(t.searchScope)
+            .setDesc(t.searchScopeDesc)
+            .addDropdown(drop => {
+                drop.addOption("hot", t.scopeHot);
+                drop.addOption("all", t.scopeAll);
+                drop.addOption("cold", t.scopeCold);
+                drop.setValue(this.plugin.settings.searchScope);
+                drop.onChange(async (val) => {
+                    this.plugin.settings.searchScope = val as "hot" | "all" | "cold";
+                    await this.plugin.saveSettings();
+                });
+            });
+    }
+
+    /** 013 D6: dismissed suggestions — count + manage modal. Shared with the
+     *  015 mobile settings page (dismiss stays available on mobile). */
+    private buildDismissedManager(parent: HTMLElement) {
+        const dismissedCount = () =>
+            Object.keys(this.plugin.settings.dismissedPairs).length +
+            Object.keys(this.plugin.settings.dismissedNotes).length;
+        const dismissedSetting = new Setting(parent)
+            .setName(t.dismissedHeading)
+            .setDesc(t.dismissedManageDesc(dismissedCount()));
+        dismissedSetting.addButton(btn => {
+            btn.setButtonText(t.dismissedManage);
+            btn.onClick(() => {
+                new DismissedModal(this.app, this.plugin, () => {
+                    dismissedSetting.setDesc(t.dismissedManageDesc(dismissedCount()));
+                }).open();
+            });
+        });
+    }
+
+    // ── 015 D5: mobile settings page ───────────────────────────
+    // Only what works on mobile: index status card (+ reload), remote
+    // endpoint for layer-2 semantic search, query params, dismissed manager.
+    private buildMobileSettings(parent: HTMLElement) {
+        // Index status card
+        new Setting(parent).setName(t.indexStats).setHeading();
+        parent.createEl("p", {
+            text: t.mobileIndexMaintainedByDesktop,
+            cls: "setting-item-description",
+        });
+        if (this.plugin.store) {
+            this.statsEl = parent.createDiv({ cls: "vault-curate-stats" });
+            this.renderStats();
+        } else {
+            parent.createEl("p", {
+                text: this.plugin.store === null && this.plugin.mobileGateState() === "idle"
+                    ? t.mobileNoIndexYet
+                    : this.plugin.mobileGateStatusText(),
+                cls: "setting-item-description",
+            });
+        }
+        new Setting(parent)
+            .setName(t.mobileReloadIndex)
+            .addButton(btn => {
+                btn.setButtonText(t.mobileReloadIndex);
+                btn.onClick(async () => {
+                    await this.plugin.reloadMobileIndex().catch(() => { /* state renders below */ });
+                    this.display(); // re-render card with fresh state
+                });
+            });
+
+        // Remote endpoint (layer 2)
+        new Setting(parent).setName(t.embeddingProvider).setHeading();
+        if (isLoopbackHost(this.plugin.settings.ollamaUrl)) {
+            parent.createEl("p", {
+                text: t.mobileLoopbackWarning,
+                cls: "setting-item-description mod-warning",
+            });
+        }
+        this.buildExternalEmbeddingFields(parent);
+
+        // Query params + dismissed manager
+        this.buildTopResultsAndMinScore(parent);
+        this.buildSearchScope(parent);
+        this.buildDismissedManager(parent);
+    }
+
+    private buildAdvanced(parent: HTMLElement) {
+        const details = parent.createEl("details", { cls: "vault-curate-advanced" });
+        details.createEl("summary", {
+            text: t.sectionAdvanced,
+            cls: "vault-curate-advanced-summary",
+        });
+        const adv = details;
+
+        this.buildTopResultsAndMinScore(adv);
 
         // Semantic Canvas Graph (006): destination folder for generated
         // .canvas files. Empty = vault root.
@@ -347,21 +442,7 @@ export class VaultSearchSettingTab extends PluginSettingTab {
                 });
             });
 
-        // 013 D6: dismissed suggestions — count + manage modal.
-        const dismissedCount = () =>
-            Object.keys(this.plugin.settings.dismissedPairs).length +
-            Object.keys(this.plugin.settings.dismissedNotes).length;
-        const dismissedSetting = new Setting(adv)
-            .setName(t.dismissedHeading)
-            .setDesc(t.dismissedManageDesc(dismissedCount()));
-        dismissedSetting.addButton(btn => {
-            btn.setButtonText(t.dismissedManage);
-            btn.onClick(() => {
-                new DismissedModal(this.app, this.plugin, () => {
-                    dismissedSetting.setDesc(t.dismissedManageDesc(dismissedCount()));
-                }).open();
-            });
-        });
+        this.buildDismissedManager(adv);
 
         new Setting(adv)
             .setName(t.maxEmbedChars)
@@ -398,19 +479,7 @@ export class VaultSearchSettingTab extends PluginSettingTab {
                 });
             });
 
-        new Setting(adv)
-            .setName(t.searchScope)
-            .setDesc(t.searchScopeDesc)
-            .addDropdown(drop => {
-                drop.addOption("hot", t.scopeHot);
-                drop.addOption("all", t.scopeAll);
-                drop.addOption("cold", t.scopeCold);
-                drop.setValue(this.plugin.settings.searchScope);
-                drop.onChange(async (val) => {
-                    this.plugin.settings.searchScope = val as "hot" | "all" | "cold";
-                    await this.plugin.saveSettings();
-                });
-            });
+        this.buildSearchScope(adv);
 
         new Setting(adv)
             .setName(t.chunkSize)
