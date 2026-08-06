@@ -41,6 +41,7 @@ import { KnnGraphManager } from "./search/knnGraphManager";
 import knnWorkerSource from "@inline/knn-worker";
 import { makeTierResolver, resolveCreated } from "./heat/makeTierResolver";
 import { MobileIndexGate, type MobileGateState } from "./mobile/indexGate";
+import { probeStoreHealth } from "./mobile/probeStoreHealth";
 import { isLoopbackHost } from "./utils";
 import { SELF_WRITE_TOLERANCE_MS, type TierResolver } from "./heat/deriveTier";
 import { relatedKwRank, kwRankForQuery } from "./search/relatedKwRank";
@@ -1209,7 +1210,14 @@ export default class VaultSearchPlugin extends Plugin {
         try {
             store = await this.ensureStoreLoaded();
         } catch {
-            return null; // gate state already set; the view renders it
+            // Review residual: a load superseded by a concurrent reload
+            // rejects even though the fresh store lands right after — one
+            // immediate retry turns that race from a silent no-op into a hit.
+            try {
+                store = await this.ensureStoreLoaded();
+            } catch {
+                return null; // genuinely failed; gate state renders in the view
+            }
         }
         try {
             return await fn(store);
@@ -1225,11 +1233,7 @@ export default class VaultSearchPlugin extends Plugin {
      *  70MB snapshot. Also used by the SearchView's own catch (review W3). */
     async handleMobileQueryError(e: unknown, store?: SQLiteStore | null): Promise<void> {
         const probe = store ?? this.store;
-        let storeSick = true;
-        try {
-            probe?.getMeta("schema_version");
-            storeSick = false;
-        } catch { /* the probe itself threw — index is corrupt */ }
+        const storeSick = probe ? !probeStoreHealth(probe) : true;
         if (!storeSick) {
             console.error("vault-curate: mobile query failed (index healthy — not resetting)", e);
             new Notice(t.searchFailed);
