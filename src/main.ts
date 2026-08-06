@@ -1098,10 +1098,11 @@ export default class VaultSearchPlugin extends Plugin {
             },
             exists: (path) => this.app.vault.adapter.exists(path),
         };
-        const store = await SQLiteStore.open(adapter, this.dbPath(), this.sqlWasmBinary);
-        // 015 spike: mobile is read-only — flush no-ops, and the legacy
+        // 015: mobile opens read-only — flush no-ops, and the legacy
         // index.json cleanup (an adapter.remove) is desktop housekeeping.
-        store.readOnly = Platform.isMobile;
+        const store = await SQLiteStore.open(adapter, this.dbPath(), this.sqlWasmBinary, {
+            readOnly: Platform.isMobile,
+        });
         // 007 D5: inject the desc/body blend weight (store must not read
         // plugin settings itself). Re-injected on every saveSettings().
         store.setComposeAlpha(this.settings.descWeight);

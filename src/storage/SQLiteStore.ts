@@ -110,13 +110,19 @@ export class SQLiteStore {
         this.composeAlpha = Math.max(0, Math.min(1, alpha));
     }
 
-    /** Factory: open existing db file or create fresh, apply schema. */
+    /** Factory: open existing db file or create fresh, apply schema.
+     *  015: `opts.readOnly` opens a query-only store — the in-memory DB
+     *  still runs schema DDL / migration / prune (they never leave RAM),
+     *  but nothing is ever written back to disk (mobile reads the
+     *  desktop-built index; a single writer keeps iCloud conflict-free). */
     static async open(
         adapter: PersistAdapter,
         dbPath: string,
         wasmBinary: Uint8Array,
+        opts?: { readOnly?: boolean },
     ): Promise<SQLiteStore> {
         const store = new SQLiteStore(adapter, dbPath);
+        store.readOnly = opts?.readOnly ?? false;
         const exists = await adapter.exists(dbPath);
         const bytes = exists ? await adapter.read(dbPath) : null;
         store.db = await openDb(bytes, wasmBinary);
@@ -127,15 +133,27 @@ export class SQLiteStore {
         if (pruned > 0) {
             console.debug(`vault-curate: pruned ${pruned} orphan chunk(s)`);
             store.bm25Index = null; // corpus shrank
-            store.touch();
+            if (!store.readOnly) store.touch();
         }
         return store;
+    }
+
+    /** 015: write ignored in read-only mode — warn once per method so a
+     *  miswired caller is visible without spamming the console. */
+    private refuseWrite(method: string): boolean {
+        if (!this.readOnly) return false;
+        if (!this.warnedWrites.has(method)) {
+            this.warnedWrites.add(method);
+            console.warn(`vault-curate: write ignored (read-only store): ${method}`);
+        }
+        return true;
     }
 
     // ─── Notes ────────────────────────────────────────────────────────────────
 
     upsertNote(note: NoteRecord): void {
         if (this.disposed) return;
+        if (this.refuseWrite("upsertNote")) return;
         this.db.run(
             `INSERT OR REPLACE INTO notes
              (path, mtime, title, description, tier, body_vec, body_dim, indexed_at, desc_vec)
@@ -203,6 +221,7 @@ export class SQLiteStore {
 
     deleteNote(path: string): void {
         if (this.disposed) return;
+        if (this.refuseWrite("deleteNote")) return;
         // Chunks must go explicitly. The schema declares ON DELETE CASCADE but
         // sql.js keeps foreign_keys OFF, so it never fires — and enabling the
         // pragma would make upsertNote's INSERT OR REPLACE cascade a note's
@@ -245,6 +264,7 @@ export class SQLiteStore {
 
     setDescVec(path: string, vec: Float32Array): void {
         if (this.disposed) return;
+        if (this.refuseWrite("setDescVec")) return;
         this.db.run('UPDATE notes SET desc_vec = ? WHERE path = ?', [vecToBlob(vec), path]);
         this.touch();
     }
@@ -253,6 +273,7 @@ export class SQLiteStore {
 
     upsertChunks(notePath: string, chunks: ChunkRecord[]): void {
         if (this.disposed) return;
+        if (this.refuseWrite("upsertChunks")) return;
         // Replace strategy: delete existing chunks for this note, insert new.
         this.db.run('DELETE FROM chunks WHERE note_path = ?', [notePath]);
         const insertChunk = this.db.prepare(
@@ -515,6 +536,7 @@ export class SQLiteStore {
 
     setMeta(key: string, value: string): void {
         if (this.disposed) return;
+        if (this.refuseWrite("setMeta")) return;
         this.db.run('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)', [key, value]);
         this.touch();
     }
@@ -524,6 +546,7 @@ export class SQLiteStore {
     /** Provider switch: clear all indexed data but preserve schema + meta.schema_version. */
     clearAllData(): void {
         if (this.disposed) return;
+        if (this.refuseWrite("clearAllData")) return;
         this.bm25Index = null; // corpus wiped (D9)
         // Wrap multi-statement clear in a transaction so a crash mid-clear
         // leaves notes + chunks consistent (no orphaned chunks rows). If exec
@@ -569,11 +592,11 @@ export class SQLiteStore {
     }
 
     /** Force-flush to disk. Returns when bytes are persisted. */
-    /** 015 spike: read-only mode — flush becomes a no-op so the on-disk
-     *  index can never be modified by this instance. Set by the mobile
-     *  branch right after open(); the full opts-based readOnly lands in
-     *  Task 2. */
-    readOnly = false;
+    /** 015: read-only mode (set via open() opts) — flush becomes a no-op
+     *  so the on-disk index can never be modified by this instance. */
+    private readOnly = false;
+    /** Write methods already warned about in read-only mode. */
+    private warnedWrites = new Set<string>();
 
     async flush(): Promise<void> {
         if (this.readOnly) return;
@@ -602,7 +625,7 @@ export class SQLiteStore {
             window.clearTimeout(this.idleTimer);
             this.idleTimer = null;
         }
-        if (this.mutationCount > 0) await this.flush();
+        if (!this.readOnly && this.mutationCount > 0) await this.flush();
         this.db.close();
     }
 }
