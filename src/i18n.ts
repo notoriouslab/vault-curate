@@ -77,6 +77,12 @@ export interface Locale {
     mobileIndexMaintainedByDesktop: string;
     /** 015 mobile: loopback endpoint can't be reached from a phone. */
     mobileLoopbackWarning: string;
+    /** 017: search-tab button — export current results as a canvas. */
+    exportResultsCanvas: string;
+    /** 017: results canvas written. */
+    noticeResultsCanvasCreated: (path: string) => string;
+    /** 017: readability cap kicked in — shown/total. */
+    noticeResultsCanvasTruncated: (shown: number, total: number) => string;
     searching: string;
     // Commands
     cmdSemanticSearch: string;
@@ -346,6 +352,9 @@ const en: Locale = {
     mobileNoIndexYet: "No index yet — open Vault Curate on your desktop once to build it; the index then syncs to this device with your vault",
     mobileIndexMaintainedByDesktop: "The index is built and maintained on desktop; this device reads it (read-only).",
     mobileLoopbackWarning: "⚠ localhost is not reachable from this device — search runs in keyword mode",
+    exportResultsCanvas: "Export results to Canvas",
+    noticeResultsCanvasCreated: (path) => `Vault Curate: results canvas created — ${path}`,
+    noticeResultsCanvasTruncated: (shown, total) => `Vault Curate: exported the top ${shown} of ${total} results (canvas readability cap)`,
     searching: "Searching...",
     cmdSemanticSearch: "Semantic search (modal)",
     cmdOpenPanel: "Open search panel",
@@ -646,6 +655,9 @@ const zhTW: Locale = {
     mobileNoIndexYet: "尚無索引：請先在桌機開啟一次 Vault Curate 完成建索引，索引會隨 vault 同步到這台裝置",
     mobileIndexMaintainedByDesktop: "索引由桌機建立與維護，這台裝置以唯讀方式使用。",
     mobileLoopbackWarning: "⚠ localhost 在這台裝置上不可達，語意搜尋將以關鍵字模式運作",
+    exportResultsCanvas: "結果導出 Canvas",
+    noticeResultsCanvasCreated: (path) => `Vault Curate：結果 Canvas 已建立 — ${path}`,
+    noticeResultsCanvasTruncated: (shown, total) => `Vault Curate：已導出前 ${shown} 篇（共 ${total} 篇，Canvas 可讀性上限）`,
     searching: "搜尋中...",
     cmdSemanticSearch: "語意搜尋（彈窗）",
     cmdOpenPanel: "開啟搜尋面板",
@@ -949,6 +961,9 @@ const zhCN: Locale = {
     mobileNoIndexYet: "尚无索引：请先在桌面端打开一次 Vault Curate 完成建索引，索引会随 vault 同步到这台设备",
     mobileIndexMaintainedByDesktop: "索引由桌面端建立与维护，这台设备以只读方式使用。",
     mobileLoopbackWarning: "⚠ localhost 在这台设备上不可达，语义搜索将以关键字模式运作",
+    exportResultsCanvas: "结果导出 Canvas",
+    noticeResultsCanvasCreated: (path) => `Vault Curate：结果 Canvas 已创建 — ${path}`,
+    noticeResultsCanvasTruncated: (shown, total) => `Vault Curate：已导出前 ${shown} 篇（共 ${total} 篇，Canvas 可读性上限）`,
     searching: "搜索中...",
     cmdSemanticSearch: "语义搜索（弹窗）",
     cmdOpenPanel: "打开搜索面板",

@@ -49,6 +49,11 @@ export class SearchView extends ItemView {
     private debounceTimer: number | null = null;
     private currentQuery = "";
     private lastResults: SearchResult[] = [];
+    /** 017 red-team C1: currentQuery updates at debounce time but
+     *  lastResults only lands after the await — anything that names the
+     *  results (canvas center, filenames, MOC titles) must read this pair,
+     *  written atomically at the single result-landing site. */
+    private lastSearchSnapshot: { query: string; results: SearchResult[] } | null = null;
 
     // Discover state
     private discoverMode: DiscoverMode = "current";
@@ -195,6 +200,25 @@ export class SearchView extends ItemView {
         });
 
         const searchActions = container.createDiv({ cls: "vault-curate-mode-toggle" });
+        // 017: export current results as a canvas — the search tab's canvas
+        // entry (desktop + mobile; tablets are the sweet spot).
+        searchActions.createEl("button", {
+            text: t.exportResultsCanvas,
+            cls: "vault-curate-mode-btn vault-curate-graph-btn",
+        }).addEventListener("click", () => {
+            // Red-team W4: desktop store-null must be loud here — the
+            // shared gate helper returns null silently on desktop.
+            if (!Platform.isMobile && !this.plugin.store) {
+                this.searchStatusEl.setText(t.indexEmpty);
+                return;
+            }
+            const snapshot = this.lastSearchSnapshot;
+            if (!snapshot || snapshot.results.length === 0) {
+                new Notice(t.mocNoResults);
+                return;
+            }
+            void this.plugin.runMobileQuery(() => this.plugin.exportResultsCanvas(snapshot));
+        });
         // 015 D5 (ruling M5): flat MOC stays desktop-only — it writes a .md.
         if (!Platform.isMobile) {
             searchActions.createEl("button", {
@@ -271,6 +295,7 @@ export class SearchView extends ItemView {
             );
             if (query !== this.currentQuery) return;
             this.lastResults = results;
+            this.lastSearchSnapshot = { query, results };
             this.renderSearchResults();
             this.searchStatusEl.setText(
                 degraded
@@ -636,7 +661,7 @@ export class SearchView extends ItemView {
 
         const query = this.activeTab === "discover"
             ? (this.app.workspace.getActiveFile()?.basename ?? "Discover")
-            : (this.currentQuery || "Search");
+            : (this.lastSearchSnapshot?.query || this.currentQuery || "Search");
 
         const tier = classifyMocSize(results.length);
         console.debug("[MOC 2.0] tier:", tier, "query:", query);
@@ -781,9 +806,12 @@ export class SearchView extends ItemView {
         // Build a descriptive title from source context
         let mocTitle = `MOC ${now.toISOString().slice(0, 10)}`;
         let mocDesc = "";
-        if (source === "search" && this.currentQuery) {
-            mocTitle = t.mocTitleSearch(this.currentQuery);
-            mocDesc = t.mocDescSearch(this.currentQuery);
+        // 017 C1 co-fix: name the MOC after the query the results belong
+        // to (snapshot), not whatever is in the input box right now.
+        const snapshotQuery = this.lastSearchSnapshot?.query ?? this.currentQuery;
+        if (source === "search" && snapshotQuery) {
+            mocTitle = t.mocTitleSearch(snapshotQuery);
+            mocDesc = t.mocDescSearch(snapshotQuery);
         } else if (source.startsWith("discover-current")) {
             const activeFile = this.app.workspace.getActiveFile();
             if (activeFile) {

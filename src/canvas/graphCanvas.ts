@@ -34,6 +34,20 @@ export interface CanvasFileNode {
     color?: string;
 }
 
+/** JSON Canvas 1.0 text node (017): generic six fields + `text`, which the
+ *  spec defines as "plain text with Markdown syntax" — callers MUST make
+ *  user-supplied strings Markdown-safe (see buildResultsCanvas). */
+export interface CanvasTextNode {
+    id: string;
+    type: "text";
+    text: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    color?: string;
+}
+
 export interface CanvasEdge {
     id: string;
     fromNode: string;
@@ -47,7 +61,7 @@ export interface CanvasEdge {
 }
 
 export interface CanvasJson {
-    nodes: CanvasFileNode[];
+    nodes: (CanvasFileNode | CanvasTextNode)[];
     edges: CanvasEdge[];
 }
 
@@ -182,6 +196,125 @@ export function graphCanvasFileName(
     existingNames: Set<string>,
 ): string {
     const base = `${basename} · graph · ${stamp}`;
+    let name = `${base}.canvas`;
+    for (let n = 2; existingNames.has(name); n++) {
+        name = `${base}-${n}.canvas`;
+    }
+    return name;
+}
+
+// ─── 017: search results → canvas ────────────────────────────────────────────
+
+/** Center-edge color for results canvases: green, the same preset as
+ *  COLOR_CENTER — anchor-family semantics (a green anchor emitting green
+ *  relevance rays). Deliberately NOT gray (gray edges mean "already linked"
+ *  in relation graphs) and NOT purple (reserved for unlinked note pairs). */
+export const COLOR_RELEVANCE = "4";
+
+/** Readability cap for results canvases; truncation is surfaced to the
+ *  user via notice (never silent). */
+export const RESULTS_CANVAS_CAP = 12;
+
+/** Markdown-safe rendering of a user query for a text node: JSON Canvas
+ *  defines `text` as Markdown, so `#tag` would render as a heading. Wrap
+ *  in an inline-code fence one backtick longer than any run inside. */
+export function markdownSafeQuery(query: string): string {
+    const longestRun = (query.match(/`+/g) ?? []).reduce((m, r) => Math.max(m, r.length), 0);
+    const fence = "`".repeat(longestRun + 1);
+    // Pad when the query starts/ends with a backtick (CommonMark rule).
+    const pad = query.startsWith("`") || query.endsWith("`") ? " " : "";
+    return `🔍 ${fence}${pad}${query}${pad}${fence}`;
+}
+
+/** Build the "these search results as a canvas" star: the query as a green
+ *  text-node center, results laid out radially (score-desc, clockwise from
+ *  12 o'clock — same reading order as relation graphs), every center edge
+ *  green with the score as label. No arrows and no purple: edges from a
+ *  text center carry relevance, not link state. */
+export function buildResultsCanvas(
+    query: string,
+    results: GraphNeighborInput[],
+): CanvasJson {
+    if (results.length === 0) {
+        throw new Error("buildResultsCanvas: results must be non-empty (caller guards zero results)");
+    }
+
+    const centerId = `${djb2Hex(`q:${query}`)}-0`;
+    const nodes: (CanvasFileNode | CanvasTextNode)[] = [{
+        id: centerId,
+        type: "text",
+        text: markdownSafeQuery(query),
+        x: -CENTER_W / 2,
+        y: -CENTER_H / 2,
+        width: CENTER_W,
+        height: CENTER_H,
+        color: COLOR_CENTER,
+    }];
+
+    const { positions, sides } = layoutRadial(results.length);
+    const edges: CanvasEdge[] = [];
+
+    for (let i = 0; i < results.length; i++) {
+        const r = results[i];
+        const nodeId = `${djb2Hex(r.path)}-${i + 1}`;
+        const node: CanvasFileNode = {
+            id: nodeId,
+            type: "file",
+            file: r.path,
+            x: positions[i].x,
+            y: positions[i].y,
+            width: NODE_W,
+            height: NODE_H,
+        };
+        if (r.tier === "cold") node.color = COLOR_COLD;
+        nodes.push(node);
+
+        edges.push({
+            id: `e-${nodeId}`,
+            fromNode: centerId,
+            toNode: nodeId,
+            fromSide: sides[i].fromSide,
+            toSide: sides[i].toSide,
+            fromEnd: "none",
+            toEnd: "none",
+            color: COLOR_RELEVANCE,
+            label: r.score.toFixed(2),
+        });
+    }
+
+    return { nodes, edges };
+}
+
+/** Filename-safe basename from a raw query. Order matters (red team C2/W3):
+ *  strip illegal characters and leading dots FIRST, fall back to "search"
+ *  only when the FILTERED result is empty, then cut at 24 code points
+ *  (never .slice() — a code-unit cut can split an emoji surrogate pair). */
+export function sanitizeQueryBasename(query: string): string {
+    const filtered = query
+        .replace(/[/\\:*?"<>|]/g, " ")
+        // Control and format characters: illegal in Windows filenames (0x00-0x1F)
+        // and invisible everywhere else, so a pasted tab or zero-width space
+        // would otherwise end up baked into the canvas name. \p{Cc} covers the
+        // control range (tab and newline included), \p{Cf} the format chars
+        // (zero-width space, bidi marks). Unicode properties rather than
+        // explicit ranges — a character class listing ranges trips the
+        // "unexpected combined character" audit lint.
+        .replace(/[\p{Cc}\p{Cf}]/gu, " ")
+        .replace(/^\.+/, "")
+        .trim();
+    if (filtered.length === 0) return "search";
+    return Array.from(filtered).slice(0, 24).join("").trim() || "search";
+}
+
+/** Results-canvas naming — mirrors graphCanvasFileName's stamp format but
+ *  with a `search` marker (red team W5: reusing the `graph` marker would
+ *  mislabel the artifact). */
+export function resultsCanvasFileName(
+    queryBasename: string,
+    stamp: string,
+    existingNames: Set<string>,
+): string {
+    const base = `${queryBasename} · search · ${stamp}`;
     let name = `${base}.canvas`;
     for (let n = 2; existingNames.has(name); n++) {
         name = `${base}-${n}.canvas`;

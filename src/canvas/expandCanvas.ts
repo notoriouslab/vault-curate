@@ -267,7 +267,9 @@ export function expandCanvas(
             hubIds.add(n.id);
         }
     }
-    const paintNode = (n: CanvasFileNode) =>
+    // 017: canvases may carry text nodes (results-canvas center, or
+    // user-typed) — hub painting keys on id only, so the union is safe.
+    const paintNode = <N extends { id: string; color?: string }>(n: N): N =>
         hubIds.has(n.id) && n.color !== COLOR_HUB ? { ...n, color: COLOR_HUB } : n;
     const paintEdge = (e: CanvasEdge) =>
         hubIds.has(e.toNode) && MUTABLE_EDGE_COLORS.has(e.color) && e.color !== COLOR_HUB
