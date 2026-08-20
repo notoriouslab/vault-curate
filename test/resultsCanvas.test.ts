@@ -85,6 +85,19 @@ describe('sanitizeQueryBasename / resultsCanvasFileName', () => {
         expect(Array.from(out)).toHaveLength(24);
         expect(out).not.toMatch(/[\uD800-\uDBFF]$/); // 尾端無孤立 high surrogate
     });
+    it('控制字元／Tab／零寬字元不進檔名（ship 前紅隊稽核）', () => {
+        // Windows 上 0x00-0x1F 是非法檔名字元，vault.create 會丟例外；
+        // 零寬字元則是看不見卻真的存在的檔名雜訊。
+        expect(sanitizeQueryBasename('a\u0007bc')).toBe('a bc');
+        expect(sanitizeQueryBasename('a\tb')).toBe('a b');
+        expect(sanitizeQueryBasename('a\u200bb')).toBe('a b');
+        expect(sanitizeQueryBasename('a\u200e\u200fb')).toBe('a  b');
+        // 全是控制字元 → 濾後為空 → 照既有規則 fallback
+        expect(sanitizeQueryBasename('\u0001\u0002')).toBe('search');
+        // emoji 不能被誤判成格式字元砍掉
+        expect(sanitizeQueryBasename('\u{1F600}a')).toBe('\u{1F600}a');
+    });
+
     it('非法字元換空白、前導點剝除', () => {
         expect(sanitizeQueryBasename('a/b:c')).toBe('a b c');
         expect(sanitizeQueryBasename('..hidden')).toBe('hidden');

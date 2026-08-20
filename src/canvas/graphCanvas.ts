@@ -292,6 +292,14 @@ export function buildResultsCanvas(
 export function sanitizeQueryBasename(query: string): string {
     const filtered = query
         .replace(/[/\\:*?"<>|]/g, " ")
+        // Control and format characters: illegal in Windows filenames (0x00-0x1F)
+        // and invisible everywhere else, so a pasted tab or zero-width space
+        // would otherwise end up baked into the canvas name. \p{Cc} covers the
+        // control range (tab and newline included), \p{Cf} the format chars
+        // (zero-width space, bidi marks). Unicode properties rather than
+        // explicit ranges — a character class listing ranges trips the
+        // "unexpected combined character" audit lint.
+        .replace(/[\p{Cc}\p{Cf}]/gu, " ")
         .replace(/^\.+/, "")
         .trim();
     if (filtered.length === 0) return "search";
