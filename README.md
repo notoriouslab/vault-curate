@@ -60,6 +60,7 @@ Search by meaning, not just literal characters. Three searches run at once and m
 - Cmd/Ctrl+P → `Vault Curate: Semantic search (modal)` for a quick jump; the sidebar **Search** tab for persistent results.
 - **Find similar notes**: right-click any `.md` → **VC: Find similar notes**; results land in the sidebar and drag straight to Canvas. Similarity ranks **content**, not templates: markdown structure is stripped before comparison and the note's `description` property joins the ranking, so even when dozens of notes share the same template, what surfaces is the handful actually about the same thing — not a row of identical-looking template mates. On Traditional-Chinese vaults, text is converted Traditional→Simplified under the hood before semantic matching (stored text, keyword search, and snippets stay Traditional) to sharpen ranking.
 - Ranking is also keyword-aware: Find Similar, the relation graph, and current-note Discover fuse your frontmatter **tags** with semantic similarity, so notes that merely share your writing style stop crowding out notes that share the topic. No tags? Pure semantic ranking.
+- **Export the results to a Canvas**: the **Export results to Canvas** button on the Search tab lays your current results out on an editable Canvas — the query in the middle, the top 12 results around it, each edge labeled with that result's relevance score. This is the *result space of one search*, where the relation graph below is the *neighborhood of one note*. Past 12 results a notice tells you how many were left out; nothing is cut silently.
 
 ![Search results + Canvas drag](./docs/search-canvas.png)
 
@@ -72,6 +73,7 @@ Search finds a single note; this layer shows how notes relate — including the 
 - **Purple edges** = semantically close but **not yet linked** — invisible connections the native graph view can't show you
 - **Gray edges** (with direction arrows) = notes you've already wikilinked
 - **Cyan nodes** = Cold notes
+- **Green edges** = relevance to a search query — they appear on the results canvases exported from the Search tab, never between two notes
 
 Entry points: the command palette, right-click **VC: Generate relation graph**, or the **Graph** button on the Discover sidebar. Each run writes a fresh timestamped `.canvas` into the folder set under Advanced → Relation graph folder (default `Vault Curate Canvases`) — your edited graphs are never overwritten.
 
@@ -96,6 +98,7 @@ Discover works on **notes**, not query strings — it actively surfaces semantic
 - **Global**: forgotten notes most related to your **recent focus** — the notes you've recently edited or created, their topic tags, and their semantic centroid — grouped by top-level folder so each corner of your vault surfaces its own best forgotten notes. Intentional blind-spot mining
 - Results export to a topic-grouped Map of Content via **Generate MOC** (falls back to a flat MOC when results are too few or too similar)
 - Every row takes your verdict: hover **✕** dismisses a suggestion for good (in global Discover, the note itself), with the freed slot refilled — see *Your verdict on every pair* above
+- Also on a Canvas: the Search tab's **Export results to Canvas** button does the same for a query's results, so a search's result space and a note's neighborhood can sit side by side
 
 ![Discover sidebar — current note](./docs/discover-current-note.png)
 
@@ -120,6 +123,7 @@ All four layers run on desktop. On phones and tablets (since 1.5.0) the plugin w
 | Find Similar / Discover (both modes) | ✅ | ✅ full-featured (they read the desktop-built index; no model needed on the device) |
 | Dismiss suggestions (✕) and manage them | ✅ | ✅ your verdicts sync with the vault |
 | Relation graph / semantic path / expand in place | ✅ | ✅ generation works (tablets are the sweet spot for canvas editing) |
+| Export search results to Canvas | ✅ | ✅ (tablets are the sweet spot) |
 | Promote purple edges to wikilinks | ✅ | desktop only |
 | Build / update the index | ✅ | desktop only — the index reaches your phone through vault sync |
 | AI curation (descriptions, grouped MOC) and flat MOC export | ✅ | desktop only |

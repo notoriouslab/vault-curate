@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.5.1 — 2026-08-20
+
+### Added
+- **Export search results to a Canvas.** The sidebar's Search tab has a new **Export results to Canvas** button: your current results land on an editable Obsidian Canvas with the query itself in the middle, the top 12 results radiating out, and every edge labeled with that result's relevance score. Where the relation graph maps one note's neighborhood, this maps one search's result space — a good query becomes a working board in one click. Cold results stay cyan and the existing edge colors keep their meanings (green here is relevance to the query; it is never "already linked" or "not yet linked"). Past 12 results a notice says exactly how many were left out, and each run writes a fresh timestamped `.canvas` into the relation-graph folder, so nothing you edited is ever overwritten. Works on mobile too; tablets are the sweet spot for editing the canvas afterwards.
+
+### Fixed
+- **A MOC generated from a search is now named after the query its results belong to.** Typing a new query while the previous results were still on screen could name the MOC after the half-typed text. Both the new canvas export and MOC generation now read one snapshot of the query and its results, taken at the moment the results land.
+
 ## 1.5.0 — 2026-08-06
 
 The mobile release: your desktop builds the index, your phone searches it.
