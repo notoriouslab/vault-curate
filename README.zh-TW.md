@@ -2,6 +2,7 @@
 
 # Vault Curate
 
+[![網站](https://img.shields.io/badge/網站-notoriouslab.github.io-7C3AED?style=flat-square)](https://notoriouslab.github.io/vault-curate/index.zh-TW.html)
 [![Release](https://img.shields.io/github/v/release/notoriouslab/vault-curate?style=flat-square)](https://github.com/notoriouslab/vault-curate/releases)
 [![Downloads](https://img.shields.io/badge/dynamic/json?style=flat-square&logo=obsidian&color=7C3AED&label=downloads&query=%24%5B%22vault-curate%22%5D.downloads&url=https%3A%2F%2Fraw.githubusercontent.com%2Fobsidianmd%2Fobsidian-releases%2Fmaster%2Fcommunity-plugin-stats.json)](https://obsidian.md/plugins?id=vault-curate)
 [![License](https://img.shields.io/github/license/notoriouslab/vault-curate?style=flat-square)](LICENSE)
