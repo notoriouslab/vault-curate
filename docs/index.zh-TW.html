@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vault Curate：Obsidian 的本地第二大腦</title>
+<meta name="description" content="在 Obsidian 裡找到、看見、重新想起自己的筆記。語意搜尋（繁體中文表現強）、關聯圖看見你從沒手動連過的關係、把被遺忘的好筆記重新撈回來。全程在自己的電腦上運作，不需要 API 金鑰。">
+<style>
+  :root {
+    --bg: #ffffff; --fg: #1d1d1f; --muted: #6e6e73; --card: #f5f5f7;
+    --accent: #7c3aed; --accent-fg: #ffffff; --green: #1f7a37;
+    --border: #d2d2d7; --warn-bg: #fff8e6; --warn-border: #e6c96b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1e; --fg: #f5f5f7; --muted: #98989d; --card: #2c2c2e;
+      --accent: #a97bff; --green: #4cd964;
+      --border: #3a3a3c; --warn-bg: #3a3320; --warn-border: #8a7a3a;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang TC",
+      "Microsoft JhengHei", "Segoe UI", sans-serif;
+    line-height: 1.75; font-size: 17px;
+  }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 20px 80px; }
+  h1 { font-size: 1.9em; line-height: 1.3; margin: 24px 0 8px; }
+  h2 { font-size: 1.35em; margin: 56px 0 16px; padding-top: 8px; }
+  h3 { font-size: 1.1em; margin: 28px 0 8px; }
+  p { margin: 12px 0; }
+  a { color: var(--accent); }
+  .lead { font-size: 1.12em; }
+  .muted { color: var(--muted); font-size: 0.92em; }
+  .hero { text-align: center; padding-top: 24px; }
+  .hero .tagline { font-size: 1.15em; margin: 16px auto; max-width: 40em; }
+  .badges { color: var(--muted); font-size: 0.9em; margin-bottom: 8px; }
+  /* GitHub 四鈕：計數由頁面開啟時向 GitHub API 即時取得（見頁尾 script），取不到就只顯示按鈕；點擊跳到 GitHub 對應頁完成動作（星標／關注需登入） */
+  .gh-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+    margin: 4px 0 10px; }
+  .gh-btn { display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border-radius: 18px; font-size: 0.88em; font-weight: 600;
+    background: var(--card); color: var(--fg); text-decoration: none;
+    border: 1px solid rgba(128,128,128,0.25); }
+  .gh-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .gh-btn svg { width: 15px; height: 15px; fill: currentColor; flex: none; }
+  .gh-count { color: var(--muted); font-weight: 700; font-variant-numeric: tabular-nums; }
+  .dl-box {
+    background: var(--card); border-radius: 16px;
+    padding: 28px 20px; margin: 28px 0;
+  }
+  .dl-buttons { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+  .dl-btn {
+    display: inline-block; text-decoration: none;
+    background: var(--accent); color: var(--accent-fg);
+    border-radius: 12px; padding: 14px 26px;
+    font-size: 1.08em; font-weight: 600; min-width: 240px;
+  }
+  .dl-btn small { display: block; font-weight: 400; font-size: 0.78em; opacity: 0.85; }
+  .dl-btn.secondary { background: var(--card); color: var(--fg);
+    border: 1px solid var(--border); }
+  .dl-note { margin-top: 14px; }
+  .free { color: var(--green); font-weight: 600; }
+  .disclaimer {
+    background: var(--warn-bg); border: 1px solid var(--warn-border);
+    border-radius: 12px; padding: 14px 18px; margin: 28px 0; font-size: 0.95em;
+  }
+  .steps { counter-reset: step; list-style: none; }
+  .steps li {
+    counter-increment: step; position: relative;
+    padding: 0 0 18px 52px; margin: 0;
+  }
+  .steps li::before {
+    content: counter(step); position: absolute; left: 0; top: 2px;
+    width: 34px; height: 34px; border-radius: 50%;
+    background: var(--accent); color: var(--accent-fg);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+  }
+  figure { margin: 24px 0; }
+  figure img {
+    max-width: 100%; border-radius: 12px; border: 1px solid var(--border);
+    display: block;
+  }
+  figcaption { color: var(--muted); font-size: 0.9em; margin-top: 8px; }
+  ul.features { list-style: none; }
+  ul.features li { padding: 6px 0 6px 30px; position: relative; }
+  ul.features li::before { content: "✓"; position: absolute; left: 4px;
+    color: var(--green); font-weight: 700; }
+  details {
+    background: var(--card); border-radius: 12px;
+    padding: 14px 18px; margin: 10px 0;
+  }
+  summary { cursor: pointer; font-weight: 600; }
+  details p { margin-top: 10px; }
+  code { background: var(--card); border-radius: 5px; padding: 1px 6px;
+    font-size: 0.88em; }
+  footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--border);
+    color: var(--muted); font-size: 0.9em; }
+  @media (max-width: 480px) { body { font-size: 16px; } .dl-btn { width: 100%; } }
+</style>
+</head>
+<body>
+<main>
+
+<div class="hero">
+  <h1>Vault Curate<br><span style="font-size:0.62em">Obsidian 的本地第二大腦</span></h1>
+  <p class="tagline">找到、看見、重新想起自己的筆記。用意思搜尋，看見你從沒手動連過的關係，把當初寫得很好卻早就忘了的筆記重新撈回眼前。<br>
+  <strong>全程在你自己的電腦上運作，不需要 API 金鑰、不註冊、不追蹤。</strong></p>
+  <p class="badges">Obsidian 外掛，桌機與手機皆可用 ·
+  <span class="free">完全免費</span>、開放原始碼（MIT 授權）·
+  不連網也能用 · 繁體中文表現強</p>
+  <p class="muted"><a href="index.html">English</a></p>
+
+  <div class="gh-row">
+    <a class="gh-btn" href="https://github.com/notoriouslab/vault-curate"
+       title="到 GitHub 給這個專案一顆星（需登入）">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.75.75 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z"/></svg>
+      星標<span class="gh-count" id="gh-stars"></span></a>
+    <a class="gh-btn" href="https://github.com/notoriouslab/vault-curate/fork"
+       title="到 GitHub 建立你自己的分支副本">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 5.372v.878c0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75v-.878a2.25 2.25 0 1 1 1.5 0v.878a2.25 2.25 0 0 1-2.25 2.25h-1.5v2.128a2.251 2.251 0 1 1-1.5 0V8.5h-1.5A2.25 2.25 0 0 1 3.5 6.25v-.878a2.25 2.25 0 1 1 1.5 0ZM5 3.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Zm6.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm-3 8.75a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Z"/></svg>
+      分支<span class="gh-count" id="gh-forks"></span></a>
+    <a class="gh-btn" href="https://github.com/notoriouslab/vault-curate/subscription"
+       title="到 GitHub 關注這個專案的更新（需登入）">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2c1.981 0 3.671.992 4.933 2.078 1.27 1.091 2.187 2.345 2.637 3.023a1.62 1.62 0 0 1 0 1.798c-.45.678-1.367 1.932-2.637 3.023C11.67 13.008 9.981 14 8 14c-1.981 0-3.671-.992-4.933-2.078C1.797 10.831.88 9.577.43 8.899a1.62 1.62 0 0 1 0-1.798c.45-.678 1.367-1.932 2.637-3.023C4.33 2.992 6.019 2 8 2ZM1.679 7.932a.12.12 0 0 0 0 .136c.411.622 1.241 1.75 2.366 2.717C5.176 11.758 6.527 12.5 8 12.5c1.473 0 2.825-.742 3.955-1.715 1.124-.967 1.954-2.096 2.366-2.717a.12.12 0 0 0 0-.136c-.412-.621-1.242-1.75-2.366-2.717C10.824 4.242 9.473 3.5 8 3.5c-1.473 0-2.825.742-3.955 1.715-1.124.967-1.954 2.096-2.366 2.717ZM8 10a2 2 0 1 1-.001-3.999A2 2 0 0 1 8 10Z"/></svg>
+      關注<span class="gh-count" id="gh-watch"></span></a>
+    <a class="gh-btn" href="https://community.obsidian.md/plugins/vault-curate"
+       title="Obsidian 官方社群外掛統計的累計安裝數">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14ZM7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06l1.97 1.969Z"/></svg>
+      累計安裝<span class="gh-count" id="gh-downloads"></span></a>
+  </div>
+
+  <div class="dl-box">
+    <h2 style="margin:0 0 6px; padding:0">取得外掛</h2>
+    <p class="muted" id="ver-line" style="margin-bottom:16px">正在取得最新版本…</p>
+    <div class="dl-buttons">
+      <a class="dl-btn" href="https://community.obsidian.md/plugins/vault-curate">
+         從社群外掛安裝<small>Obsidian 官方外掛頁</small></a>
+      <a class="dl-btn secondary" id="btn-manual"
+         href="https://github.com/notoriouslab/vault-curate/releases/latest">
+         下載檔案<small>從 GitHub 手動安裝</small></a>
+    </div>
+    <p class="dl-note muted">在 Obsidian 裡的路徑：<strong>設定 → 第三方外掛 →
+    瀏覽</strong>，搜尋 <strong>Vault Curate</strong>，按安裝再啟用。完整步驟（含 BRAT 與手動安裝）見下方「<a href="#install">安裝說明</a>」。</p>
+  </div>
+</div>
+
+<figure>
+  <img src="landing/vault-curate.png" alt="Vault Curate：找到、看見、重新想起自己的筆記">
+</figure>
+
+<div class="disclaimer">
+<strong>開始之前</strong>：Vault Curate 需要 Obsidian 1.7.2 或更新的版本。索引在桌機上建立，模型只需下載一次（約 110 MB），之後一個約 5,000 個片段的知識庫大約一分半鐘建完。手機與平板則透過你原本就在用的同步方式讀取同一份索引，裝置上不必設定、也不必下載模型。AI 整理功能預設關閉，沒有你的明確點擊，任何東西都不會被寫進你的筆記。</div>
+
+<h2>這是什麼？</h2>
+<p>找到一則筆記只是第一步。更難的在後面：看見筆記之間的關係（包含那些你從來沒有手動連起來的），以及不要讓寫得好的筆記默默沉底。Obsidian 內建搜尋是照字面找的（搜「禱告」就漏掉「靈修」），關聯圖只顯示你自己畫過的連線，舊筆記則會慢慢淡出視野。</p>
+<p>Vault Curate 在你的知識庫裡把這個迴圈補完：用意思<strong>找到</strong>筆記，<strong>看見</strong>它和什麼有關，再把你早就忘了的<strong>重新撈回來</strong>。它只負責提議，決定權在你，沒有聊天機器人代你回答，也沒有背景程序偷改你的筆記。</p>
+
+<figure>
+  <img src="landing/concept-graph.png" alt="示意圖：語意關聯如何把整個知識庫的筆記串起來" loading="lazy">
+  <figcaption>本來就該放在一起的筆記，不管你當初有沒有連過</figcaption>
+</figure>
+
+<h2>它會做什麼</h2>
+<ul class="features">
+  <li><strong>用意思搜尋，不只比對字面</strong>：關鍵字、意思、打錯字的標題同時搜，結果併成一份排序</li>
+  <li><strong>顯示你從沒連過的關係</strong>：以正在讀的那則為中心，把最接近的筆記畫成一張可編輯的 Obsidian 白板，還沒連起來的用紫色標出</li>
+  <li><strong>一次點擊就把提議變成真的連結</strong>：勾選你認同的組合，就會在兩則筆記裡寫成正式的雙向連結</li>
+  <li><strong>兩則筆記之間的路徑</strong>：任選兩則，看見中間串起它們的踏腳石筆記；真的搭不起來就誠實告訴你「沒有連通」並附上數字</li>
+  <li><strong>被遺忘的筆記會回來</strong>：很久沒動過的筆記，會在跟你目前手上的主題有關時被撈到眼前</li>
+  <li><strong>你的答案會被記住</strong>：拒絕過的組合不會再出現，改名、刪除、重建索引都撤不掉這個決定；拒絕過的清單也隨時能在設定裡回頭檢視</li>
+  <li><strong>在自己的電腦上跑</strong>：內建模型在本機運算，不必買 API 金鑰，也沒有任何使用行為追蹤</li>
+  <li><strong>繁體中文表現強</strong>：內建模型是針對中文調校的，人名、宗教與專業術語、口語說法這些通用多語模型容易漏掉的地方特別有感。其他語言可以改接 Ollama 或任何 OpenAI 相容的服務</li>
+  <li><strong>一份索引，全部裝置共用</strong>：桌機負責建，手機和平板負責查</li>
+</ul>
+
+<h2>畫面</h2>
+<p class="muted">以下截圖來自一個以繁體中文為主的真實知識庫。</p>
+<figure>
+  <img src="landing/search-canvas.png" alt="側邊欄的搜尋結果，可以直接拖到 Obsidian 白板上" loading="lazy">
+  <figcaption>搜尋結果留在側邊欄，附相關度分數，可以直接拖到白板上</figcaption>
+</figure>
+<figure>
+  <img src="landing/relation-graph.png" alt="白板上的關聯圖：一則筆記被最接近的鄰居圍繞，每條邊標著相關度" loading="lazy">
+  <figcaption>關聯圖：中間是那則筆記，周圍是最接近的鄰居。紫色邊是有關聯但還沒連起來的，灰色邊是你已經連過的</figcaption>
+</figure>
+<figure>
+  <img src="landing/discover-current-note.png" alt="發掘側邊欄顯示與目前開著的筆記相關的其他筆記" loading="lazy">
+  <figcaption>發掘：打開一則筆記，相關的就出現在旁邊，其中很久沒讀的會被特別標示</figcaption>
+</figure>
+
+<h2 id="install">安裝說明</h2>
+<h3>從社群外掛安裝（建議）</h3>
+<ol class="steps">
+  <li>在 Obsidian 打開<strong>設定 → 第三方外掛</strong>，確認<strong>安全模式</strong>已關閉，然後按<strong>瀏覽</strong>。</li>
+  <li>搜尋 <strong>Vault Curate</strong>，按<strong>安裝</strong>再按<strong>啟用</strong>。</li>
+  <li>歡迎畫面會自己跳出來：選內建的本機模型，按 <strong>Index my vault now</strong>。建完索引後點側邊欄的指南針圖示就可以開始搜尋。</li>
+</ol>
+<h3>手動安裝</h3>
+<p>到 <a href="https://github.com/notoriouslab/vault-curate/releases">Releases</a>
+下載 <code>main.js</code>、<code>manifest.json</code>、<code>styles.css</code>，放進知識庫裡的 <code>.obsidian/plugins/vault-curate/</code>，再到<strong>設定 → 第三方外掛</strong>啟用。兩個 <code>.wasm</code> 執行檔會在第一次啟動時自動取得。</p>
+<h3>透過 BRAT（跟著 GitHub 發布更新）</h3>
+<p>安裝 <a href="https://github.com/TfTHacker/obsidian42-brat">BRAT</a>，執行 <code>BRAT: Add a beta plugin for testing</code>，輸入 <code>notoriouslab/vault-curate</code>。之後新版本會自動被抓到。</p>
+
+<h2>常見問題</h2>
+<details>
+  <summary>免費嗎？之後會收費嗎？</summary>
+  <p>完全免費，而且開放原始碼（MIT 授權），沒有付費版、沒有內購、不需要任何帳號。它原本就是作者為自己的知識庫做的工具。</p>
+</details>
+<details>
+  <summary>我筆記的內容會離開這台電腦嗎？</summary>
+  <p>用內建模型不會，它在你自己的裝置上運算；接本機 Ollama 也不會。唯一會送出去的是「OpenAI 相容」這個選項，而且只送到你自己指定的位址（那個位址也可以是 LM Studio 這類本機服務）。三種模式都沒有任何遙測或使用行為追蹤。</p>
+</details>
+<details>
+  <summary>它會改動我的筆記嗎？</summary>
+  <p>不會自己動。它顯示的每一項都是等你點頭或搖頭的提議。連結只會寫進你在確認視窗裡勾選的那些組合；而會寫入描述或產生目錄筆記的 AI 功能預設是關的，開了之後也要你手動執行才會跑。</p>
+</details>
+<details>
+  <summary>手機或平板能用嗎？</summary>
+  <p>1.5.0 起可以，角色是唯讀：讀桌機建好的那份索引。搜尋、找相關筆記、撈回被遺忘的筆記、產生白板圖都能用；建索引、把提議寫成連結、AI 功能則留在桌機。索引會跟著你原本在用的同步方式（iCloud、Obsidian Sync、Syncthing 等）到裝置上，手機端不必設定，也不用下載模型。</p>
+</details>
+<details>
+  <summary>中文的效果如何？</summary>
+  <p>內建模型是針對中文調校的，人名、宗教與專業術語、口語說法這些通用多語模型容易失手的地方特別有感。繁體中文的知識庫有專門處理：比對時在背後做正規化，而你看到與搜尋到的內容一律維持繁體。其他語言可以把供應者改成 Ollama 或任何 OpenAI 相容的服務。</p>
+</details>
+<details>
+  <summary>第一次建索引要多久？</summary>
+  <p>本機模型約 110 MB，只下載一次。之後一個約 5,000 個片段的知識庫，在支援 WebGPU 的機器上大約一分半鐘建完；沒有 WebGPU 也能跑，只是慢一些。後續的修改會增量更新，不需要整份重建。</p>
+</details>
+<details>
+  <summary>遇到問題怎麼回報？</summary>
+  <p>到 <a href="https://github.com/notoriouslab/vault-curate/issues">GitHub 的 Issues 頁</a>開一則（需要一個免費的 GitHub 帳號），描述你看到的畫面即可。請不要把自己的筆記附上去。</p>
+</details>
+
+<footer>
+  <p>Vault Curate 屬於 notoriouslab 開源工具組 ·
+  <a href="https://github.com/notoriouslab/vault-curate">原始碼與完整說明（GitHub）</a> ·
+  <a href="https://github.com/notoriouslab/vault-curate/releases">所有版本</a> ·
+  <a href="https://community.obsidian.md/plugins/vault-curate">Obsidian 社群外掛頁</a></p>
+</footer>
+
+</main>
+<script>
+// 以下全是漸進增強：沒有它頁面照樣完整。每個 fetch 各自降級（膠囊不顯示數字、
+// 版本行改成固定說明），所以 API 掛掉或被限流都不會把頁面弄壞。
+(function () {
+  var ver = document.getElementById("ver-line");
+
+  // 最新版本：顯示 tag 與日期，並把「下載檔案」按鈕指到該版本頁。取不到就維持
+  // href 裡原本的 /releases/latest。
+  fetch("https://api.github.com/repos/notoriouslab/vault-curate/releases/latest")
+    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function (rel) {
+      if (rel.html_url) {
+        var manual = document.getElementById("btn-manual");
+        if (manual) manual.href = rel.html_url;
+      }
+      ver.textContent = "最新版本 " + rel.tag_name + "（"
+        + (rel.published_at || "").slice(0, 10) + " 發布）";
+    })
+    .catch(function () {
+      ver.textContent = "可從 Obsidian 的第三方外掛瀏覽器安裝";
+    });
+
+  function put(id, n) {
+    var el = document.getElementById(id);
+    if (el && typeof n === "number") el.textContent = " " + n.toLocaleString();
+  }
+
+  // 星標／分支／關注的即時計數。注意 API 的坑：watchers_count 其實是星數，
+  // 真正的關注數要用 subscribers_count。
+  fetch("https://api.github.com/repos/notoriouslab/vault-curate")
+    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function (repo) {
+      put("gh-stars", repo.stargazers_count);
+      put("gh-forks", repo.forks_count);
+      put("gh-watch", repo.subscribers_count);
+    })
+    .catch(function () { /* 計數留空即可 */ });
+
+  // 累計安裝。多數人是從外掛瀏覽器安裝的，那條路徑完全不會碰到 GitHub 資產，
+  // 所以 GitHub 自己的下載數會低估約三倍。誠實的數字在 Obsidian 官方統計檔，
+  // 它涵蓋所有社群外掛所以偏大（壓縮後約 450 KB），取不到時退回 GitHub 資產加總。
+  fetch("https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugin-stats.json")
+    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function (stats) {
+      var entry = stats["vault-curate"];
+      if (!entry || typeof entry.downloads !== "number") throw new Error("no entry");
+      put("gh-downloads", entry.downloads);
+    })
+    .catch(function () {
+      return fetch("https://api.github.com/repos/notoriouslab/vault-curate/releases?per_page=100")
+        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(function (rels) {
+          var total = 0;
+          for (var i = 0; i < rels.length; i++) {
+            var assets = rels[i].assets || [];
+            for (var j = 0; j < assets.length; j++) total += assets[j].download_count || 0;
+          }
+          if (total > 0) put("gh-downloads", total);
+        });
+    })
+    .catch(function () { /* 計數留空即可 */ });
+})();
+</script>
+</body>
+</html>

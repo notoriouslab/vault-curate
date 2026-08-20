@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vault Curate — a local-first second brain for Obsidian</title>
+<meta name="description" content="Find, connect, and rediscover your notes in Obsidian. Semantic search with strong Chinese/CJK, relation graphs for links you never drew, and Hot/Cold surfacing of forgotten notes. Runs on your own device. No API keys.">
+<style>
+  :root {
+    --bg: #ffffff; --fg: #1d1d1f; --muted: #6e6e73; --card: #f5f5f7;
+    --accent: #7c3aed; --accent-fg: #ffffff; --green: #1f7a37;
+    --border: #d2d2d7; --warn-bg: #fff8e6; --warn-border: #e6c96b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1e; --fg: #f5f5f7; --muted: #98989d; --card: #2c2c2e;
+      --accent: #a97bff; --green: #4cd964;
+      --border: #3a3a3c; --warn-bg: #3a3320; --warn-border: #8a7a3a;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC",
+      "Microsoft JhengHei", sans-serif;
+    line-height: 1.75; font-size: 17px;
+  }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 20px 80px; }
+  h1 { font-size: 1.9em; line-height: 1.3; margin: 24px 0 8px; }
+  h2 { font-size: 1.35em; margin: 56px 0 16px; padding-top: 8px; }
+  h3 { font-size: 1.1em; margin: 28px 0 8px; }
+  p { margin: 12px 0; }
+  a { color: var(--accent); }
+  .lead { font-size: 1.12em; }
+  .muted { color: var(--muted); font-size: 0.92em; }
+  .hero { text-align: center; padding-top: 24px; }
+  .hero .tagline { font-size: 1.15em; margin: 16px auto; max-width: 40em; }
+  .badges { color: var(--muted); font-size: 0.9em; margin-bottom: 8px; }
+  /* GitHub pills: counts are fetched live from the GitHub API when the page
+     opens (see the script at the bottom). If a fetch fails the pill simply
+     shows no number; clicking always goes to GitHub to finish the action
+     (starring and watching need a GitHub login). */
+  .gh-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+    margin: 4px 0 10px; }
+  .gh-btn { display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border-radius: 18px; font-size: 0.88em; font-weight: 600;
+    background: var(--card); color: var(--fg); text-decoration: none;
+    border: 1px solid rgba(128,128,128,0.25); }
+  .gh-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .gh-btn svg { width: 15px; height: 15px; fill: currentColor; flex: none; }
+  .gh-count { color: var(--muted); font-weight: 700; font-variant-numeric: tabular-nums; }
+  .dl-box {
+    background: var(--card); border-radius: 16px;
+    padding: 28px 20px; margin: 28px 0;
+  }
+  .dl-buttons { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+  .dl-btn {
+    display: inline-block; text-decoration: none;
+    background: var(--accent); color: var(--accent-fg);
+    border-radius: 12px; padding: 14px 26px;
+    font-size: 1.08em; font-weight: 600; min-width: 240px;
+  }
+  .dl-btn small { display: block; font-weight: 400; font-size: 0.78em; opacity: 0.85; }
+  .dl-btn.secondary { background: var(--card); color: var(--fg);
+    border: 1px solid var(--border); }
+  .dl-note { margin-top: 14px; }
+  .free { color: var(--green); font-weight: 600; }
+  .disclaimer {
+    background: var(--warn-bg); border: 1px solid var(--warn-border);
+    border-radius: 12px; padding: 14px 18px; margin: 28px 0; font-size: 0.95em;
+  }
+  .steps { counter-reset: step; list-style: none; }
+  .steps li {
+    counter-increment: step; position: relative;
+    padding: 0 0 18px 52px; margin: 0;
+  }
+  .steps li::before {
+    content: counter(step); position: absolute; left: 0; top: 2px;
+    width: 34px; height: 34px; border-radius: 50%;
+    background: var(--accent); color: var(--accent-fg);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+  }
+  figure { margin: 24px 0; }
+  figure img {
+    max-width: 100%; border-radius: 12px; border: 1px solid var(--border);
+    display: block;
+  }
+  figcaption { color: var(--muted); font-size: 0.9em; margin-top: 8px; }
+  ul.features { list-style: none; }
+  ul.features li { padding: 6px 0 6px 30px; position: relative; }
+  ul.features li::before { content: "✓"; position: absolute; left: 4px;
+    color: var(--green); font-weight: 700; }
+  details {
+    background: var(--card); border-radius: 12px;
+    padding: 14px 18px; margin: 10px 0;
+  }
+  summary { cursor: pointer; font-weight: 600; }
+  details p { margin-top: 10px; }
+  code { background: var(--card); border-radius: 5px; padding: 1px 6px;
+    font-size: 0.88em; }
+  footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--border);
+    color: var(--muted); font-size: 0.9em; }
+  @media (max-width: 480px) { body { font-size: 16px; } .dl-btn { width: 100%; } }
+</style>
+</head>
+<body>
+<main>
+
+<div class="hero">
+  <h1>Vault Curate<br><span style="font-size:0.62em">A local-first second brain for Obsidian</span></h1>
+  <p class="tagline">Find, connect, and rediscover your notes. Search by meaning,
+  see the links you never drew by hand, and bring back the good notes you forgot
+  you had.<br>
+  <strong>Everything runs on your own computer, with no API keys, no accounts
+  and no tracking.</strong></p>
+  <p class="badges">Obsidian plugin, desktop and mobile ·
+  <span class="free">Free</span> and open source (MIT license) ·
+  Works without an internet connection · Strong on Chinese and other CJK notes</p>
+  <p class="muted"><a href="index.zh-TW.html">繁體中文</a></p>
+
+  <div class="gh-row">
+    <a class="gh-btn" href="https://github.com/notoriouslab/vault-curate"
+       title="Give the project a star on GitHub (needs a GitHub login)">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.75.75 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z"/></svg>
+      Star<span class="gh-count" id="gh-stars"></span></a>
+    <a class="gh-btn" href="https://github.com/notoriouslab/vault-curate/fork"
+       title="Create your own fork on GitHub">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 5.372v.878c0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75v-.878a2.25 2.25 0 1 1 1.5 0v.878a2.25 2.25 0 0 1-2.25 2.25h-1.5v2.128a2.251 2.251 0 1 1-1.5 0V8.5h-1.5A2.25 2.25 0 0 1 3.5 6.25v-.878a2.25 2.25 0 1 1 1.5 0ZM5 3.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Zm6.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm-3 8.75a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Z"/></svg>
+      Fork<span class="gh-count" id="gh-forks"></span></a>
+    <a class="gh-btn" href="https://github.com/notoriouslab/vault-curate/subscription"
+       title="Watch the project for release notifications (needs a GitHub login)">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2c1.981 0 3.671.992 4.933 2.078 1.27 1.091 2.187 2.345 2.637 3.023a1.62 1.62 0 0 1 0 1.798c-.45.678-1.367 1.932-2.637 3.023C11.67 13.008 9.981 14 8 14c-1.981 0-3.671-.992-4.933-2.078C1.797 10.831.88 9.577.43 8.899a1.62 1.62 0 0 1 0-1.798c.45-.678 1.367-1.932 2.637-3.023C4.33 2.992 6.019 2 8 2ZM1.679 7.932a.12.12 0 0 0 0 .136c.411.622 1.241 1.75 2.366 2.717C5.176 11.758 6.527 12.5 8 12.5c1.473 0 2.825-.742 3.955-1.715 1.124-.967 1.954-2.096 2.366-2.717a.12.12 0 0 0 0-.136c-.412-.621-1.242-1.75-2.366-2.717C10.824 4.242 9.473 3.5 8 3.5c-1.473 0-2.825.742-3.955 1.715-1.124.967-1.954 2.096-2.366 2.717ZM8 10a2 2 0 1 1-.001-3.999A2 2 0 0 1 8 10Z"/></svg>
+      Watch<span class="gh-count" id="gh-watch"></span></a>
+    <a class="gh-btn" href="https://community.obsidian.md/plugins/vault-curate"
+       title="Total installs reported by the official Obsidian community plugin stats">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14ZM7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06l1.97 1.969Z"/></svg>
+      Installs<span class="gh-count" id="gh-downloads"></span></a>
+  </div>
+
+  <div class="dl-box">
+    <h2 style="margin:0 0 6px; padding:0">Get it</h2>
+    <p class="muted" id="ver-line" style="margin-bottom:16px">Checking the latest release…</p>
+    <div class="dl-buttons">
+      <a class="dl-btn" href="https://community.obsidian.md/plugins/vault-curate">
+         Install from Community plugins<small>The official Obsidian plugin page</small></a>
+      <a class="dl-btn secondary" id="btn-manual"
+         href="https://github.com/notoriouslab/vault-curate/releases/latest">
+         Download the files<small>Manual install from GitHub Releases</small></a>
+    </div>
+    <p class="dl-note muted">Inside Obsidian: <strong>Settings → Community
+    plugins → Browse</strong>, search <strong>Vault Curate</strong>, then
+    Install and Enable. Full steps, including BRAT and manual install, are in
+    <a href="#install">Installing</a> below.</p>
+  </div>
+</div>
+
+<figure>
+  <img src="landing/vault-curate.png" alt="Vault Curate: find, connect, and rediscover your notes">
+</figure>
+
+<div class="disclaimer">
+<strong>Before you start</strong>: Vault Curate needs Obsidian 1.7.2 or newer.
+The index is built on desktop — a one-time model download of about 110 MB, then
+roughly a minute and a half for a vault of 5,000 chunks. Phones and tablets read
+that same index through whatever vault sync you already use, so there is nothing
+to set up and nothing to download on the device. AI curation is switched off by
+default, and nothing is ever written into your notes without your explicit click.
+</div>
+
+<h2>What is this?</h2>
+<p>Finding a note is only the first step. The harder parts come after: seeing how
+your notes relate to each other, including the connections you never linked by
+hand, and not letting good notes quietly sink out of sight. Obsidian's built-in
+search is literal — look for "prayer" and you miss "devotional" — its graph shows
+only the links you drew yourself, and older notes gradually fall off your radar.</p>
+<p>Vault Curate closes that loop inside your vault: <strong>find</strong> a note
+by meaning, <strong>see</strong> what it relates to, and <strong>rediscover</strong>
+what you had forgotten. It suggests; you decide. There is no chatbot answering on
+your behalf and no background process rewriting your notes.</p>
+
+<figure>
+  <img src="landing/concept-graph.png" alt="Diagram: how semantic relations connect notes across a vault" loading="lazy">
+  <figcaption>Notes that belong together, whether or not you ever linked them</figcaption>
+</figure>
+
+<h2>What it does</h2>
+<ul class="features">
+  <li><strong>Search by meaning, not just characters</strong>: exact keywords,
+    meaning, and misspelled titles are searched at the same time and merged into
+    one ranking</li>
+  <li><strong>Shows the links you never drew</strong>: an editable Obsidian Canvas
+    of the notes closest to the one you're reading, with unlinked pairs marked in
+    purple</li>
+  <li><strong>One click turns a suggestion into a real link</strong>: tick the
+    pairs you agree with and they become proper wikilinks in both notes</li>
+  <li><strong>Chains between two notes</strong>: pick any two and get the
+    stepping-stone notes between them — or an honest "these aren't connected",
+    with the actual numbers</li>
+  <li><strong>Forgotten notes come back</strong>: notes you haven't touched in a
+    while are surfaced when they relate to what you're working on now</li>
+  <li><strong>Your answers stick</strong>: reject a suggestion and that pair never
+    comes back, surviving renames, deletions and a full re-index. Everything you
+    dismissed stays reviewable in settings</li>
+  <li><strong>Runs on your own machine</strong>: the built-in model works
+    on-device, so there are no API keys to buy and no usage tracking</li>
+  <li><strong>Strong on Chinese and other CJK notes</strong>: the built-in model is
+    tuned for Chinese, where generic multilingual models tend to struggle. Point
+    it at Ollama or an OpenAI-compatible server for other languages</li>
+  <li><strong>One index, every device</strong>: your desktop builds it, your phone
+    and tablet search it</li>
+</ul>
+
+<h2>What it looks like</h2>
+<p class="muted">Screenshots are from a real, mostly Traditional Chinese vault.</p>
+<figure>
+  <img src="landing/search-canvas.png" alt="Search results in the sidebar, dragged onto an Obsidian Canvas" loading="lazy">
+  <figcaption>Search results live in the sidebar with their scores, and drag
+  straight onto a Canvas</figcaption>
+</figure>
+<figure>
+  <img src="landing/relation-graph.png" alt="Relation graph on Canvas: a note surrounded by its closest neighbors, edges labeled with similarity scores" loading="lazy">
+  <figcaption>The relation graph: the note in the middle, its closest neighbors
+  around it. Purple edges are pairs that are related but not yet linked; grey
+  edges are links you already made</figcaption>
+</figure>
+<figure>
+  <img src="landing/discover-current-note.png" alt="Discover sidebar showing related notes for the note currently open" loading="lazy">
+  <figcaption>Discover: open a note and related ones surface beside it, with the
+  ones you haven't read in a while highlighted</figcaption>
+</figure>
+
+<h2 id="install">Installing</h2>
+<h3>From Community plugins (recommended)</h3>
+<ol class="steps">
+  <li>In Obsidian, open <strong>Settings → Community plugins</strong> and make
+    sure <strong>Restricted mode</strong> is off, then click
+    <strong>Browse</strong>.</li>
+  <li>Search for <strong>Vault Curate</strong>, then click
+    <strong>Install</strong> and <strong>Enable</strong>.</li>
+  <li>The welcome screen opens by itself: choose the built-in on-device model and
+    click <strong>Index my vault now</strong>. When indexing finishes, click the
+    compass icon in the sidebar and start searching.</li>
+</ol>
+<h3>Manual install</h3>
+<p>Download <code>main.js</code>, <code>manifest.json</code> and
+<code>styles.css</code> from
+<a href="https://github.com/notoriouslab/vault-curate/releases">Releases</a> and
+copy them into <code>.obsidian/plugins/vault-curate/</code> inside your vault,
+then enable the plugin under <strong>Settings → Community plugins</strong>. The
+two <code>.wasm</code> runtime files are fetched automatically the first time it
+runs.</p>
+<h3>Via BRAT (tracks GitHub releases)</h3>
+<p>Install <a href="https://github.com/TfTHacker/obsidian42-brat">BRAT</a>, run
+<code>BRAT: Add a beta plugin for testing</code> and enter
+<code>notoriouslab/vault-curate</code>. New releases are then picked up
+automatically.</p>
+
+<h2>Questions</h2>
+<details>
+  <summary>Is it free? Will it start charging later?</summary>
+  <p>It is free and open source under the MIT license, with no paid tier, no
+  in-app purchases and no accounts. It was built for its author's own vault.</p>
+</details>
+<details>
+  <summary>Does the text of my notes leave my computer?</summary>
+  <p>With the built-in model, no: it runs on your own device. With a local Ollama
+  daemon, also no. The only mode that sends anything out is the
+  OpenAI-compatible option, and only to the endpoint you choose yourself — which
+  can equally be a local server such as LM Studio. There is no telemetry and no
+  usage tracking in any mode.</p>
+</details>
+<details>
+  <summary>Will it edit or rewrite my notes?</summary>
+  <p>Not on its own. Everything it surfaces is a suggestion waiting for your yes
+  or no. Wikilinks are written only for the pairs you tick in a confirmation
+  dialog, and the AI features that write a description or a table-of-contents
+  note are off until you turn them on and run them by hand.</p>
+</details>
+<details>
+  <summary>Does it work on my phone or tablet?</summary>
+  <p>Yes, since version 1.5.0, as a read-only reader of the index your desktop
+  built. Search, related notes, forgotten notes and graph generation all work;
+  building the index, turning suggestions into wikilinks and the AI features stay
+  on the desktop. The index travels to the device with whatever sync you already
+  use — iCloud, Obsidian Sync, Syncthing — so there is nothing to configure and
+  no model to download on the phone.</p>
+</details>
+<details>
+  <summary>How well does it handle Chinese, Japanese or Korean?</summary>
+  <p>The built-in model is specifically tuned for Chinese, which gives names,
+  religious and technical terms and colloquial phrasing an edge that generic
+  multilingual models tend to miss. Traditional Chinese vaults are handled
+  properly: text is normalized behind the scenes for matching while everything
+  you see and search stays in Traditional characters. For other languages you can
+  switch the provider to Ollama or any OpenAI-compatible server.</p>
+</details>
+<details>
+  <summary>How long does the first index take?</summary>
+  <p>The on-device model is about 110 MB and downloads once. After that, a vault
+  of roughly 5,000 chunks indexes in about a minute and a half on a machine with
+  WebGPU; without WebGPU it still works, just more slowly. Later edits are picked
+  up incrementally, so there is no need to rebuild.</p>
+</details>
+<details>
+  <summary>Something is wrong. Where do I report it?</summary>
+  <p>Open an issue on
+  <a href="https://github.com/notoriouslab/vault-curate/issues">GitHub</a>
+  (a free GitHub account is needed) and describe what you saw. Please don't
+  attach your notes.</p>
+</details>
+
+<footer>
+  <p>Vault Curate is part of the notoriouslab open-source tools ·
+  <a href="https://github.com/notoriouslab/vault-curate">Source and full documentation (GitHub)</a> ·
+  <a href="https://github.com/notoriouslab/vault-curate/releases">All releases</a> ·
+  <a href="https://community.obsidian.md/plugins/vault-curate">Obsidian community plugin page</a></p>
+</footer>
+
+</main>
+<script>
+// Everything below is progressive enhancement: the page is complete without it.
+// Each fetch degrades on its own (no number in the pill, a static line instead
+// of the version) so an API outage or a rate limit never breaks the page.
+(function () {
+  var ver = document.getElementById("ver-line");
+
+  // Latest release: show the tag and its date, and point the manual-download
+  // button at that release. Falls back to the /releases/latest page already in
+  // the href.
+  fetch("https://api.github.com/repos/notoriouslab/vault-curate/releases/latest")
+    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function (rel) {
+      if (rel.html_url) {
+        var manual = document.getElementById("btn-manual");
+        if (manual) manual.href = rel.html_url;
+      }
+      ver.textContent = "Latest release " + rel.tag_name + " ("
+        + (rel.published_at || "").slice(0, 10) + ")";
+    })
+    .catch(function () {
+      ver.textContent = "Available from the Obsidian community plugin browser";
+    });
+
+  function put(id, n) {
+    var el = document.getElementById(id);
+    if (el && typeof n === "number") el.textContent = " " + n.toLocaleString();
+  }
+
+  // Star / fork / watch counts. Note the API quirk: watchers_count is really the
+  // star count, so the watch pill has to use subscribers_count.
+  fetch("https://api.github.com/repos/notoriouslab/vault-curate")
+    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function (repo) {
+      put("gh-stars", repo.stargazers_count);
+      put("gh-forks", repo.forks_count);
+      put("gh-watch", repo.subscribers_count);
+    })
+    .catch(function () { /* leaving the pills without a number is fine */ });
+
+  // Installs. Most people install from the plugin browser, which never touches a
+  // GitHub asset, so GitHub's own download counts would understate this roughly
+  // threefold. The honest number is Obsidian's official plugin stats file; it is
+  // large (about 450 KB compressed) because it covers every community plugin, so
+  // GitHub asset totals are kept as the fallback when it can't be reached.
+  fetch("https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugin-stats.json")
+    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function (stats) {
+      var entry = stats["vault-curate"];
+      if (!entry || typeof entry.downloads !== "number") throw new Error("no entry");
+      put("gh-downloads", entry.downloads);
+    })
+    .catch(function () {
+      return fetch("https://api.github.com/repos/notoriouslab/vault-curate/releases?per_page=100")
+        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(function (rels) {
+          var total = 0;
+          for (var i = 0; i < rels.length; i++) {
+            var assets = rels[i].assets || [];
+            for (var j = 0; j < assets.length; j++) total += assets[j].download_count || 0;
+          }
+          if (total > 0) put("gh-downloads", total);
+        });
+    })
+    .catch(function () { /* leaving the pill without a number is fine */ });
+})();
+</script>
+</body>
+</html>
