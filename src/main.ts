@@ -496,8 +496,12 @@ export default class VaultSearchPlugin extends Plugin {
         }
         if (this.activeDiscoverTimer) window.clearTimeout(this.activeDiscoverTimer);
         if (this.bm25WarmTimer !== null) window.clearTimeout(this.bm25WarmTimer);
-        // Best-effort flush + dispose. We cannot await in onunload, but
-        // SQLiteStore.dispose() flushes synchronously when pending mutations.
+        // Best-effort flush + dispose: dispose() writes out anything still only
+        // in memory before closing the DB. onunload cannot await, so this is a
+        // race we can lose on a hard quit — losing it costs a stale index for
+        // the notes touched in the last few seconds, which the next Update
+        // index repairs via mtime comparison. (Until 1.5.1 the write inside
+        // dispose() was dead code, so we lost it every single time.)
         void this.store?.dispose();
         this.provider?.dispose();
         this.knnManager.dispose(); // 014: terminate in-flight build + free matrix

@@ -598,19 +598,27 @@ export class SQLiteStore {
     /** Write methods already warned about in read-only mode. */
     private warnedWrites = new Set<string>();
 
+    /** The persist step itself: export the in-memory DB, hand the bytes to the
+     *  adapter. Deliberately does NOT check `disposed` — dispose()'s farewell
+     *  write has to get through after that flag is already set, and routing it
+     *  through flush() is exactly what silently turned it into a no-op. */
+    private async writeNow(): Promise<void> {
+        if (this.idleTimer) {
+            window.clearTimeout(this.idleTimer);
+            this.idleTimer = null;
+        }
+        const bytes = exportDb(this.db);
+        await this.adapter.write(this.dbPath, bytes);
+        this.mutationCount = 0;
+    }
+
     async flush(): Promise<void> {
         if (this.readOnly) return;
         if (this.disposed) return;
         if (this.flushInFlight) return this.flushInFlight;
         this.flushInFlight = (async () => {
             try {
-                if (this.idleTimer) {
-                    window.clearTimeout(this.idleTimer);
-                    this.idleTimer = null;
-                }
-                const bytes = exportDb(this.db);
-                await this.adapter.write(this.dbPath, bytes);
-                this.mutationCount = 0;
+                await this.writeNow();
             } finally {
                 this.flushInFlight = null;
             }
@@ -620,12 +628,28 @@ export class SQLiteStore {
 
     async dispose(): Promise<void> {
         if (this.disposed) return;
+        // Flag first, before any await: every mutation method keys its refusal
+        // off `disposed`, and dispose() is now async all the way down — leaving
+        // the flag unset across the awaits below would let writes land in a DB
+        // that is on its way out.
         this.disposed = true;
+        // Drop the pending idle flush: we are about to write the same bytes
+        // ourselves. Not load-bearing for correctness — a timer that fired
+        // during the awaits below would reach flush(), which bails on either
+        // the `disposed` flag above or the in-flight write it would find. Both
+        // of those were verified by mutation-testing the timer ordering: the
+        // test could not be made to fail, so it was deleted rather than kept
+        // as a false green.
         if (this.idleTimer) {
             window.clearTimeout(this.idleTimer);
             this.idleTimer = null;
         }
-        if (!this.readOnly && this.mutationCount > 0) await this.flush();
+        // A write may already be on its way out (mutationCount crossed the
+        // threshold moments ago). Let it land before we close the DB under it.
+        if (this.flushInFlight) await this.flushInFlight;
+        // Farewell write for anything still only in memory. Uses writeNow()
+        // rather than flush() so the `disposed` guard above doesn't eat it.
+        if (!this.readOnly && this.mutationCount > 0) await this.writeNow();
         this.db.close();
     }
 }
