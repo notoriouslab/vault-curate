@@ -14,7 +14,7 @@
  * cost of that correctness (writes per burst, so the fix can never turn a
  * 73MB index into a write storm).
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { readFileSync } from 'fs';
 import initSqlJs from 'sql.js';
 import type { SqlJsStatic } from 'sql.js';
@@ -201,12 +201,17 @@ describe('flush()／dispose() 交錯與初始狀態（020 審查補洞）', () =
     });
 
     it('斷言 10：飛行中的寫盤失敗，收尾寫盤仍然落地（紅隊 W1）', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
         const { adapter, state } = instrumentedAdapter({ failNth: 1 });
         const store = await SQLiteStore.open(adapter, 'wm.db', wasmBytes());
         for (let i = 0; i < 150; i++) seed(store, i);   // 第 1 次寫盤會炸
         await store.dispose();                          // 不得被那個 rejection 帶走
         expect(state.writes).toBeGreaterThanOrEqual(2);
         expect(persistedCount(state.last)).toBe(150);
+        // 自動寫盤是 fire-and-forget，失敗必須被 catch 掉（否則每個排在後面
+        // 的 mutation 都變成一顆 unhandled rejection，套件會 exit 非 0）
+        expect(warn.mock.calls.some(c => String(c[0]).includes('background index write failed'))).toBe(true);
+        warn.mockRestore();
     });
 
     it('斷言 11：flush() 期間持續灌入變更，寫盤次數仍有界（target 凍結，審查 W2）', async () => {

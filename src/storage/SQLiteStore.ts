@@ -622,9 +622,9 @@ export class SQLiteStore {
         this.mutationCount++;
         if (this.idleTimer) window.clearTimeout(this.idleTimer);
         if (force || this.mutationCount >= MUTATION_THRESHOLD) {
-            void this.flush();
+            this.flushInBackground();
         } else {
-            this.idleTimer = window.setTimeout(() => void this.flush(), IDLE_FLUSH_MS);
+            this.idleTimer = window.setTimeout(() => this.flushInBackground(), IDLE_FLUSH_MS);
         }
     }
 
@@ -696,6 +696,18 @@ export class SQLiteStore {
             })();
             await this.flushInFlight;
         }
+    }
+
+    /** Fire-and-forget auto-write. A failure here is not the caller's problem
+     *  — the watermark simply stays behind, so the next flush() or dispose()
+     *  retries — but it MUST be caught: a bare `void this.flush()` turned one
+     *  failed write into an unhandled rejection per queued mutation (51 of
+     *  them in the failure test, which is what made the suite exit non-zero
+     *  while every assertion still passed). */
+    private flushInBackground(): void {
+        void this.flush().catch((err) => {
+            console.warn("vault-curate: background index write failed; retrying on the next change", err);
+        });
     }
 
     /** Wait out an in-flight dispose(). Its farewell write persists the whole
