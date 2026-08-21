@@ -84,6 +84,10 @@ export class SQLiteStore {
      *  Starts at -1 (nothing written yet, and revision 0 is a real state). */
     private lastWrittenRevision = -1;
     private disposed = false;
+    /** 020 review C1: the in-flight dispose(), so a flush() that loses the
+     *  race to it can wait for ITS farewell write instead of resolving on a
+     *  promise nobody kept. */
+    private disposeTask: Promise<void> | null = null;
     // 007 D5: desc/body blend weight for composed note vectors. Injected by
     // main.ts from settings.descWeight (store must not depend on plugin
     // settings directly). 0.5 = offline alpha-scan pick.
@@ -130,6 +134,18 @@ export class SQLiteStore {
         const exists = await adapter.exists(dbPath);
         const bytes = exists ? await adapter.read(dbPath) : null;
         store.db = await openDb(bytes, wasmBinary);
+        // 020 red-team C1: loading an existing file means memory ALREADY equals
+        // disk, so the watermark starts level. Leaving it at -1 made every
+        // zero-change session look dirty and paid a full-index farewell write
+        // on every quit (73MB re-synced, and a torn-file window opened on
+        // every exit instead of only when there was something to save).
+        // Placed BEFORE applySchema deliberately: migrations mutate memory
+        // without touch(), exactly as they did pre-020, so their persistence
+        // behaviour is unchanged (they re-run idempotently next launch and
+        // land on the first real mutation). pruneOrphanChunks below DOES
+        // touch(), which correctly marks the store dirty.
+        // A fresh DB (no file) keeps -1: memory has a schema, disk has nothing.
+        if (bytes) store.lastWrittenRevision = store.revision;
         applySchema(store.db);
         // Clear chunks left behind by pre-fix deletes/renames (and self-heal any
         // future leak). Only touches the store when it actually removed rows.
@@ -651,7 +667,11 @@ export class SQLiteStore {
      */
     async flush(): Promise<void> {
         if (this.readOnly) return;
-        if (this.disposed) return;
+        // NEVER a bare `return` on a disposed store (review C1): dispose()'s
+        // farewell write covers every target by definition, so waiting for it
+        // keeps this method's promise honest. Returning early would hand the
+        // caller the same false "persisted" this change exists to remove.
+        if (this.disposed) return this.awaitDispose();
         const target = this.revision;
         while (this.lastWrittenRevision < target) {
             if (this.flushInFlight) {
@@ -659,7 +679,7 @@ export class SQLiteStore {
                 await this.flushInFlight;
                 continue;
             }
-            if (this.disposed) return; // disposed while we waited
+            if (this.disposed) return this.awaitDispose(); // disposed while we waited
             this.flushInFlight = (async () => {
                 try {
                     await this.writeNow();
@@ -671,7 +691,19 @@ export class SQLiteStore {
         }
     }
 
+    /** Wait out an in-flight dispose(). Its farewell write persists the whole
+     *  current state, so any flush() target is covered by it. */
+    private async awaitDispose(): Promise<void> {
+        if (this.disposeTask) await this.disposeTask;
+    }
+
     async dispose(): Promise<void> {
+        if (this.disposeTask) return this.disposeTask;
+        this.disposeTask = this.disposeInner();
+        return this.disposeTask;
+    }
+
+    private async disposeInner(): Promise<void> {
         if (this.disposed) return;
         // Flag first, before any await: every mutation method keys its refusal
         // off `disposed`, and dispose() is now async all the way down — leaving
@@ -691,7 +723,17 @@ export class SQLiteStore {
         }
         // A write may already be on its way out (mutationCount crossed the
         // threshold moments ago). Let it land before we close the DB under it.
-        if (this.flushInFlight) await this.flushInFlight;
+        // 020 red-team W1: a rejected in-flight write MUST NOT take the
+        // farewell write and db.close() down with it. The farewell write below
+        // exports current state, so surviving that rejection IS the retry —
+        // and the whole point of this change is that the last write happens.
+        if (this.flushInFlight) {
+            try {
+                await this.flushInFlight;
+            } catch (err) {
+                console.warn("vault-curate: in-flight index write failed; retrying via the farewell write", err);
+            }
+        }
         // Farewell write for anything still only in memory. Uses writeNow()
         // rather than flush() so the `disposed` guard above doesn't eat it.
         // 020: the condition MUST be the revision watermark, NEVER
@@ -699,7 +741,15 @@ export class SQLiteStore {
         // count to 0, so this guard used to skip the farewell write for
         // exactly the mutations that had not been persisted (measured on a
         // real vault: 2500 rows lost on a plugin reload).
-        if (!this.readOnly && this.lastWrittenRevision < this.revision) await this.writeNow();
+        if (!this.readOnly && this.lastWrittenRevision < this.revision) {
+            try {
+                await this.writeNow();
+            } catch (err) {
+                // Nothing left to try, but the DB still has to close — leaking
+                // the WASM handle on top of losing the write helps nobody.
+                console.error("vault-curate: farewell index write failed; the last changes are lost", err);
+            }
+        }
         this.db.close();
     }
 }
