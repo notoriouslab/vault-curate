@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.2 — 2026-08-21
+
+### Fixed
+- **Notes you delete outside Obsidian no longer haunt your search results** (#13, reported by @tvtjr). Deleting a note or folder through a sync client, git, or your file manager while Obsidian is closed leaves no trace the plugin can react to — no delete event ever fires — and a normal launch never checked. The index kept those paths and kept returning them, and clicking one did nothing at all, until you happened to run **Update index** or **Rebuild index** by hand. Startup now checks the index against your vault and drops the entries whose file is gone, telling you how many it cleaned. Two related holes closed with it: results are filtered against what actually exists — search, Find Similar, and current-note Discover alike, so a stale entry can never take a real result's place (nor become a dead node in a generated relation graph) even before the index catches up — and an **Update index** now re-checks at the end of its run, which is where a note deleted *while* it was indexing used to slip through. Notes you merely excluded in settings are untouched by the startup check — only the file being gone counts.
+
 ## 1.5.1 — 2026-08-20
 
 ### Added

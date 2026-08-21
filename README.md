@@ -185,6 +185,8 @@ From the Command Palette (Cmd/Ctrl+P), type `Vault Curate:` to see them all.
 | `Generate descriptions for current results` | Batch description for the current sidebar results | AI curation on; desktop only |
 | `Generate MOC (topic-grouped)` | Auto-cluster results by topic, AI-name each group, output a table-of-contents note | AI curation on; desktop only |
 
+> Notes deleted while Obsidian was closed (through a sync client, git, or your file manager) are dropped from the index at the next launch, so search never offers you a note that isn't there.
+
 Right-click menus expose these directly on a note: **VC: Find similar notes**, **VC: Generate relation graph**, **VC: Generate semantic path**, **VC: Expand in this graph** (while a `.canvas` is open), and **VC: Generate description** (AI curation on). Right-clicking a `.canvas` file offers **VC: Apply purple edges as wikilinks**.
 
 ### Scripting & agents (Obsidian CLI)
