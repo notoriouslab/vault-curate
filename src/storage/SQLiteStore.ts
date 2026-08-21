@@ -79,6 +79,10 @@ export class SQLiteStore {
      *  structures from the index (009 k-NN graph memo). */
     private revision = 0;
     private flushInFlight: Promise<void> | null = null;
+    /** 020: the revision whose bytes are known to be on disk. `revision`
+     *  itself is the in-memory truth; the gap between them is "dirty".
+     *  Starts at -1 (nothing written yet, and revision 0 is a real state). */
+    private lastWrittenRevision = -1;
     private disposed = false;
     // 007 D5: desc/body blend weight for composed note vectors. Injected by
     // main.ts from settings.descWeight (store must not depend on plugin
@@ -617,23 +621,54 @@ export class SQLiteStore {
             window.clearTimeout(this.idleTimer);
             this.idleTimer = null;
         }
+        // Capture the revision the bytes represent. exportDb is synchronous,
+        // so nothing can mutate between these two lines — the watermark and
+        // the bytes are the same instant by construction.
+        const exported = this.revision;
         const bytes = exportDb(this.db);
         await this.adapter.write(this.dbPath, bytes);
+        if (exported > this.lastWrittenRevision) this.lastWrittenRevision = exported;
         this.mutationCount = 0;
     }
 
+    /**
+     * Resolve only once the caller's own state is on disk (020).
+     *
+     * The pre-020 version returned the in-flight write's promise whenever one
+     * existed. That write's bytes were exported when IT started, so a burst of
+     * mutations behind it never reached disk and `await flush()` still
+     * reported success — measured: 300 rows in memory, 100 on disk, and a
+     * manual "Update index" over 2600 deletions left the on-disk index at the
+     * 100-deletion mark. Callers (rebuild/update tails, the mobile handoff)
+     * read this as "persisted".
+     *
+     * The loop is bounded, and that bound is what keeps a 73MB index from
+     * being written thousands of times: any export captures the CURRENT
+     * revision, which is >= every waiting caller's target, so one catch-up
+     * write satisfies all of them at once. Worst case per caller is
+     * "wait out a stale write, then one more" — asserted as a write-count
+     * ceiling in flushWatermark.test.ts, not left to reasoning.
+     */
     async flush(): Promise<void> {
         if (this.readOnly) return;
         if (this.disposed) return;
-        if (this.flushInFlight) return this.flushInFlight;
-        this.flushInFlight = (async () => {
-            try {
-                await this.writeNow();
-            } finally {
-                this.flushInFlight = null;
+        const target = this.revision;
+        while (this.lastWrittenRevision < target) {
+            if (this.flushInFlight) {
+                // May or may not cover `target` — re-check after it lands.
+                await this.flushInFlight;
+                continue;
             }
-        })();
-        return this.flushInFlight;
+            if (this.disposed) return; // disposed while we waited
+            this.flushInFlight = (async () => {
+                try {
+                    await this.writeNow();
+                } finally {
+                    this.flushInFlight = null;
+                }
+            })();
+            await this.flushInFlight;
+        }
     }
 
     async dispose(): Promise<void> {
@@ -659,7 +694,12 @@ export class SQLiteStore {
         if (this.flushInFlight) await this.flushInFlight;
         // Farewell write for anything still only in memory. Uses writeNow()
         // rather than flush() so the `disposed` guard above doesn't eat it.
-        if (!this.readOnly && this.mutationCount > 0) await this.writeNow();
+        // 020: the condition MUST be the revision watermark, NEVER
+        // mutationCount — a write that exported an older snapshot resets the
+        // count to 0, so this guard used to skip the farewell write for
+        // exactly the mutations that had not been persisted (measured on a
+        // real vault: 2500 rows lost on a plugin reload).
+        if (!this.readOnly && this.lastWrittenRevision < this.revision) await this.writeNow();
         this.db.close();
     }
 }
