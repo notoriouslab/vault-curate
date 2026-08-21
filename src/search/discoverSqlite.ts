@@ -45,6 +45,14 @@ export interface DiscoverSettings {
      *  inside the producing functions, pre-truncation, so every caller is
      *  protected and the freed slot is refilled. Absent/empty = no-op. */
     dismissedPairs?: Record<string, number>;
+    /** 019 D5: liveness check for a candidate path. Index rows outlive
+     *  their file when a note is deleted outside Obsidian (issue #13), and
+     *  these producers feed persisted artifacts too — a ghost reaching
+     *  buildGraphCanvas becomes a `file` node pointing at nothing.
+     *  Filtered pre-truncation, like dismissedPairs. Absent = no-op.
+     *  Global Discover needs no such option: it keeps only tier "cold",
+     *  and makeTierResolver reports a missing file as "hot" (010 D5). */
+    exists?: (path: string) => boolean;
 }
 
 /** RRF re-rank of the top FUSION_POOL entries of a score-descending
@@ -92,6 +100,7 @@ export async function discoverForNoteSqlite(
             dimMismatchCount++;
             continue;
         }
+        if (settings.exists && !settings.exists(row.path)) continue; // 019 D5
         const score = cosineNormalized(queryVec, row.noteVec);
         // isFinite guard: a NaN score passes `score < minScore` (false) and
         // then poisons every downstream sort (011 regression review C1 —
@@ -201,6 +210,7 @@ export function findSimilarSqlite(
             dimMismatchCount++;
             continue;
         }
+        if (settings.exists && !settings.exists(row.path)) continue; // 019 D5
         const score = cosineNormalized(queryVec, row.noteVec);
         if (!Number.isFinite(score) || score < settings.minScore) continue;
         results.push({

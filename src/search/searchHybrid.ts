@@ -42,6 +42,11 @@ export type SearchHybridSettings = {
     searchScope: 'hot' | 'cold' | 'all';
     /** 010 D5: query-time tier derivation; stored tier is the fallback. */
     tierResolver?: (path: string) => 'hot' | 'cold';
+    /** 019 D5: liveness check for a result path. Index rows can outlive
+     *  their file (deleted outside Obsidian — issue #13), and a ghost that
+     *  reaches the UI opens to nothing at all. Injected, like tierResolver,
+     *  so this module stays Obsidian-free; omitted = no filtering. */
+    exists?: (path: string) => boolean;
     /** 015: fired when a present-but-failing retrieval leg degrades to
      *  keyword-only, so the UI can say so instead of failing silently.
      *  NOT fired for a null provider — layer 0 is a mode, not a failure. */
@@ -192,6 +197,11 @@ function materialise(
     for (const { docId, score } of top) {
         const note = store.getNote(docId);
         if (!note) continue;
+        // 019 D5: drop ghost rows BEFORE the topResults break below, so a
+        // page full of deleted notes returns real results instead of a
+        // short list. 010 D5 already hid ghosts from Cold promotion (see
+        // makeTierResolver); search results had no such guard.
+        if (settings.exists && !settings.exists(docId)) continue;
         const tier: 'hot' | 'cold' = settings.tierResolver?.(docId)
             ?? (note.tier === 'cold' ? 'cold' : 'hot');
         if (settings.searchScope === 'hot' && tier !== 'hot') continue;

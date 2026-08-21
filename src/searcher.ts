@@ -74,6 +74,7 @@ export class SearchModal extends SuggestModal<SearchResult> {
                     topResults: this.plugin.settings.topResults,
                     searchScope: this.plugin.settings.searchScope,
                     tierResolver: this.plugin.tierResolver(),
+                    exists: this.plugin.existsPredicate(),
                 },
             );
             if (query !== this.lastQuery) return;

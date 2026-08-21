@@ -324,6 +324,16 @@ export class SQLiteStore {
         }));
     }
 
+    /** 019 D2: every indexed path, no vector decode. The reconcile pass only
+     *  needs keys, and getAllBodyVecs() would (a) decode every body vector
+     *  just to throw them away and (b) hide rows whose body_vec is NULL —
+     *  legacy rows that then survive even a manual Update index. */
+    listNotePaths(): string[] {
+        const res = this.db.exec('SELECT path FROM notes');
+        if (res.length === 0) return [];
+        return res[0].values.map((row) => row[0] as string);
+    }
+
     getAllBodyVecs(): Map<string, Float32Array> {
         const out = new Map<string, Float32Array>();
         const res = this.db.exec('SELECT path, body_vec FROM notes WHERE body_vec IS NOT NULL');

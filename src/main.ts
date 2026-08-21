@@ -471,6 +471,21 @@ export default class VaultSearchPlugin extends Plugin {
             if (!indexed && !dismissed && !Platform.isMobile) {
                 this.showOnboardingModal();
             }
+            // 019 D4 (issue #13): notes deleted while Obsidian wasn't running
+            // never fire a `delete` event, and nothing else prunes them — a
+            // steady-state launch used to skip reconciling entirely, so ghost
+            // rows kept answering searches until a manual Update/Rebuild.
+            // Runs unconditionally and BEFORE the upgrade check below: the
+            // pass is one path SELECT plus map lookups, so letting update()'s
+            // own reconcile degrade to a no-op is cheaper than a branch.
+            // Desktop only — mobile is read-only (refuseWrite would swallow
+            // the deletes anyway, but 015 doesn't lean on the inner layer).
+            if (!Platform.isMobile && this.indexer && this.store.getMeta("bootstrapped")) {
+                const cleaned = this.indexer.reconcileStale();
+                if (cleaned > 0) {
+                    new Notice(t.noticeStaleCleaned(cleaned), 6000);
+                }
+            }
             // 007 D2: upgrade re-embed scans live at the top of update(), but
             // nothing ever called update() on startup — an upgraded plugin
             // would never run them (real-vault dogfood finding). Kick one
@@ -653,6 +668,7 @@ export default class VaultSearchPlugin extends Plugin {
             tierResolver: this.tierResolver(),
             kwRank: this.relatedKwRankFor(file),
             dismissedPairs: this.settings.dismissedPairs,
+            exists: this.existsPredicate(),
         });
 
         if (topResults.length === 0) {
@@ -702,6 +718,7 @@ export default class VaultSearchPlugin extends Plugin {
                 topResults: this.settings.topResults,
                 searchScope: scope,
                 tierResolver: this.tierResolver(),
+                exists: this.existsPredicate(),
             },
         );
     }
@@ -758,6 +775,7 @@ export default class VaultSearchPlugin extends Plugin {
             tierResolver,
             kwRank: this.relatedKwRankFor(file),
             dismissedPairs: this.settings.dismissedPairs,
+            exists: this.existsPredicate(),
         });
         if (neighbors.length === 0) {
             new Notice(t.noticeGraphNoResults);
@@ -986,6 +1004,7 @@ export default class VaultSearchPlugin extends Plugin {
             tierResolver: this.tierResolver(),
             kwRank: this.relatedKwRankFor(noteFile),
             dismissedPairs: this.settings.dismissedPairs,
+            exists: this.existsPredicate(),
         });
         if (neighbors.length === 0) {
             new Notice(t.noticeExpandNothingNew);
@@ -1572,6 +1591,16 @@ export default class VaultSearchPlugin extends Plugin {
     /** One resolver per query, frozen for its duration (010 D5). */
     tierResolver(): TierResolver {
         return makeTierResolver(this.app, this.selfWrites, this.settings.hotDays);
+    }
+
+    /** 019 D5: the liveness check every result-producing path injects,
+     *  defined once so the seven call sites (3 × searchHybrid, 3 ×
+     *  findSimilarSqlite, 1 × discoverForNoteSqlite) can't drift apart.
+     *  Reads Obsidian's file map (O(1) per path), NEVER the
+     *  exclusion-filtered file list — a note the user merely excluded is
+     *  still a real note, it just isn't indexed. */
+    existsPredicate(): (path: string) => boolean {
+        return (path) => this.app.vault.getAbstractFileByPath(path) instanceof TFile;
     }
 
     /** 011 D2: keyword ranks for relatedness fusion, built from the anchor

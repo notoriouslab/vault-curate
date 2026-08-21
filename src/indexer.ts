@@ -27,6 +27,7 @@ import { splitChunks } from "./indexer/chunker";
 import { denoiseForEmbed, hasDenoisableContent, DENOISE_VERSION } from "./indexer/denoise";
 import { t2sForEmbed, hasCJK, T2S_VERSION } from "./indexer/preproc";
 import { findH1Collisions, type FileTitleSource } from "./indexer/titleCollisions";
+import { findStalePaths } from "./indexer/staleReconcile";
 import { deriveTier } from "./heat/deriveTier";
 import { resolveCreated } from "./heat/makeTierResolver";
 import { meanPool } from "./utils/meanPool";
@@ -287,15 +288,12 @@ export class Indexer {
         const files = this.getMarkdownFiles();
         const incomingSet = this.buildIncomingSet();
         const h1Collisions = this.buildH1Collisions(files);
-        const currentPaths = new Set(files.map(f => f.path));
 
-        // Detect stale notes (renamed / deleted) by scanning stored body_vecs.
-        const storedPaths = Array.from(this.store.getAllBodyVecs().keys());
-        for (const path of storedPaths) {
-            if (!currentPaths.has(path)) {
-                this.store.deleteNote(path);
-            }
-        }
+        // Drop rows for notes that vanished (renamed / deleted) or fell out
+        // of scope via the exclusion settings. 019: was an inline body_vec
+        // scan against the file list; now the shared pass (D1/D2/D3), with
+        // update()'s stricter predicate keeping the exclusion behaviour.
+        this.pruneStale("pre-update", (p) => this.isLiveForUpdate(p));
 
         // Filter to notes needing re-embed: missing in store OR mtime newer
         // OR title changed (collision rules shifted, or 1.0.4 upgrade where
@@ -352,6 +350,14 @@ export class Indexer {
             if (denoiseUpgrade) this.store.setMeta("denoise_version", DENOISE_VERSION);
             if (t2sUpgrade) this.store.setMeta("t2s_version", T2S_VERSION);
             await this.backfillDescVecs();
+            // 019 D6: a delete event that landed while `indexing` was true
+            // got dropped by onFileChange's guard, and the pass at the top
+            // of this run had already gone by — re-run it so the window
+            // closes inside this same run instead of surviving until the
+            // next launch. Cheap: one path SELECT + map lookups. This exit
+            // needs it as much as the main one: backfillDescVecs above can
+            // run for minutes with `indexing` held.
+            this.pruneStale("post-update", (p) => this.isLiveForUpdate(p));
             await this.store.flush();
             new Notice(t.noticeUpToDate);
             return;
@@ -390,6 +396,9 @@ export class Indexer {
         this.store.setMeta("denoise_version", DENOISE_VERSION);
         this.store.setMeta("t2s_version", T2S_VERSION);
         await this.backfillDescVecs();
+        // 019 D6: same as the early-return exit above — catch deletes whose
+        // events were dropped while this run held `indexing`.
+        this.pruneStale("post-update", (p) => this.isLiveForUpdate(p));
         await this.store.flush();
         // 007 D9: same as rebuild() — rebuild the BM25 index while we're
         // already in an indexing pass. The up-to-date early return above
@@ -420,6 +429,69 @@ export class Indexer {
         // (011 perf follow-up; sliced build, never blocks this path).
         this.plugin.scheduleBM25Warm();
         this.onMutation?.('upsert', file.path);
+    }
+
+    /**
+     * 019 D1-D4: the startup reconcile (main.ts). Notes deleted while
+     * Obsidian wasn't running fire no `delete` event and nothing else prunes
+     * them, so a steady-state launch used to leave ghost rows answering
+     * searches until the user happened to run Update/Rebuild (issue #13).
+     *
+     * Existence ONLY — NEVER getMarkdownFiles(), and NEVER shouldExclude():
+     * that list is exclusion-filtered, so reusing it at startup would
+     * silently purge a folder the user merely excluded, and re-including it
+     * costs a full re-embed. Acting on the exclusion settings stays where it
+     * has always been, inside a user-triggered update() (decision G14).
+     */
+    reconcileStale(): number {
+        // Refuse to reconcile against an empty universe. A vault reporting
+        // zero markdown files is either genuinely empty (nothing worth
+        // pruning) or not finished loading — and the second case would wipe
+        // the whole index, which costs a full re-embed to recover. This pass
+        // has exactly one failure mode that actually hurts the user; this is
+        // the two lines that close it.
+        if (this.plugin.app.vault.getMarkdownFiles().length === 0) {
+            console.debug("vault-curate: reconcile (startup) — skipped, vault reports no markdown files");
+            return 0;
+        }
+        return this.pruneStale("startup", (path) => this.fileExists(path));
+    }
+
+    /** Live = the file is there. Deliberately blind to the exclusion
+     *  settings — see reconcileStale's contract. */
+    private fileExists(path: string): boolean {
+        return this.plugin.app.vault.getAbstractFileByPath(path) instanceof TFile;
+    }
+
+    /**
+     * update()'s reconcile predicate: STRICTER than reconcileStale(). A
+     * manual "Update index" has always applied the current exclusion
+     * settings (pre-019 its reconcile compared against getMarkdownFiles(),
+     * which is exclusion-filtered), so that behaviour lives on here — and
+     * only here.
+     */
+    private isLiveForUpdate(path: string): boolean {
+        return this.fileExists(path) && !this.shouldExclude(path);
+    }
+
+    /**
+     * Shared prune core. Deletion goes through removeNote(), NEVER
+     * store.deleteNote() directly: deleteNote nulls the warm BM25 index, and
+     * removeNote is what schedules the background re-warm — otherwise a
+     * batch cleanup hands the user a ~3s synchronous rebuild on their next
+     * search (D3). One log line per pass, always: a silent index that
+     * quietly shrank is indistinguishable from a broken one, and the named
+     * paths are what let the user reconcile it against what they deleted.
+     */
+    private pruneStale(label: string, isLive: (path: string) => boolean): number {
+        if (this.store.isDisposed) return 0;
+        const stale = findStalePaths(this.store.listNotePaths(), isLive);
+        const detail = stale.length > 0 ? ` — ${stale.join(", ")}` : "";
+        console.debug(`vault-curate: reconcile (${label}) — pruned ${stale.length}${detail}`);
+        for (const path of stale) {
+            this.removeNote(path);
+        }
+        return stale.length;
     }
 
     removeNote(path: string): void {

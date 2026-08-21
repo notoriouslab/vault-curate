@@ -59,6 +59,15 @@ beforeAll(async () => {
     store.upsertChunks('sem.md', [
         { notePath: 'sem.md', chunkIndex: 0, content: '傍晚去河堤散步看夕陽', vec: V_MATCH },
     ]);
+    // 019: 幽靈筆記——索引裡有、磁碟上沒有。兩路都命中（字面 + 向量），
+    // 所以不過濾時它必然搶到前排，正是「佔住名額」要證的事。
+    store.upsertNote({
+        path: 'ghost.md', mtime: 1, title: '幽靈筆記', description: null, tier: 'hot',
+        bodyVec: V_MATCH, bodyDim: 2, indexedAt: 1, descVec: null,
+    });
+    store.upsertChunks('ghost.md', [
+        { notePath: 'ghost.md', chunkIndex: 0, content: '這篇筆記講登山裝備清單', vec: V_MATCH },
+    ]);
 });
 
 const SETTINGS = { topResults: 10, searchScope: 'all' as const };
@@ -94,5 +103,40 @@ describe('searchHybrid provider-optional（015 Task 3）', () => {
         expect(onDegrade).toHaveBeenCalledWith('semantic');
         expect(warn.mock.calls.some(c => String(c[0]).includes('semantic leg failed'))).toBe(true);
         warn.mockRestore();
+    });
+});
+
+describe('searchHybrid exists 過濾（019 D5）', () => {
+    const alive = (path: string) => path !== 'ghost.md';
+
+    it('控制組：不傳 exists 時，幽靈確實搶進 top-2（證明下一條斷言有在咬）', async () => {
+        const results = await searchHybrid(
+            '登山裝備', { store, provider: okProvider() }, { ...SETTINGS, topResults: 2 },
+        );
+        expect(results.map(r => r.path)).toContain('ghost.md');
+    });
+
+    it('斷言 1：幽靈不佔 top-N 名額——topResults=2 仍回兩筆真結果', async () => {
+        const results = await searchHybrid(
+            '登山裝備', { store, provider: okProvider() }, { ...SETTINGS, topResults: 2, exists: alive },
+        );
+        expect(results.map(r => r.path).sort()).toEqual(['kw.md', 'sem.md']);
+    });
+
+    it('斷言 2：不傳 exists 時行為與過濾前一致（幽靈仍在結果內）', async () => {
+        const results = await searchHybrid('登山裝備', { store, provider: okProvider() }, SETTINGS);
+        expect(results.map(r => r.path)).toContain('ghost.md');
+    });
+
+    it('斷言 3：exists 早於 scope/tier 判定——tierResolver 從未被問到幽靈', async () => {
+        const tierResolver = vi.fn((_path: string) => 'hot' as const);
+        const results = await searchHybrid(
+            '登山裝備',
+            { store, provider: okProvider() },
+            { ...SETTINGS, searchScope: 'hot', exists: alive, tierResolver },
+        );
+        expect(results.map(r => r.path)).not.toContain('ghost.md');
+        expect(tierResolver).toHaveBeenCalledWith('kw.md');
+        expect(tierResolver).not.toHaveBeenCalledWith('ghost.md');
     });
 });

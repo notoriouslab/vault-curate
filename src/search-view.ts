@@ -290,6 +290,7 @@ export class SearchView extends ItemView {
                     topResults: this.plugin.settings.topResults,
                     searchScope: this.plugin.settings.searchScope,
                     tierResolver: this.plugin.tierResolver(),
+                    exists: this.plugin.existsPredicate(),
                     onDegrade: () => { degraded = true; },
                 },
             );
@@ -501,6 +502,7 @@ export class SearchView extends ItemView {
             tierResolver: this.plugin.tierResolver(),
             kwRank: this.plugin.relatedKwRankFor(file),
             dismissedPairs: this.plugin.settings.dismissedPairs,
+            exists: this.plugin.existsPredicate(),
         }, localAbort);
         // Discard stale result if another file took over while we were
         // computing. Two guards: localAbort flipped by a later sweep AND

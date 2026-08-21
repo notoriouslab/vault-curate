@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'fs';
 import { SQLiteStore, type PersistAdapter } from '../src/storage/SQLiteStore';
-import { discoverForNoteSqlite } from '../src/search/discoverSqlite';
+import { discoverForNoteSqlite, findSimilarSqlite } from '../src/search/discoverSqlite';
 
 const adapter: PersistAdapter = {
     read: async () => null,
@@ -73,5 +73,45 @@ describe('discoverForNoteSqlite (current-note Discover contract)', () => {
             ...SETTINGS, kwRank: new Map(),
         });
         expect(fusedEmpty.map(r => r.path)).toEqual(plain.map(r => r.path));
+    });
+});
+
+/**
+ * 019 D5: index rows outlive their file when a note is deleted outside
+ * Obsidian (issue #13). These two producers feed persisted artifacts
+ * (relation graph / expand write `file` nodes into a .canvas), so a ghost
+ * here is worse than a dead click — it lands in a saved file.
+ */
+describe('exists 過濾（019 D5）', () => {
+    const alive = (path: string) => path !== 'cold-mid.md';
+
+    it('控制組：不傳 exists 時 cold-mid.md 在結果內（證明斷言有在咬）', async () => {
+        const out = await discoverForNoteSqlite('anchor.md', store, { ...SETTINGS });
+        expect(out.map(r => r.path)).toContain('cold-mid.md');
+    });
+
+    it('discoverForNote：幽靈被濾掉，其餘排序不變', async () => {
+        const out = await discoverForNoteSqlite('anchor.md', store, { ...SETTINGS, exists: alive });
+        expect(out.map(r => r.path)).toEqual(['hot-close.md', 'hot-mid.md', 'cold-far.md']);
+    });
+
+    it('findSimilar：幽靈被濾掉，且不佔 topResults 名額', async () => {
+        const capped = findSimilarSqlite('anchor.md', store, { ...SETTINGS, topResults: 2 });
+        expect(capped.map(r => r.path)).toEqual(['hot-close.md', 'cold-mid.md']);
+        const filtered = findSimilarSqlite('anchor.md', store, {
+            ...SETTINGS, topResults: 2, exists: alive,
+        });
+        expect(filtered.map(r => r.path)).toEqual(['hot-close.md', 'hot-mid.md']);
+    });
+
+    it('exists 早於 tierResolver——幽靈不會被問 tier', async () => {
+        const asked: string[] = [];
+        await discoverForNoteSqlite('anchor.md', store, {
+            ...SETTINGS,
+            exists: alive,
+            tierResolver: (p) => { asked.push(p); return 'hot'; },
+        });
+        expect(asked).toContain('hot-close.md');
+        expect(asked).not.toContain('cold-mid.md');
     });
 });
