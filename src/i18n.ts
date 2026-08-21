@@ -192,6 +192,8 @@ export interface Locale {
     noticeEmptySkipped: (n: number) => string;
     /** 019: startup pruned index rows whose note was deleted outside Obsidian. */
     noticeStaleCleaned: (n: number) => string;
+    /** 019: startup cleanup refused — too much of the index looked missing. */
+    noticeStaleRefused: (stale: number, total: number) => string;
     noticeLargeVault: (chunks: number) => string;
     discoverGlobalNoCold: string;
     discoverGlobalAllFiltered: string;
@@ -469,6 +471,8 @@ const en: Locale = {
         `Vault Curate: Updated ${updated} notes (total: ${total}, hot: ${hot})`,
     noticeEmptySkipped: (n) => `Vault Curate: skipped ${n} empty note(s) — no content to embed`,
     noticeStaleCleaned: (n) => `Vault Curate: cleaned up ${n} deleted note(s) from the index`,
+    noticeStaleRefused: (stale, total) =>
+        `Vault Curate: skipped index cleanup — ${stale} of ${total} indexed notes appear to be missing. Nothing was removed. If you really did delete that many, run "Update index" to reconcile.`,
     noticeLargeVault: (chunks) =>
         `Vault Curate: indexed ${chunks} chunks. Semantic search may take a few seconds — if it feels slow, try setting search scope to "Hot" in Settings → Advanced.`,
     discoverGlobalNoCold: "No Cold notes — every note in your vault is either linked or recent, so there's nothing to rediscover.",
@@ -773,6 +777,8 @@ const zhTW: Locale = {
         `Vault Curate：已更新 ${updated} 篇（共 ${total} 篇，${hot} hot）`,
     noticeEmptySkipped: (n) => `Vault Curate：略過 ${n} 篇空白筆記（無內容可索引）`,
     noticeStaleCleaned: (n) => `Vault Curate：已從索引清理 ${n} 篇已刪除的筆記`,
+    noticeStaleRefused: (stale, total) =>
+        `Vault Curate：已跳過索引清理，${total} 篇索引筆記中有 ${stale} 篇看起來不存在。什麼都沒有刪除。若你確實刪了這麼多，請手動執行「更新索引」。`,
     noticeLargeVault: (chunks) =>
         `Vault Curate：完成 ${chunks} 個 chunks 索引。語意搜尋可能需要數秒；若感到慢，可至「設定 → 進階 → 搜尋範圍」改為 Hot only。`,
     discoverGlobalNoCold: "目前沒有 Cold 筆記 — vault 中所有筆記都有連結或近期建立，沒有可重新發現的內容。",
@@ -1080,6 +1086,8 @@ const zhCN: Locale = {
         `Vault Curate：已更新 ${updated} 篇（共 ${total} 篇，${hot} hot）`,
     noticeEmptySkipped: (n) => `Vault Curate：跳过 ${n} 篇空白笔记（无内容可索引）`,
     noticeStaleCleaned: (n) => `Vault Curate：已从索引清理 ${n} 篇已删除的笔记`,
+    noticeStaleRefused: (stale, total) =>
+        `Vault Curate：已跳过索引清理，${total} 篇索引笔记中有 ${stale} 篇看起来不存在。什么都没有删除。若你确实删了这么多，请手动执行「更新索引」。`,
     noticeLargeVault: (chunks) =>
         `Vault Curate：完成 ${chunks} 个 chunks 的索引。语义搜索可能需要几秒；如果觉得慢，可到「设置 → 高级 → 搜索范围」改为 Hot only。`,
     discoverGlobalNoCold: "目前没有 Cold 笔记 — vault 中所有笔记都有链接或近期创建，没有可重新发现的内容。",

@@ -10,7 +10,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'fs';
 import initSqlJs from 'sql.js';
 import type { SqlJsStatic } from 'sql.js';
-import { findStalePaths } from '../src/indexer/staleReconcile';
+import { findStalePaths, isImplausibleWipe } from '../src/indexer/staleReconcile';
 import { SQLiteStore, type PersistAdapter } from '../src/storage/SQLiteStore';
 
 const vec = new Float32Array([1, 0]);
@@ -129,5 +129,73 @@ describe('SQLiteStore.listNotePaths（019 D2）', () => {
         } finally {
             await store.dispose();
         }
+    });
+});
+
+describe('isImplausibleWipe（019 G3 review W2）', () => {
+    it('斷言 4a：半數以上且達絕對下限 → 拒絕', () => {
+        expect(isImplausibleWipe(1300, 2522)).toBe(true);
+        expect(isImplausibleWipe(2022, 2522)).toBe(true);   // 部分載入 500/2522 的情境
+        expect(isImplausibleWipe(100, 200)).toBe(true);     // 剛好踩到兩個邊界
+    });
+
+    it('斷言 4b：比例高但筆數少 → 放行（小 vault 刪掉大半是日常）', () => {
+        expect(isImplausibleWipe(15, 20)).toBe(false);
+        expect(isImplausibleWipe(99, 100)).toBe(false);      // 差一筆到下限
+    });
+
+    it('斷言 4c：筆數多但比例低 → 放行（刪掉一個大資料夾是合法操作）', () => {
+        expect(isImplausibleWipe(500, 2522)).toBe(false);
+        expect(isImplausibleWipe(1260, 2522)).toBe(false);   // 差一點到半數
+    });
+
+    it('斷言 4d：邊界不炸 — 空索引與零幽靈', () => {
+        expect(isImplausibleWipe(0, 0)).toBe(false);
+        expect(isImplausibleWipe(0, 2522)).toBe(false);
+        expect(isImplausibleWipe(5, 0)).toBe(false);         // total 為 0 時不做除法
+    });
+});
+
+/**
+ * 019 G3 review W1: 「清除一律走 removeNote() 不走 store.deleteNote()」是 D3
+ * 的實質內容（deleteNote 會把暖好的 BM25 索引設成 null 而不排背景重暖），但
+ * 改錯了不會有任何行為測試轉紅 —— 獨立審查者實測改回 deleteNote 後 tsc 0
+ * error、424 tests 全綠。這一組是來源層級的 regression lock：鎖住規則本身，
+ * 因為規則的違反在單元測試裡是隱形的。歷史依據：019 這個 change 之所以存在，
+ * 一部分正是 014 D6#5 寫下的同一條規則在 update() 裡被違反而沒人攔住。
+ */
+describe('D3/D1 規則鎖（來源斷言）', () => {
+    const src = readFileSync('src/indexer.ts', 'utf8');
+
+    /** 從方法簽名切到該方法的收尾大括號（class 內縮排 4 空格）。 */
+    const bodyOf = (signature: string): string => {
+        const start = src.indexOf(signature);
+        expect(start, `${signature} 不在 src/indexer.ts 裡 —— 方法被改名了，這個鎖要跟著更新`)
+            .toBeGreaterThan(-1);
+        const end = src.indexOf('\n    }', start);
+        expect(end).toBeGreaterThan(start);
+        return src.slice(start, end);
+    };
+
+    it('斷言 5：removeStale 走 removeNote，NEVER store.deleteNote（D3）', () => {
+        const body = bodyOf('private removeStale(label: string');
+        expect(body).toContain('this.removeNote(path)');
+        expect(body).not.toContain('this.store.deleteNote(');
+    });
+
+    it('斷言 6：啟動對帳的判定不碰排除設定，只有 update 的 predicate 碰（D1/G14）', () => {
+        const startup = bodyOf('reconcileStale(): number {');
+        // 兩種寫法都要擋：直接呼叫 shouldExclude，或改去用 update 的 predicate
+        expect(startup).not.toContain('shouldExclude');
+        expect(startup).not.toContain('isLiveForUpdate');
+        expect(startup).toContain('this.fileExists(path)');
+        expect(bodyOf('private fileExists(path: string')).not.toContain('shouldExclude');
+        expect(bodyOf('private isLiveForUpdate(path: string')).toContain('shouldExclude');
+    });
+
+    it('斷言 7：rebuild 與 update 的三個出口都掛了對帳（G1 review C1）', () => {
+        expect(src).toContain('this.pruneStale("post-rebuild"');
+        expect(src.match(/this\.pruneStale\("post-update"/g) ?? []).toHaveLength(2);
+        expect(src).toContain('this.pruneStale("pre-update"');
     });
 });

@@ -27,7 +27,7 @@ import { splitChunks } from "./indexer/chunker";
 import { denoiseForEmbed, hasDenoisableContent, DENOISE_VERSION } from "./indexer/denoise";
 import { t2sForEmbed, hasCJK, T2S_VERSION } from "./indexer/preproc";
 import { findH1Collisions, type FileTitleSource } from "./indexer/titleCollisions";
-import { findStalePaths } from "./indexer/staleReconcile";
+import { findStalePaths, isImplausibleWipe } from "./indexer/staleReconcile";
 import { deriveTier } from "./heat/deriveTier";
 import { resolveCreated } from "./heat/makeTierResolver";
 import { meanPool } from "./utils/meanPool";
@@ -215,6 +215,14 @@ export class Indexer {
         // writeIndexMeta() (indexSingleFile calls that on every file edit).
         this.store.setMeta("denoise_version", DENOISE_VERSION);
         this.store.setMeta("t2s_version", T2S_VERSION);
+        // 019 G1 review C1: a full rebuild holds `indexing` for as long as it
+        // takes to re-embed the vault (minutes), and onFileChange drops every
+        // delete event for that whole window. clearAllData() only rules out
+        // rows for notes deleted BEFORE their turn (indexOne's read fails and
+        // writes nothing) — a note indexed at pass i and deleted at pass j>i
+        // keeps its row. Same pass as update()'s exits, on the longest window
+        // of the three.
+        this.pruneStale("post-rebuild", (p) => this.isLiveForUpdate(p));
         await this.store.flush();
         // 007 D9: pay the inverted-index build here (index was invalidated by
         // the upserts above) so the user's next search is <1ms, not ~3s.
@@ -437,24 +445,41 @@ export class Indexer {
      * them, so a steady-state launch used to leave ghost rows answering
      * searches until the user happened to run Update/Rebuild (issue #13).
      *
-     * Existence ONLY — NEVER getMarkdownFiles(), and NEVER shouldExclude():
-     * that list is exclusion-filtered, so reusing it at startup would
+     * Existence ONLY — NEVER shouldExclude(), and never the indexer's own
+     * exclusion-filtered getMarkdownFiles(): reusing that at startup would
      * silently purge a folder the user merely excluded, and re-including it
      * costs a full re-embed. Acting on the exclusion settings stays where it
-     * has always been, inside a user-triggered update() (decision G14).
+     * has always been, inside a user-triggered update() (decision G14). The
+     * raw vault.getMarkdownFiles() below is a COUNT for the empty-universe
+     * guard — it never decides whether an individual row lives or dies.
      */
     reconcileStale(): number {
+        if (this.store.isDisposed) return 0;
         // Refuse to reconcile against an empty universe. A vault reporting
         // zero markdown files is either genuinely empty (nothing worth
         // pruning) or not finished loading — and the second case would wipe
         // the whole index, which costs a full re-embed to recover. This pass
-        // has exactly one failure mode that actually hurts the user; this is
-        // the two lines that close it.
+        // has exactly one failure mode that actually hurts the user, and
+        // these two guards are what keep it from firing.
         if (this.plugin.app.vault.getMarkdownFiles().length === 0) {
             console.debug("vault-curate: reconcile (startup) — skipped, vault reports no markdown files");
             return 0;
         }
-        return this.pruneStale("startup", (path) => this.fileExists(path));
+        const paths = this.store.listNotePaths();
+        const stale = findStalePaths(paths, (path) => this.fileExists(path));
+        // 019 G3 review W2: the empty check above catches a file list that
+        // never loaded; this catches one that loaded partially, where the
+        // ratio is the only tell. Loud no-op beats silent wipe — the user
+        // gets a notice and can run Update index once they know why.
+        if (isImplausibleWipe(stale.length, paths.length)) {
+            console.warn(
+                `vault-curate: reconcile (startup) — REFUSED, ${stale.length} of ${paths.length} indexed notes look missing. ` +
+                `That is more likely an incompletely loaded vault than a real deletion; run "Update index" to reconcile deliberately.`,
+            );
+            new Notice(t.noticeStaleRefused(stale.length, paths.length), 12000);
+            return 0;
+        }
+        return this.removeStale("startup", stale);
     }
 
     /** Live = the file is there. Deliberately blind to the exclusion
@@ -485,7 +510,14 @@ export class Indexer {
      */
     private pruneStale(label: string, isLive: (path: string) => boolean): number {
         if (this.store.isDisposed) return 0;
-        const stale = findStalePaths(this.store.listNotePaths(), isLive);
+        return this.removeStale(label, findStalePaths(this.store.listNotePaths(), isLive));
+    }
+
+    /** The only place stale rows are actually deleted. MUST stay on
+     *  removeNote() — see pruneStale's contract. Locked by a source-level
+     *  regression test (staleReconcile.test.ts), because a swap back to
+     *  store.deleteNote() is behaviour no behavioural test can see. */
+    private removeStale(label: string, stale: string[]): number {
         const detail = stale.length > 0 ? ` — ${stale.join(", ")}` : "";
         console.debug(`vault-curate: reconcile (${label}) — pruned ${stale.length}${detail}`);
         for (const path of stale) {
