@@ -27,7 +27,7 @@ import { splitChunks } from "./indexer/chunker";
 import { denoiseForEmbed, hasDenoisableContent, DENOISE_VERSION } from "./indexer/denoise";
 import { t2sForEmbed, hasCJK, T2S_VERSION } from "./indexer/preproc";
 import { findH1Collisions, type FileTitleSource } from "./indexer/titleCollisions";
-import { findStalePaths, isImplausibleWipe } from "./indexer/staleReconcile";
+import { findStalePaths, findChangedPaths, isImplausibleWipe } from "./indexer/staleReconcile";
 import { deriveTier } from "./heat/deriveTier";
 import { resolveCreated } from "./heat/makeTierResolver";
 import { meanPool } from "./utils/meanPool";
@@ -41,6 +41,11 @@ const PROGRESS_STEP = 1;
 // per-query latency creeps above a few seconds on average hardware, so we
 // warn the user once at rebuild time rather than per-search.
 const LARGE_VAULT_CHUNK_THRESHOLD = 15000;
+// 021: how many notes the startup catch-up will re-index before it stops and
+// hands the job to a deliberate "Update index". Sized so the startup path can
+// never cost more than a few seconds of embedding: a week of synced edits is
+// the user's decision to pay for, not a surprise at launch.
+const CATCHUP_MAX = 20;
 
 export class Indexer {
     indexing = false;
@@ -524,6 +529,46 @@ export class Indexer {
             this.removeNote(path);
         }
         return stale.length;
+    }
+
+    /**
+     * 021: re-index notes whose file changed since we last saw it.
+     *
+     * Two ways an update goes missing: the 2s debounce never fired because
+     * Obsidian closed first (onunload only clears the timers), and edits that
+     * happened while Obsidian wasn't running at all (sync client, git). Both
+     * used to persist until the user happened to run Update index by hand —
+     * the note simply stayed unsearchable. 019's startup pass walks the same
+     * rows but only deletes; this is the other half.
+     *
+     * Deliberately simple: it loops indexSingleFile() rather than assembling
+     * incomingSet/h1Collisions once. Under CATCHUP_MAX notes that duplication
+     * is wasted work, and zero new logic is worth more here than the savings.
+     */
+    async catchUpChanged(): Promise<{ reindexed: number; deferred: number }> {
+        if (this.store.isDisposed || this.indexing) return { reindexed: 0, deferred: 0 };
+        const vault = this.plugin.app.vault;
+        const changed = findChangedPaths(this.store.listNoteMtimes(), (path) => {
+            const file = vault.getAbstractFileByPath(path);
+            return file instanceof TFile ? file.stat.mtime : null;
+        }).filter((path) => !this.shouldExclude(path));
+        if (changed.length === 0) return { reindexed: 0, deferred: 0 };
+        if (changed.length > CATCHUP_MAX) {
+            console.debug(`vault-curate: catch-up deferred — ${changed.length} notes changed since indexing (over the ${CATCHUP_MAX} limit)`);
+            return { reindexed: 0, deferred: changed.length };
+        }
+        console.debug(`vault-curate: catch-up — re-indexing ${changed.length} changed note(s): ${changed.join(", ")}`);
+        this.indexing = true;
+        try {
+            for (const path of changed) {
+                const file = vault.getAbstractFileByPath(path);
+                if (file instanceof TFile) await this.indexSingleFile(file);
+            }
+        } finally {
+            this.indexing = false;
+        }
+        await this.store.flush();
+        return { reindexed: changed.length, deferred: 0 };
     }
 
     removeNote(path: string): void {

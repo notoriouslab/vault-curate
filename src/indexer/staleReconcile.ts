@@ -46,3 +46,24 @@ export function isImplausibleWipe(staleCount: number, totalRows: number): boolea
     if (staleCount < WIPE_MIN_ROWS) return false;
     return staleCount / totalRows >= WIPE_RATIO;
 }
+
+/**
+ * 021: rows whose file has been modified since it was indexed.
+ *
+ * `mtimeOf` returns null for a path with no live file — those are the prune's
+ * job, not this one, so they are skipped rather than reported twice. The
+ * comparison is `!==`, not `>`: a file restored from an older copy (sync
+ * conflict, git checkout) is just as stale as a newer edit.
+ */
+export function findChangedPaths(
+    rows: Iterable<{ path: string; mtime: number }>,
+    mtimeOf: (path: string) => number | null,
+): string[] {
+    const out: string[] = [];
+    for (const row of rows) {
+        const disk = mtimeOf(row.path);
+        if (disk === null) continue;
+        if (disk !== row.mtime) out.push(row.path);
+    }
+    return out;
+}

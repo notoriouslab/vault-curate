@@ -10,7 +10,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'fs';
 import initSqlJs from 'sql.js';
 import type { SqlJsStatic } from 'sql.js';
-import { findStalePaths, isImplausibleWipe } from '../src/indexer/staleReconcile';
+import { findStalePaths, findChangedPaths, isImplausibleWipe } from '../src/indexer/staleReconcile';
 import { SQLiteStore, type PersistAdapter } from '../src/storage/SQLiteStore';
 
 const vec = new Float32Array([1, 0]);
@@ -197,5 +197,41 @@ describe('D3/D1 規則鎖（來源斷言）', () => {
         expect(src).toContain('this.pruneStale("post-rebuild"');
         expect(src.match(/this\.pruneStale\("post-update"/g) ?? []).toHaveLength(2);
         expect(src).toContain('this.pruneStale("pre-update"');
+    });
+});
+
+describe('findChangedPaths（021）', () => {
+    const rows = [
+        { path: 'same.md', mtime: 100 },
+        { path: 'newer.md', mtime: 100 },
+        { path: 'older.md', mtime: 100 },
+        { path: 'gone.md', mtime: 100 },
+    ];
+    const disk = (p: string): number | null =>
+        p === 'same.md' ? 100 : p === 'newer.md' ? 200 : p === 'older.md' ? 50 : null;
+
+    it('斷言 8：mtime 不同就列入（含被還原成舊版的檔），相同的不動，檔案不存在的跳過', () => {
+        expect(findChangedPaths(rows, disk)).toEqual(['newer.md', 'older.md']);
+    });
+
+    it('斷言 9：空輸入 → 空清單', () => {
+        expect(findChangedPaths([], disk)).toEqual([]);
+    });
+
+    it('斷言 10：全部一致 → 空清單（乾淨啟動不做任何事）', () => {
+        expect(findChangedPaths([{ path: 'same.md', mtime: 100 }], disk)).toEqual([]);
+    });
+});
+
+describe('SQLiteStore.listNoteMtimes（021）', () => {
+    it('斷言 11：path 與 mtime 對得上', async () => {
+        const bytes = await buildIndexBytes();
+        const store = await openFrom(bytes);
+        try {
+            const rows = store.listNoteMtimes().sort((x, y) => x.path.localeCompare(y.path));
+            expect(rows).toEqual([{ path: 'a.md', mtime: 1 }, { path: 'b.md', mtime: 1 }]);
+        } finally {
+            await store.dispose();
+        }
     });
 });

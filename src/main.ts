@@ -485,6 +485,16 @@ export default class VaultSearchPlugin extends Plugin {
                 if (cleaned > 0) {
                     new Notice(t.noticeStaleCleaned(cleaned), 6000);
                 }
+                // 021: the other half — notes whose update was missed (closed
+                // inside the 2s debounce, or edited while Obsidian was shut).
+                // Async because it may embed, so it is fired and forgotten;
+                // the prune above stays synchronous.
+                void this.indexer.catchUpChanged().then(({ reindexed, deferred }) => {
+                    if (reindexed > 0) new Notice(t.noticeCatchUpDone(reindexed), 6000);
+                    if (deferred > 0) new Notice(t.noticeCatchUpDeferred(deferred), 10000);
+                }).catch((err) => {
+                    console.warn("vault-curate: startup catch-up failed", err);
+                });
             }
             // 007 D2: upgrade re-embed scans live at the top of update(), but
             // nothing ever called update() on startup — an upgraded plugin

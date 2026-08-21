@@ -354,6 +354,13 @@ export class SQLiteStore {
         return res[0].values.map((row) => row[0] as string);
     }
 
+    /** 021: path + mtime for the startup catch-up, no vector decode. */
+    listNoteMtimes(): Array<{ path: string; mtime: number }> {
+        const res = this.db.exec('SELECT path, mtime FROM notes');
+        if (res.length === 0) return [];
+        return res[0].values.map((row) => ({ path: row[0] as string, mtime: row[1] as number }));
+    }
+
     getAllBodyVecs(): Map<string, Float32Array> {
         const out = new Map<string, Float32Array>();
         const res = this.db.exec('SELECT path, body_vec FROM notes WHERE body_vec IS NOT NULL');

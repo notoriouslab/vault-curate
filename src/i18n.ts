@@ -194,6 +194,10 @@ export interface Locale {
     noticeStaleCleaned: (n: number) => string;
     /** 019: startup cleanup refused — too much of the index looked missing. */
     noticeStaleRefused: (stale: number, total: number) => string;
+    /** 021: startup re-indexed notes whose update was missed. */
+    noticeCatchUpDone: (n: number) => string;
+    /** 021: too many changed notes to re-index at launch. */
+    noticeCatchUpDeferred: (n: number) => string;
     noticeLargeVault: (chunks: number) => string;
     discoverGlobalNoCold: string;
     discoverGlobalAllFiltered: string;
@@ -473,6 +477,8 @@ const en: Locale = {
     noticeStaleCleaned: (n) => `Vault Curate: cleaned up ${n} deleted note(s) from the index`,
     noticeStaleRefused: (stale, total) =>
         `Vault Curate: skipped index cleanup — ${stale} of ${total} indexed notes appear to be missing. Nothing was removed. If you really did delete that many, run "Update index" to reconcile.`,
+    noticeCatchUpDone: (n) => `Vault Curate: caught up on ${n} note(s) edited since the last index`,
+    noticeCatchUpDeferred: (n) => `Vault Curate: ${n} notes changed since the last index — run "Update index" to bring search up to date`,
     noticeLargeVault: (chunks) =>
         `Vault Curate: indexed ${chunks} chunks. Semantic search may take a few seconds — if it feels slow, try setting search scope to "Hot" in Settings → Advanced.`,
     discoverGlobalNoCold: "No Cold notes — every note in your vault is either linked or recent, so there's nothing to rediscover.",
@@ -779,6 +785,8 @@ const zhTW: Locale = {
     noticeStaleCleaned: (n) => `Vault Curate：已從索引清理 ${n} 篇已刪除的筆記`,
     noticeStaleRefused: (stale, total) =>
         `Vault Curate：已跳過索引清理，${total} 篇索引筆記中有 ${stale} 篇看起來不存在。什麼都沒有刪除。若你確實刪了這麼多，請手動執行「更新索引」。`,
+    noticeCatchUpDone: (n) => `Vault Curate：已補上 ${n} 篇筆記的索引`,
+    noticeCatchUpDeferred: (n) => `Vault Curate：有 ${n} 篇筆記在上次索引後被改過，請執行「更新索引」讓搜尋跟上`,
     noticeLargeVault: (chunks) =>
         `Vault Curate：完成 ${chunks} 個 chunks 索引。語意搜尋可能需要數秒；若感到慢，可至「設定 → 進階 → 搜尋範圍」改為 Hot only。`,
     discoverGlobalNoCold: "目前沒有 Cold 筆記 — vault 中所有筆記都有連結或近期建立，沒有可重新發現的內容。",
@@ -1088,6 +1096,8 @@ const zhCN: Locale = {
     noticeStaleCleaned: (n) => `Vault Curate：已从索引清理 ${n} 篇已删除的笔记`,
     noticeStaleRefused: (stale, total) =>
         `Vault Curate：已跳过索引清理，${total} 篇索引笔记中有 ${stale} 篇看起来不存在。什么都没有删除。若你确实删了这么多，请手动执行「更新索引」。`,
+    noticeCatchUpDone: (n) => `Vault Curate：已补上 ${n} 篇笔记的索引`,
+    noticeCatchUpDeferred: (n) => `Vault Curate：有 ${n} 篇笔记在上次索引后被改过，请执行「更新索引」让搜索跟上`,
     noticeLargeVault: (chunks) =>
         `Vault Curate：完成 ${chunks} 个 chunks 的索引。语义搜索可能需要几秒；如果觉得慢，可到「设置 → 高级 → 搜索范围」改为 Hot only。`,
     discoverGlobalNoCold: "目前没有 Cold 笔记 — vault 中所有笔记都有链接或近期创建，没有可重新发现的内容。",
