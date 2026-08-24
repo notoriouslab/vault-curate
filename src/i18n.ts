@@ -32,6 +32,8 @@ export interface Locale {
     chunkOverlapDesc: string;
     llmModel: string;
     llmModelDesc: string;
+    llmUrlName: string;
+    llmUrlDesc: string;
     enableAICuration: string;
     enableAICurationDesc: string;
     llmEndpointHeading: string;
@@ -324,8 +326,10 @@ const en: Locale = {
     synonymsDesc: "One per line: keyword = synonym1, synonym2",
     llmModel: "LLM model",
     llmModelDesc: "Model used by AI curation (description / MOC naming). Recommended: qwen3:1.7b for Ollama; gpt-4o-mini for OpenAI-compatible.",
+    llmUrlName: "AI curation server (optional)",
+    llmUrlDesc: "Separate server for AI curation only. Leave empty to use the embedding server above. Useful when your LLM runs on a server that doesn't serve embeddings (e.g. mlx_lm.server). Note: the API key above is sent to both servers.",
     enableAICuration: "Enable AI curation",
-    enableAICurationDesc: "When on, expose Description generation and topic-grouped MOC commands. The LLM reuses the endpoint set above for the embedding provider (Ollama or OpenAI-compatible).",
+    enableAICurationDesc: "When on, expose Description generation and topic-grouped MOC commands. The LLM uses the embedding server above unless you set a separate AI curation server below.",
     llmEndpointHeading: "LLM endpoint status",
     llmEndpointProbing: "Probing…",
     llmEndpointReachable: "✓ Reachable",
@@ -632,8 +636,10 @@ const zhTW: Locale = {
     synonymsDesc: "每行一組：關鍵字 = 同義詞1, 同義詞2",
     llmModel: "LLM 模型",
     llmModelDesc: "AI 整理（description / MOC 群組命名）使用的 LLM 模型。Ollama 推薦：qwen3:1.7b；OpenAI-compatible 可用 gpt-4o-mini 等。",
+    llmUrlName: "AI 整理伺服器（選填）",
+    llmUrlDesc: "只給 AI 整理用的獨立伺服器。留空則使用上方的 Embedding 伺服器。適合 LLM 跑在不提供 embeddings 的伺服器（如 mlx_lm.server）時使用。注意：上方的 API key 會同時送到兩台伺服器。",
     enableAICuration: "啟用 AI 整理",
-    enableAICurationDesc: "開啟後才會出現 Description 生成與主題分群 MOC 等指令。LLM 沿用上方 Embedding 提供者的 endpoint（Ollama 或 OpenAI-compatible）。",
+    enableAICurationDesc: "開啟後才會出現 Description 生成與主題分群 MOC 等指令。LLM 預設使用上方的 Embedding 伺服器，也可在下方另設 AI 整理專用伺服器。",
     llmEndpointHeading: "LLM 連線狀態",
     llmEndpointProbing: "檢測中…",
     llmEndpointReachable: "✓ 可連線",
@@ -943,8 +949,10 @@ const zhCN: Locale = {
     synonymsDesc: "每行一组：关键词 = 同义词1, 同义词2",
     llmModel: "LLM 模型",
     llmModelDesc: "AI 整理（description / MOC 分组命名）使用的 LLM 模型。Ollama 推荐：qwen3:1.7b；OpenAI-compatible 可用 gpt-4o-mini 等。",
+    llmUrlName: "AI 整理服务器（选填）",
+    llmUrlDesc: "只给 AI 整理用的独立服务器。留空则使用上方的 Embedding 服务器。适合 LLM 跑在不提供 embeddings 的服务器（如 mlx_lm.server）时使用。注意：上方的 API key 会同时发送到两台服务器。",
     enableAICuration: "启用 AI 整理",
-    enableAICurationDesc: "开启后才会出现 Description 生成与主题分组 MOC 等命令。LLM 沿用上方 Embedding 提供者的 endpoint（Ollama 或 OpenAI-compatible）。",
+    enableAICurationDesc: "开启后才会出现 Description 生成与主题分组 MOC 等命令。LLM 默认使用上方的 Embedding 服务器，也可在下方另设 AI 整理专用服务器。",
     llmEndpointHeading: "LLM 连接状态",
     llmEndpointProbing: "检测中…",
     llmEndpointReachable: "✓ 可连接",

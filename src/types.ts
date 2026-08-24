@@ -39,6 +39,10 @@ export interface VaultSearchSettings {
     autoIndex: boolean;
     synonyms: Record<string, string[]>;
     llmModel: string;
+    /** Optional separate server for AI curation's LLM (023). Empty means
+     *  "use ollamaUrl" — the embedding server — like before the split.
+     *  Resolve only through resolveLlmUrl(); never read this raw. */
+    llmUrl: string;
     chunkSize: number;
     chunkOverlap: number;
     /** AI curation master switch (design D9). Gates description generation
@@ -87,6 +91,7 @@ export const DEFAULT_SETTINGS: VaultSearchSettings = {
     autoIndex: true,
     synonyms: {},
     llmModel: "qwen3:1.7b",
+    llmUrl: "",
     chunkSize: 2000,
     chunkOverlap: 100,
     enableAICuration: false,

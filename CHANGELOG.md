@@ -1,6 +1,9 @@
 # Changelog
 
-## 1.5.3 — 2026-08-24
+## 1.6.0 — 2026-08-24
+
+### Added
+- **AI curation can now use its own server, separate from embedding.** A new optional **AI curation server** field in settings points description generation and MOC naming at one server while embedding stays on the main one. Leave it empty and everything works exactly as before, on the single URL. This matters when your LLM runs somewhere that doesn't serve embeddings — `mlx_lm.server`, for instance, answers chat but 404s embedding requests, so pointing the single shared URL at it silently stalled index updates while curation hummed along. Now embedding keeps its server and curation gets the fast one: the settings status line and the model dropdown both follow whichever server curation will actually hit.
 
 ### Fixed
 - **Reasoning models no longer write their thinking into your notes.** Some models "think out loud" before answering, and OpenAI-compatible servers (mlx_lm.server, LM Studio, and the like) pass that thinking through as markers wrapped around the real answer — `<think>…</think>` from Qwen-family models, channel markers from gpt-oss. AI curation took the whole string at face value: reading it as JSON failed, and the last-resort fallback quietly wrote the first 200 characters of marker text into the note's `description`. No error, no notice — you only found out by looking at the note. The plugin now strips the reasoning wrapper before reading the answer, for note descriptions and MOC naming alike, and it is careful about it: a clean answer that merely *mentions* these markers in its text passes through untouched. If the model ran out of tokens mid-thought and never got to an answer, curation now reports a failure for that note instead of writing garbage. Ollama users were never affected — Ollama keeps the thinking in a separate field the plugin never reads. The practical upshot: gpt-oss-20b served by `mlx_lm.server` now works as a curation model, and it is fast — on a 133-note test vault, a full curation pass took 7 minutes there versus 49 for the same model on Ollama.

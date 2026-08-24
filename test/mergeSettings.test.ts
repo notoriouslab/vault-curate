@@ -39,6 +39,12 @@ describe('mergeSettings', () => {
         expect(merged.dismissedNotes).toEqual({ 'ok.md': 5 });
     });
 
+    it('defaults llmUrl to "" for settings saved before the field existed (023 case 5)', () => {
+        const legacy = { ollamaUrl: 'http://localhost:11434', llmModel: 'qwen3:1.7b' };
+        const merged = mergeSettings(legacy, DEFAULT_SETTINGS);
+        expect(merged.llmUrl).toBe('');
+    });
+
     it('never shares the dismissed records with DEFAULT_SETTINGS (in-place mutation stays local)', () => {
         const merged = mergeSettings(undefined, DEFAULT_SETTINGS);
         merged.dismissedPairs['a.md\nb.md'] = 1;

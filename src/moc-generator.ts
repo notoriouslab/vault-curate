@@ -11,6 +11,7 @@ import type {
 } from "./types";
 import { clusterEmbeddings, shouldFallbackToFlat } from "./clustering";
 import { formatLocalDateTime, requestLlmJson, toWikilink } from "./utils";
+import { resolveLlmUrl } from "./utils/resolveLlmUrl";
 import { stripDangerousInvisibles } from "./description-generator";
 import { t } from "./i18n";
 
@@ -126,7 +127,7 @@ async function nameCluster(
 
     return requestLlmJson(
         {
-            ollamaUrl: settings.ollamaUrl,
+            ollamaUrl: resolveLlmUrl(settings.llmUrl, settings.ollamaUrl),
             llmModel: settings.llmModel,
             apiFormat: settings.apiFormat,
             apiKey: settings.apiKey,

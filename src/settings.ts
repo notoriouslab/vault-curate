@@ -8,6 +8,7 @@ import { App, Modal, Platform, PluginSettingTab, Setting } from "obsidian";
 import type VaultSearchPlugin from "./main";
 import type { EmbeddingProviderType } from "./types";
 import { checkLLMReachable, fetchOllamaModels, formatLocalDateTime, isLoopbackHost } from "./utils";
+import { resolveLlmUrl } from "./utils/resolveLlmUrl";
 import { t } from "./i18n";
 import { DismissedModal } from "./ui/DismissedModal";
 
@@ -242,6 +243,27 @@ export class VaultSearchSettingTab extends PluginSettingTab {
 
         if (!this.plugin.settings.enableAICuration) return;
 
+        // 023: optional LLM-only server. Empty = the embedding server above.
+        const llmUrlSetting = new Setting(parent)
+            .setName(t.llmUrlName)
+            .setDesc(t.llmUrlDesc)
+            .addText(text => {
+                text.setPlaceholder(this.plugin.settings.ollamaUrl);
+                text.setValue(this.plugin.settings.llmUrl);
+                text.onChange(async (val) => {
+                    this.plugin.settings.llmUrl = val.trim();
+                    await this.plugin.saveSettings();
+                    this.updateRemoteWarning(
+                        llmUrlSetting,
+                        resolveLlmUrl(this.plugin.settings.llmUrl, this.plugin.settings.ollamaUrl),
+                    );
+                });
+            });
+        this.updateRemoteWarning(
+            llmUrlSetting,
+            resolveLlmUrl(this.plugin.settings.llmUrl, this.plugin.settings.ollamaUrl),
+        );
+
         const llmSetting = new Setting(parent)
             .setName(t.llmModel)
             .setDesc(t.llmModelDesc);
@@ -277,11 +299,13 @@ export class VaultSearchSettingTab extends PluginSettingTab {
     ) {
         const settings = this.plugin.settings;
         const protocolLabel = settings.apiFormat === "ollama" ? "Ollama" : "OpenAI-compatible";
-        urlLine.setText(`${protocolLabel} @ ${settings.ollamaUrl}`);
+        // 023: probe (and show) the URL curation will actually hit.
+        const effectiveUrl = resolveLlmUrl(settings.llmUrl, settings.ollamaUrl);
+        urlLine.setText(`${protocolLabel} @ ${effectiveUrl}`);
         statusLine.setText(t.llmEndpointProbing);
         hintLine.empty();
         const status = await checkLLMReachable({
-            ollamaUrl: settings.ollamaUrl,
+            ollamaUrl: effectiveUrl,
             apiFormat: settings.apiFormat,
             apiKey: settings.apiKey,
         });
@@ -689,14 +713,26 @@ export class VaultSearchSettingTab extends PluginSettingTab {
         const needsEmbeddingFetch = this.plugin.settings.embeddingProvider !== "wasm";
         const needsLLMFetch = this.plugin.settings.enableAICuration;
         if (!needsEmbeddingFetch && !needsLLMFetch) return;
-        const models = await fetchOllamaModels(this.plugin.settings.ollamaUrl, this.plugin.settings.apiFormat);
-        if (models.length === 0) return;
+        // 023: the LLM dropdown lists what its own (possibly separate) server
+        // offers; the embedding dropdown always lists the main server's models.
+        // Compare resolved URLs so "same server, trailing slash" doesn't
+        // trigger a second fetch of the same model list.
+        const llmResolved = resolveLlmUrl(this.plugin.settings.llmUrl, this.plugin.settings.ollamaUrl);
+        const llmSeparate = llmResolved !== resolveLlmUrl("", this.plugin.settings.ollamaUrl);
+        const mainModels = await fetchOllamaModels(this.plugin.settings.ollamaUrl, this.plugin.settings.apiFormat);
+        const llmModels = (needsLLMFetch && llmSeparate)
+            ? await fetchOllamaModels(llmResolved, this.plugin.settings.apiFormat)
+            : mainModels;
+        if (mainModels.length === 0 && llmModels.length === 0) return;
 
         const dropdowns = this.containerEl.querySelectorAll("select[data-model-dropdown]");
         dropdowns.forEach((selectEl) => {
             const select = selectEl as HTMLSelectElement;
             const currentValue = select.value;
             const filterType = select.dataset.modelDropdown;
+
+            const models = filterType === "llm" ? llmModels : mainModels;
+            if (models.length === 0) return;
 
             select.empty();
             select.createEl("option", { value: "", text: t.selectModel });

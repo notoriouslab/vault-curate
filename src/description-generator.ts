@@ -16,6 +16,7 @@ import { Notice, TFile } from "obsidian";
 import type VaultSearchPlugin from "./main";
 import { checkLLMReachable, requestLlmJson, stripFrontmatter } from "./utils";
 import { coerceTagList } from "./utils/coerceTagList";
+import { resolveLlmUrl } from "./utils/resolveLlmUrl";
 import { denoiseForEmbed } from "./indexer/denoise";
 import { t } from "./i18n";
 
@@ -118,8 +119,8 @@ export class DescriptionGenerator {
 
     /** True when settings have a usable LLM endpoint + model configured. */
     hasLlmConfigured(): boolean {
-        const { ollamaUrl, llmModel } = this.plugin.settings;
-        return !!ollamaUrl && !!llmModel;
+        const { ollamaUrl, llmUrl, llmModel } = this.plugin.settings;
+        return !!resolveLlmUrl(llmUrl, ollamaUrl) && !!llmModel;
     }
 
     /**
@@ -130,8 +131,12 @@ export class DescriptionGenerator {
      * perfectly reachable at /v1/*, so curation refused a working endpoint.
      */
     private async llmReachable(): Promise<boolean> {
-        const { ollamaUrl, apiFormat, apiKey } = this.plugin.settings;
-        return (await checkLLMReachable({ ollamaUrl, apiFormat, apiKey: apiKey ?? "" })).reachable;
+        const { ollamaUrl, llmUrl, apiFormat, apiKey } = this.plugin.settings;
+        return (await checkLLMReachable({
+            ollamaUrl: resolveLlmUrl(llmUrl, ollamaUrl),
+            apiFormat,
+            apiKey: apiKey ?? "",
+        })).reachable;
     }
 
     /** Generate + write description for a single note. Returns true on success. */
@@ -195,7 +200,8 @@ export class DescriptionGenerator {
             // extractTitle / metadata calls still hits the finally cleanup
             // and the path doesn't leak permanently in the Set.
             this.inflight.add(file.path);
-            const { ollamaUrl, llmModel } = this.plugin.settings;
+            const { llmModel } = this.plugin.settings;
+            const llmEndpoint = resolveLlmUrl(this.plugin.settings.llmUrl, this.plugin.settings.ollamaUrl);
             const title = this.extractTitle(file);
             const rawBody = stripFrontmatter(await this.plugin.app.vault.cachedRead(file));
             // 007 D6: denoise + head/tail sampling (surrogate-safe slices).
@@ -214,7 +220,7 @@ export class DescriptionGenerator {
 
             let result: { description: string; tags?: string[] };
             try {
-                result = await this.callLLM(ollamaUrl, llmModel, title, body);
+                result = await this.callLLM(llmEndpoint, llmModel, title, body);
             } catch (e) {
                 console.warn(`vault-curate: LLM failed for ${file.path}`, e);
                 if (!silent) new Notice(t.descLlmFailed(file.basename));
@@ -225,7 +231,7 @@ export class DescriptionGenerator {
             // Defense: reject "description = title" (model echoing back the title).
             if (description && description.replace(/[_\-\s]/g, "") === title.replace(/[_\-\s]/g, "")) {
                 try {
-                    const retry = await this.callLLM(ollamaUrl, llmModel, title, body);
+                    const retry = await this.callLLM(llmEndpoint, llmModel, title, body);
                     const retryDesc = (retry.description ?? "").trim();
                     if (retryDesc && retryDesc.replace(/[_\-\s]/g, "") !== title.replace(/[_\-\s]/g, "")) {
                         description = retryDesc;
