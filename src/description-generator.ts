@@ -15,6 +15,7 @@
 import { Notice, TFile } from "obsidian";
 import type VaultSearchPlugin from "./main";
 import { checkOllama, requestLlmJson, stripFrontmatter } from "./utils";
+import { coerceTagList } from "./utils/coerceTagList";
 import { denoiseForEmbed } from "./indexer/denoise";
 import { t } from "./i18n";
 
@@ -335,13 +336,12 @@ export class DescriptionGenerator {
                 // ANSI escapes, YAML-confusing line breaks, or invisible chars
                 // into frontmatter.
                 const desc = safeSlice(stripDangerousInvisibles(descRaw, " "), DESCRIPTION_LENGTH_CAP);
-                const tags = Array.isArray(obj.tags)
-                    ? obj.tags
-                        .map((s) => String(s))
-                        .map((s) => stripDangerousInvisibles(s).replace(/\s+/g, "_"))
-                        .map((s) => safeSlice(s, TAG_LENGTH_CAP))
-                        .filter((s) => s !== "..." && s !== "…" && s.length > 0)
-                    : undefined;
+                const cleanedTags = coerceTagList(obj.tags)
+                    .map((s) => String(s))
+                    .map((s) => stripDangerousInvisibles(s).replace(/\s+/g, "_"))
+                    .map((s) => safeSlice(s, TAG_LENGTH_CAP))
+                    .filter((s) => s !== "..." && s !== "…" && s.length > 0);
+                const tags = cleanedTags.length > 0 ? cleanedTags : undefined;
                 return { description: desc, tags };
             } catch { return null; }
         };

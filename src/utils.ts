@@ -1,5 +1,6 @@
 import { App, requestUrl, TFile } from "obsidian";
 import type { ApiFormat } from "./types";
+import { stripReasoningWrappers } from "./utils/stripReasoningWrappers";
 
 export interface OllamaModel {
     name: string;
@@ -378,7 +379,7 @@ export async function requestLlmJson<T>(
     const raw = isOpenAI
         ? (data.choices?.[0]?.message?.content ?? "")
         : (data.message?.content ?? "");
-    return parse(raw);
+    return parse(stripReasoningWrappers(raw));
 }
 
 /**
