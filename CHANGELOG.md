@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.6.0 — 2026-08-24
+## 1.6.0 — 2026-08-25
 
 ### Added
 - **AI curation can now use its own server, separate from embedding.** A new optional **AI curation server** field in settings points description generation and MOC naming at one server while embedding stays on the main one. Leave it empty and everything works exactly as before, on the single URL. This matters when your LLM runs somewhere that doesn't serve embeddings — `mlx_lm.server`, for instance, answers chat but 404s embedding requests, so pointing the single shared URL at it silently stalled index updates while curation hummed along. Now embedding keeps its server and curation gets the fast one: the settings status line and the model dropdown both follow whichever server curation will actually hit.
