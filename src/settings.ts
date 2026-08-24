@@ -138,21 +138,6 @@ export class VaultSearchSettingTab extends PluginSettingTab {
         this.updateRemoteWarning(urlSetting, this.plugin.settings.ollamaUrl);
 
         new Setting(parent)
-            .setName(t.apiFormat)
-            .setDesc(t.apiFormatDesc)
-            .addDropdown(drop => {
-                drop.addOption("ollama", t.apiFormatOllama);
-                drop.addOption("openai", t.apiFormatOpenAI);
-                drop.setValue(this.plugin.settings.apiFormat);
-                drop.onChange(async (val) => {
-                    this.plugin.settings.apiFormat = val as "ollama" | "openai";
-                    await this.plugin.saveSettings();
-                    void this.loadModelOptions();
-                    if (Platform.isMobile) this.plugin.refreshMobileProvider(); // 015
-                });
-            });
-
-        new Setting(parent)
             .setName(t.apiKeyLabel)
             .setDesc(t.apiKeyDesc)
             .addText(text => {
@@ -231,8 +216,77 @@ export class VaultSearchSettingTab extends PluginSettingTab {
                 });
             });
 
+        if (this.plugin.settings.enableAICuration) {
+            // 024: apiFormat lives here — its only consumers are the LLM
+            // request path and the LLM model listing, never the embedding
+            // data path (that one is picked by embeddingProvider).
+            new Setting(parent)
+                .setName(t.apiFormat)
+                .setDesc(t.apiFormatDesc)
+                .addDropdown(drop => {
+                    drop.addOption("ollama", t.apiFormatOllama);
+                    drop.addOption("openai", t.apiFormatOpenAI);
+                    drop.setValue(this.plugin.settings.apiFormat);
+                    drop.onChange(async (val) => {
+                        this.plugin.settings.apiFormat = val as "ollama" | "openai";
+                        await this.plugin.saveSettings();
+                        void this.loadModelOptions();
+                        if (Platform.isMobile) this.plugin.refreshMobileProvider(); // 015
+                    });
+                });
+
+            // 023: optional LLM-only server. Empty = the embedding server above.
+            const llmUrlSetting = new Setting(parent)
+                .setName(t.llmUrlName)
+                .setDesc(t.llmUrlDesc)
+                .addText(text => {
+                    text.setPlaceholder(this.plugin.settings.ollamaUrl);
+                    text.setValue(this.plugin.settings.llmUrl);
+                    text.onChange(async (val) => {
+                        this.plugin.settings.llmUrl = val.trim();
+                        await this.plugin.saveSettings();
+                        this.updateRemoteWarning(
+                            llmUrlSetting,
+                            resolveLlmUrl(this.plugin.settings.llmUrl, this.plugin.settings.ollamaUrl),
+                        );
+                    });
+                });
+            this.updateRemoteWarning(
+                llmUrlSetting,
+                resolveLlmUrl(this.plugin.settings.llmUrl, this.plugin.settings.ollamaUrl),
+            );
+
+            const llmSetting = new Setting(parent)
+                .setName(t.llmModel)
+                .setDesc(t.llmModelDesc);
+            this.addModelDropdown(llmSetting, this.plugin.settings.llmModel, async (val) => {
+                this.plugin.settings.llmModel = val;
+                await this.plugin.saveSettings();
+            }, "llm");
+
+            // Endpoint reachability summary. Surfaces the actual URL the LLM
+            // will hit and a live probe — resolves the "I flipped the toggle
+            // but description generation does nothing" support pattern in the
+            // Settings UI itself, instead of forcing users to run a command
+            // just to discover their endpoint is down.
+            const endpointSetting = new Setting(parent).setName(t.llmEndpointHeading);
+            const desc = endpointSetting.descEl;
+            desc.empty();
+            const urlLine = desc.createDiv({ cls: "vault-curate-endpoint-url" });
+            const statusLine = desc.createDiv({ cls: "vault-curate-endpoint-status" });
+            const hintLine = desc.createDiv({ cls: "vault-curate-endpoint-hint" });
+            endpointSetting.addButton(btn => {
+                btn.setButtonText(t.llmEndpointRecheck);
+                btn.onClick(() => {
+                    void this.renderLLMStatus(urlLine, statusLine, hintLine);
+                });
+            });
+            void this.renderLLMStatus(urlLine, statusLine, hintLine);
+        }
+
         // Production path back to the Onboarding modal — survives a Skip
-        // and doesn't require the dev command.
+        // and doesn't require the dev command. Last in the section and
+        // outside the gate: still reachable with AI curation off (024).
         new Setting(parent)
             .setName(t.rerunOnboarding)
             .setDesc(t.rerunOnboardingDesc)
@@ -240,56 +294,6 @@ export class VaultSearchSettingTab extends PluginSettingTab {
                 btn.setButtonText(t.rerunOnboardingBtn);
                 btn.onClick(() => this.plugin.showOnboardingModal());
             });
-
-        if (!this.plugin.settings.enableAICuration) return;
-
-        // 023: optional LLM-only server. Empty = the embedding server above.
-        const llmUrlSetting = new Setting(parent)
-            .setName(t.llmUrlName)
-            .setDesc(t.llmUrlDesc)
-            .addText(text => {
-                text.setPlaceholder(this.plugin.settings.ollamaUrl);
-                text.setValue(this.plugin.settings.llmUrl);
-                text.onChange(async (val) => {
-                    this.plugin.settings.llmUrl = val.trim();
-                    await this.plugin.saveSettings();
-                    this.updateRemoteWarning(
-                        llmUrlSetting,
-                        resolveLlmUrl(this.plugin.settings.llmUrl, this.plugin.settings.ollamaUrl),
-                    );
-                });
-            });
-        this.updateRemoteWarning(
-            llmUrlSetting,
-            resolveLlmUrl(this.plugin.settings.llmUrl, this.plugin.settings.ollamaUrl),
-        );
-
-        const llmSetting = new Setting(parent)
-            .setName(t.llmModel)
-            .setDesc(t.llmModelDesc);
-        this.addModelDropdown(llmSetting, this.plugin.settings.llmModel, async (val) => {
-            this.plugin.settings.llmModel = val;
-            await this.plugin.saveSettings();
-        }, "llm");
-
-        // Endpoint reachability summary. Surfaces the actual URL the LLM
-        // will hit and a live probe — resolves the "I flipped the toggle
-        // but description generation does nothing" support pattern in the
-        // Settings UI itself, instead of forcing users to run a command
-        // just to discover their endpoint is down.
-        const endpointSetting = new Setting(parent).setName(t.llmEndpointHeading);
-        const desc = endpointSetting.descEl;
-        desc.empty();
-        const urlLine = desc.createDiv({ cls: "vault-curate-endpoint-url" });
-        const statusLine = desc.createDiv({ cls: "vault-curate-endpoint-status" });
-        const hintLine = desc.createDiv({ cls: "vault-curate-endpoint-hint" });
-        endpointSetting.addButton(btn => {
-            btn.setButtonText(t.llmEndpointRecheck);
-            btn.onClick(() => {
-                void this.renderLLMStatus(urlLine, statusLine, hintLine);
-            });
-        });
-        void this.renderLLMStatus(urlLine, statusLine, hintLine);
     }
 
     private async renderLLMStatus(
@@ -715,11 +719,17 @@ export class VaultSearchSettingTab extends PluginSettingTab {
         if (!needsEmbeddingFetch && !needsLLMFetch) return;
         // 023: the LLM dropdown lists what its own (possibly separate) server
         // offers; the embedding dropdown always lists the main server's models.
-        // Compare resolved URLs so "same server, trailing slash" doesn't
-        // trigger a second fetch of the same model list.
+        // 024: each list speaks its own path's protocol — the embedding list
+        // derives it from embeddingProvider (apiFormat is LLM-only and hidden
+        // while AI curation is off), the LLM list uses apiFormat. A second
+        // fetch happens only when URL or protocol actually differ.
+        const embFormat = needsEmbeddingFetch
+            ? (this.plugin.settings.embeddingProvider === "openai-compatible" ? "openai" : "ollama")
+            : this.plugin.settings.apiFormat;
         const llmResolved = resolveLlmUrl(this.plugin.settings.llmUrl, this.plugin.settings.ollamaUrl);
-        const llmSeparate = llmResolved !== resolveLlmUrl("", this.plugin.settings.ollamaUrl);
-        const mainModels = await fetchOllamaModels(this.plugin.settings.ollamaUrl, this.plugin.settings.apiFormat);
+        const llmSeparate = llmResolved !== resolveLlmUrl("", this.plugin.settings.ollamaUrl)
+            || this.plugin.settings.apiFormat !== embFormat;
+        const mainModels = await fetchOllamaModels(this.plugin.settings.ollamaUrl, embFormat);
         const llmModels = (needsLLMFetch && llmSeparate)
             ? await fetchOllamaModels(llmResolved, this.plugin.settings.apiFormat)
             : mainModels;
