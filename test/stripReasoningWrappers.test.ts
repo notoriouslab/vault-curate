@@ -36,7 +36,12 @@ describe('stripReasoningWrappers', () => {
     });
 
     it('takes the LAST final channel when reasoning echoes the format template (case 7)', () => {
-        const input = '<|channel|>analysis<|message|>格式像 {"description":"...","tags":[...]} 這樣'
+        // The analysis段 must contain a REAL second occurrence of the full
+        // FINAL marker (not just a description of the format), otherwise
+        // indexOf and lastIndexOf coincide and the test can't tell them
+        // apart — which lets a lastIndexOf→indexOf regression slip through
+        // (1.6.0 audit W1). Here the placeholder is emitted verbatim first.
+        const input = '<|channel|>analysis<|message|>照這個範本輸出：<|channel|>final<|message|>{"description":"佔位","tags":[]}'
             + '<|end|><|start|>assistant<|channel|>final<|message|>{"description":"真答案","tags":["a"]}';
         const out = stripReasoningWrappers(input);
         expect(JSON.parse(out).description).toBe('真答案');

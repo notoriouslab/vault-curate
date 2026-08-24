@@ -729,7 +729,14 @@ export class VaultSearchSettingTab extends PluginSettingTab {
         const llmResolved = resolveLlmUrl(this.plugin.settings.llmUrl, this.plugin.settings.ollamaUrl);
         const llmSeparate = llmResolved !== resolveLlmUrl("", this.plugin.settings.ollamaUrl)
             || this.plugin.settings.apiFormat !== embFormat;
-        const mainModels = await fetchOllamaModels(this.plugin.settings.ollamaUrl, embFormat);
+        // Fetch the main-server list only when something consumes it: the
+        // embedding dropdown, or the LLM dropdown when it shares the main
+        // server. Skips a wasted localhost probe under wasm + a separate LLM
+        // server (1.6.0 audit info).
+        const wantMain = needsEmbeddingFetch || (needsLLMFetch && !llmSeparate);
+        const mainModels = wantMain
+            ? await fetchOllamaModels(this.plugin.settings.ollamaUrl, embFormat)
+            : [];
         const llmModels = (needsLLMFetch && llmSeparate)
             ? await fetchOllamaModels(llmResolved, this.plugin.settings.apiFormat)
             : mainModels;
