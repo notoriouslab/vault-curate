@@ -36,16 +36,6 @@ export async function fetchOllamaModels(url: string, format: ApiFormat = "ollama
     }
 }
 
-export async function checkOllama(url: string): Promise<boolean> {
-    try {
-        validateServerUrl(url);
-        const resp = await requestUrl({ url, throw: false });
-        return resp.status === 200;
-    } catch {
-        return false;
-    }
-}
-
 export interface LLMReachability {
     reachable: boolean;
     endpoint: string;

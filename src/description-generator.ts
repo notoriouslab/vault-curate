@@ -14,7 +14,7 @@
 
 import { Notice, TFile } from "obsidian";
 import type VaultSearchPlugin from "./main";
-import { checkOllama, requestLlmJson, stripFrontmatter } from "./utils";
+import { checkLLMReachable, requestLlmJson, stripFrontmatter } from "./utils";
 import { coerceTagList } from "./utils/coerceTagList";
 import { denoiseForEmbed } from "./indexer/denoise";
 import { t } from "./i18n";
@@ -122,14 +122,25 @@ export class DescriptionGenerator {
         return !!ollamaUrl && !!llmModel;
     }
 
+    /**
+     * Pre-flight the curation endpoint with the protocol the user actually
+     * configured — the same probe the Settings UI uses. The old bare-root
+     * checkOllama() probe only works for Ollama (its root answers 200);
+     * OpenAI-compatible servers like mlx_lm.server 404 on "/" while being
+     * perfectly reachable at /v1/*, so curation refused a working endpoint.
+     */
+    private async llmReachable(): Promise<boolean> {
+        const { ollamaUrl, apiFormat, apiKey } = this.plugin.settings;
+        return (await checkLLMReachable({ ollamaUrl, apiFormat, apiKey: apiKey ?? "" })).reachable;
+    }
+
     /** Generate + write description for a single note. Returns true on success. */
     async generateForActiveNote(file: TFile): Promise<boolean> {
         if (!this.hasLlmConfigured()) {
             new Notice(t.descNoLlmConfigured);
             return false;
         }
-        const { ollamaUrl } = this.plugin.settings;
-        if (!await checkOllama(ollamaUrl)) {
+        if (!(await this.llmReachable())) {
             new Notice(t.ollamaNotReady);
             return false;
         }
@@ -143,8 +154,7 @@ export class DescriptionGenerator {
             new Notice(t.descNoLlmConfigured);
             return;
         }
-        const { ollamaUrl } = this.plugin.settings;
-        if (!await checkOllama(ollamaUrl)) {
+        if (!(await this.llmReachable())) {
             new Notice(t.ollamaNotReady);
             return;
         }
