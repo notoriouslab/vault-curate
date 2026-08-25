@@ -228,6 +228,9 @@ export class Indexer {
         // keeps its row. Same pass as update()'s exits, on the longest window
         // of the three.
         this.pruneStale("post-rebuild", (p) => this.isLiveForUpdate(p));
+        // 028: a shrunken vault leaves most of the file as freelist pages —
+        // reclaim before the flush below so the compact image is what lands.
+        this.store.compact();
         await this.store.flush();
         // 007 D9: pay the inverted-index build here (index was invalidated by
         // the upserts above) so the user's next search is <1ms, not ~3s.
@@ -371,6 +374,9 @@ export class Indexer {
             // needs it as much as the main one: backfillDescVecs above can
             // run for minutes with `indexing` held.
             this.pruneStale("post-update", (p) => this.isLiveForUpdate(p));
+            // 028: this exit handles the mass-deletion case (prune above just
+            // dropped the rows) — compact before the flush lands the bytes.
+            this.store.compact();
             await this.store.flush();
             new Notice(t.noticeUpToDate);
             return;
@@ -412,6 +418,9 @@ export class Indexer {
         // 019 D6: same as the early-return exit above — catch deletes whose
         // events were dropped while this run held `indexing`.
         this.pruneStale("post-update", (p) => this.isLiveForUpdate(p));
+        // 028: same as rebuild's tail — reclaim freelist pages left by mass
+        // deletions before the flush below persists the image.
+        this.store.compact();
         await this.store.flush();
         // 007 D9: same as rebuild() — rebuild the BM25 index while we're
         // already in an indexing pass. The up-to-date early return above

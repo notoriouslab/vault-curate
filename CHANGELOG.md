@@ -3,6 +3,7 @@
 ## 1.7.0 — unreleased
 
 ### Fixed
+- **The index file now shrinks after mass deletions.** Deleting or moving out a large part of your vault left the index file at its old size: the database hands freed space back to an internal free list and never returns it to the file (measured: a vault trimmed from ~2,500 notes to 126 was still carrying a 75MB index for 3.4MB of actual data — and your phone was downloading and loading all 75MB of it). **Rebuild index** and **Update index** now compact the file when a meaningful share of it is dead space, so it tracks what's actually in your vault. Day-to-day edits never trigger this; it costs a few milliseconds when it does run.
 - **The synonym list actually works now.** The Advanced → Synonym list setting has existed since v0.1.0, but the code that applies it was silently dropped in an early rewrite — entries you added did nothing. It's wired back in: a query containing a listed term now also searches its synonyms, in both the keyword and semantic legs (fuzzy title matching deliberately keeps your raw query). This is the plugin's home for vocabulary no model can know — nicknames, org shorthand, private aliases — and it shines brightest on mobile, where search runs in keyword mode. An empty list behaves exactly as before.
 
 ## 1.6.0 — 2026-08-25

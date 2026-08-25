@@ -69,6 +69,12 @@ export type PersistAdapter = {
 
 const MUTATION_THRESHOLD = 100;
 const IDLE_FLUSH_MS = 30_000;
+/** 028: compact() only bothers when the waste is real — more than 1MiB of
+ *  free pages AND more than 20% of the file. Steady-state rebuilds reuse
+ *  freelist pages (ratio near 0%); the measured mass-deletion case sat at
+ *  95.5%, so the band between the two is wide. */
+const COMPACT_MIN_FREE_PAGES = 256;
+const COMPACT_MIN_FREE_RATIO = 0.2;
 
 export class SQLiteStore {
     private db!: Database;
@@ -579,6 +585,36 @@ export class SQLiteStore {
     }
 
     // ─── Bulk operations ──────────────────────────────────────────────────────
+
+    /** 028: reclaim freelist pages after mass deletions. DELETE hands pages to
+     *  the freelist and sql.js never gives them back — measured on a real
+     *  vault: 122 rows / 3.4MB of data carrying a 75MB file (95.5% freelist)
+     *  after ~2,400 notes moved out. VACUUM rewrites the image compact in
+     *  place; the store's identity is unchanged, so no swap machinery and no
+     *  k-NN handling (the revision bump below makes the graph re-sync, which
+     *  a mass deletion warrants anyway). Runs only past the thresholds above;
+     *  a failed VACUUM must never take the surrounding index pass down.
+     *  Returns true when a VACUUM actually ran. */
+    compact(): boolean {
+        if (this.disposed) return false;
+        if (this.refuseWrite("compact")) return false;
+        const pragma = (sql: string): number => {
+            const res = this.db.exec(sql);
+            return res.length ? Number(res[0].values[0][0]) : 0;
+        };
+        const free = pragma('PRAGMA freelist_count');
+        const total = pragma('PRAGMA page_count');
+        if (free <= COMPACT_MIN_FREE_PAGES || total <= 0) return false;
+        if (free / total <= COMPACT_MIN_FREE_RATIO) return false;
+        try {
+            this.db.exec('VACUUM');
+        } catch (err) {
+            console.warn('vault-curate: index compaction failed; keeping the uncompacted image', err);
+            return false;
+        }
+        this.touch(/*force*/ true); // the compacted bytes must reach disk
+        return true;
+    }
 
     /** Provider switch: clear all indexed data but preserve schema + meta.schema_version. */
     clearAllData(): void {
