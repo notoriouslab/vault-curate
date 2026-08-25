@@ -729,6 +729,7 @@ export default class VaultSearchPlugin extends Plugin {
                 searchScope: scope,
                 tierResolver: this.tierResolver(),
                 exists: this.existsPredicate(),
+                synonyms: this.settings.synonyms,
             },
         );
     }

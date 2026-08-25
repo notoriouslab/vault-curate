@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.0 — unreleased
+
+### Fixed
+- **The synonym list actually works now.** The Advanced → Synonym list setting has existed since v0.1.0, but the code that applies it was silently dropped in an early rewrite — entries you added did nothing. It's wired back in: a query containing a listed term now also searches its synonyms, in both the keyword and semantic legs (fuzzy title matching deliberately keeps your raw query). This is the plugin's home for vocabulary no model can know — nicknames, org shorthand, private aliases — and it shines brightest on mobile, where search runs in keyword mode. An empty list behaves exactly as before.
+
 ## 1.6.0 — 2026-08-25
 
 ### Added

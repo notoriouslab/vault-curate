@@ -20,6 +20,7 @@ import type { SearchResult } from '../types';
 import { fuzzyTitleSearch } from '../utils/jaroWinkler';
 import { rrfFuse, topNFused } from './rrfFuse';
 import { t2sForEmbed } from '../indexer/preproc';
+import { expandQuery } from '../synonyms';
 
 const DEFAULT_WEIGHTS = { bm25: 1.0, semantic: 1.0, fuzzy: 0.5 };
 
@@ -51,6 +52,11 @@ export type SearchHybridSettings = {
      *  keyword-only, so the UI can say so instead of failing silently.
      *  NOT fired for a null provider — layer 0 is a mode, not a failure. */
     onDegrade?: (leg: 'semantic') => void;
+    /** 026: user-defined synonym expansion (settings UI, Advanced). The
+     *  expanded query feeds the BM25 and semantic legs only — the fuzzy
+     *  TITLE leg keeps the raw query, since appended words would poison
+     *  title matching. Omitted/empty = no expansion. */
+    synonyms?: Record<string, string[]>;
 };
 
 export function readHybridWeights(store: SQLiteStore): HybridWeights {
@@ -75,6 +81,10 @@ export async function searchHybrid(
     const q = query.trim();
     if (q.length === 0) return [];
 
+    // 026: synonym expansion feeds BM25 + semantic; fuzzy keeps raw q.
+    const qx = expandQuery(q, settings.synonyms);
+    if (qx !== q) console.debug(`vault-curate: synonyms expanded '${q}' → '${qx}'`);
+
     const tStart = Date.now();
     const candidatePool = Math.min(MAX_CANDIDATE_POOL, Math.max(50, settings.topResults * 5));
     const weights = readHybridWeights(deps.store);
@@ -82,7 +92,7 @@ export async function searchHybrid(
     const tBm25 = Date.now();
     const tSemantic = Date.now();
     const tFuzzy = Date.now();
-    const bm25P = runBM25(deps.store, q, candidatePool).then((m) => {
+    const bm25P = runBM25(deps.store, qx, candidatePool).then((m) => {
         console.debug(`vault-curate: BM25 ${m.size} hits (${Date.now() - tBm25}ms)`);
         return m;
     });
@@ -91,7 +101,7 @@ export async function searchHybrid(
     // instead of poisoning the whole Promise.all (rrfFuse skips empty maps).
     const semanticP = deps.provider === null
         ? Promise.resolve(new Map<string, number>())
-        : runSemantic(deps.store, deps.provider, q).then((m) => {
+        : runSemantic(deps.store, deps.provider, qx).then((m) => {
             console.debug(`vault-curate: semantic ${m.size} hits (${Date.now() - tSemantic}ms)`);
             return m;
         }).catch((e) => {

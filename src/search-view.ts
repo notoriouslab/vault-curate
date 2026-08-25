@@ -292,6 +292,7 @@ export class SearchView extends ItemView {
                     tierResolver: this.plugin.tierResolver(),
                     exists: this.plugin.existsPredicate(),
                     onDegrade: () => { degraded = true; },
+                    synonyms: this.plugin.settings.synonyms,
                 },
             );
             if (query !== this.currentQuery) return;
