@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.7.0 — unreleased
+## 1.7.0 — 2026-08-26
 
 ### Fixed
 - **Keyword search no longer cares which variant character you typed.** Traditional Chinese mixes interchangeable spellings freely — 規劃書/規畫書, 臺北/台北, 計劃/計畫, 這裡/這裏 — and real vaults contain both forms of the same word (measured: 劃 90 vs 畫 114 occurrences in one vault, and a search for `規畫書` found 1 of the 10 notes that spell it 規劃書). The keyword leg now folds these variants on both the note side and the query side, using the same character table the semantic leg has used since 1.2.2 — so the two legs finally agree on spelling. Nothing to migrate: this applies immediately, no reindex needed. Searches that don't involve variant characters return byte-identical results.
