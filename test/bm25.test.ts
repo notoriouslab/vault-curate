@@ -14,7 +14,10 @@ describe('bm25', () => {
 
         it('mixes CJK + ASCII', () => {
             const tokens = tokenizeForBM25('使用 Obsidian 寫筆記');
-            expect(tokens).toEqual(['使用', 'obsidian', '寫筆記']);
+            // 029: tokens are variant-folded (t2s pivot) — 寫筆記 → 写笔记.
+            // Both corpus and query sides fold identically, so tokens only
+            // ever meet other folded tokens; the raw form never leaks out.
+            expect(tokens).toEqual(['使用', 'obsidian', '写笔记']);
         });
 
         it('returns empty for empty input', () => {

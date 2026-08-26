@@ -11,6 +11,25 @@
  * FTS5 (CJK trigrams + ASCII words), so query/doc tokens line up consistently.
  */
 import { tokenizeCJK } from './cjkTokenize';
+import { t2sForEmbed } from '../indexer/preproc';
+
+/** 029: variant-character (異體字) merges Simplified doesn't provide. The
+ *  t2s pivot below collapses 臺/台, 裏/裡, 綫/線, 爲/為 … for free, but 劃
+ *  and 畫 map to distinct Simplified chars (划/画) while TW writing mixes
+ *  them freely inside the same words — measured on a real vault: 規劃書 vs
+ *  規畫書 split 90:114 and a 規畫書 query found 1 of 10 規劃書 notes. */
+const SEARCH_MERGE_PATCH_RE = /画/g;
+
+/** 029: fold character variants before tokenizing so the keyword leg stops
+ *  splitting on spelling (查 規畫書 must find 規劃書). Reuses the embedding
+ *  leg's t2s table (008) — both legs now see the same equivalence classes.
+ *  False merges (發/髮→发, 面/麵→面, 里/裡→里 …) are bounded by the trigram
+ *  window: an adversarial pilot of 22 such probes on the real corpus showed
+ *  0 perturbed results. Applied to BOTH corpus and query via
+ *  tokenizeForBM25, so the two sides can never disagree. */
+export function normalizeForSearch(text: string): string {
+    return t2sForEmbed(text).replace(SEARCH_MERGE_PATCH_RE, '划');
+}
 
 export type BM25Doc = {
     id: string;       // opaque caller-supplied identifier (e.g. `${notePath}#${chunkIndex}`)
@@ -28,7 +47,7 @@ export type BM25Hit = {
  */
 export function tokenizeForBM25(text: string): string[] {
     if (!text) return [];
-    const s = tokenizeCJK(text);
+    const s = tokenizeCJK(normalizeForSearch(text));
     if (!s) return [];
     return s.split(' ').filter((t) => t.length > 0);
 }

@@ -18,6 +18,14 @@
  * Bumped when tokenization output changes so the indexer can force a rebuild
  * on upgrade — old BM25 tokens won't match new query tokens otherwise.
  *
+ * 029 correction: BM25 tokens are NOT persisted anywhere — collectBM25Docs
+ * re-tokenizes chunk content at every warm, so index-side and query-side
+ * tokens always come from the same code. Bumping this forces a full
+ * re-embed rebuild for nothing; it stays for the historical 1→2 upgrade
+ * path and MUST only be bumped again if tokens ever become persisted.
+ * (029's variant folding changed tokenizer output and deliberately did
+ * not bump it.)
+ *
  *   1 → 2  (rc.1 hardening r2): emit surrogate-pair codepoints (emoji,
  *           CJK Extension B+) as single tokens instead of dropping them.
  */
