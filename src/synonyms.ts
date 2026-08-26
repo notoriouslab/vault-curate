@@ -8,16 +8,29 @@
  * re-wired 2026-08-25 — the fuzzy-title leg deliberately keeps the raw
  * query (appended words would poison title matching).
  */
+import { normalizeForSearch } from "./storage/bm25";
+
 export function expandQuery(query: string, synonyms: Record<string, string[]> | undefined): string {
     if (!synonyms || Object.keys(synonyms).length === 0) return query;
 
+    // 1.7.0 review follow-up: match in the same folded space the BM25 leg
+    // searches in (029), so a dict key spelled 計劃 still fires on a query
+    // typed 計畫 — the trigger must never be stricter than the search it
+    // feeds. Appended words stay in their original spelling; tokenization
+    // folds them again anyway.
+    const q = normalizeForSearch(query);
     const additions: string[] = [];
     for (const [key, values] of Object.entries(synonyms)) {
-        if (query.includes(key)) {
-            for (const v of values) {
-                if (v && !query.includes(v) && !additions.includes(v)) {
-                    additions.push(v);
-                }
+        // '' .includes('') is always true — an empty key (unreachable via the
+        // settings UI, possible via a hand-edited data.json) would append its
+        // values to EVERY query (red-team W2). Defense in depth.
+        if (!key) continue;
+        if (!q.includes(normalizeForSearch(key))) continue;
+        for (const v of values) {
+            if (!v) continue;
+            const vf = normalizeForSearch(v);
+            if (!q.includes(vf) && !additions.some((a) => normalizeForSearch(a) === vf)) {
+                additions.push(v);
             }
         }
     }

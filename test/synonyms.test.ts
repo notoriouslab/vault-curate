@@ -135,3 +135,30 @@ describe('searchHybrid synonym expansion (026)', () => {
         expect(paths).not.toContain('titleonly.md');
     });
 });
+
+describe('expandQuery hardening (1.7.0 review follow-ups)', () => {
+    it('matches keys in folded space: dict spelled 計劃 fires on a 計畫 query', () => {
+        expect(expandQuery('計畫', { 計劃: ['企劃案'] })).toBe('計畫 企劃案');
+        expect(expandQuery('規畫書', { 規劃書: ['提案'] })).toBe('規畫書 提案');
+        // and the reverse spelling direction
+        expect(expandQuery('計劃', { 計畫: ['企劃案'] })).toBe('計劃 企劃案');
+    });
+
+    it('skips a value the query already covers in folded space', () => {
+        // query says 計畫, value says 計劃 — same folded word, appending it
+        // would only duplicate what BM25 already matches after 029.
+        expect(expandQuery('計畫 進度', { 進度: ['計劃'] })).toBe('計畫 進度');
+    });
+
+    it('dedupes additions that fold to the same word', () => {
+        expect(expandQuery('a', { a: ['計劃'], ab: ['計畫'] })).toBe('a 計劃');
+    });
+
+    it('an empty key never fires (red-team W2: hand-edited data.json)', () => {
+        expect(expandQuery('anything at all', { '': ['INJECTED'] })).toBe('anything at all');
+    });
+
+    it('empty values are skipped', () => {
+        expect(expandQuery('小陳', { 小陳: ['', '陳大文'] })).toBe('小陳 陳大文');
+    });
+});

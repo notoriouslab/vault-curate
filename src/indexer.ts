@@ -186,6 +186,12 @@ export class Indexer {
 
         const files = this.getMarkdownFiles();
         if (files.length === 0) {
+            // 1.7.0 red-team W1: this exit still owes the vault a compaction —
+            // clearAllData() above just returned every page to the freelist,
+            // and skipping it here left the fat image on disk for one more
+            // cycle. Same compact-then-flush shape as the main tail below.
+            this.store.compact();
+            await this.store.flush();
             new Notice(t.noticeIndexDone(0, 0, 0, 0), 5000);
             return;
         }
