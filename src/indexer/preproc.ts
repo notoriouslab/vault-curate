@@ -8,11 +8,12 @@
  * (openspec/research/2026-07-18-s2t-embedding-pilot.md): positives hold or
  * improve, unrelated hub notes drop 3-4x in rank, template similarity −0.03.
  *
- * Scope discipline (design 008 D3): exactly four call sites convert —
+ * Scope discipline (design 008 D3, amended by 029): five call sites convert —
  * indexOne chunk embeds, indexOne description embed, backfill description
- * embeds, and the search query embed. The LLM path (description generator)
- * MUST stay Traditional: converting it would write Simplified descriptions
- * back into the vault.
+ * embeds, the search query embed, and (since 029) normalizeForSearch in
+ * storage/bm25.ts, which folds variants for the keyword leg. The LLM path
+ * (description generator) MUST stay Traditional: converting it would write
+ * Simplified descriptions back into the vault.
  *
  * T2S_VERSION is bound to the generated table (t2sTable.ts) — regenerating
  * the table MUST bump it; the upgrade re-embed scan in Indexer.update()
