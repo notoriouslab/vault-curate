@@ -285,6 +285,8 @@ npm run build  # production build
 npm test       # vitest 單元測試
 ```
 
+初次接觸這個 codebase？先看[互動式架構圖](https://notoriouslab.github.io/vault-curate/architecture.html)，每個元件都連回對應的原始檔。
+
 ---
 
 ## 授權

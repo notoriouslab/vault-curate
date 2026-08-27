@@ -1,0 +1,414 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "vault-curate 外掛架構",
+    "output": "vault-curate-architecture.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/notoriouslab/vault-curate",
+      "revision": "a55861c68a008539c01f67e6380f671e834fd97d"
+    },
+    "views": [
+      {
+        "id": "query-path",
+        "label": "查詢路徑",
+        "focus": [
+          "user",
+          "searchview",
+          "hybrid",
+          "store"
+        ],
+        "note": "使用者查詢經混合檢索（BM25 + 向量 RRF 融合）打到 SQLite 索引。"
+      },
+      {
+        "id": "index-pipeline",
+        "label": "索引管線",
+        "focus": [
+          "vault",
+          "indexer",
+          "embedworker",
+          "provider",
+          "endpoint",
+          "store"
+        ],
+        "note": "Vault 檔案事件觸發切塊與前處理，Worker 批次產生 embedding 並維護 kNN 圖。"
+      },
+      {
+        "id": "discover-export",
+        "label": "發掘與匯出",
+        "focus": [
+          "store",
+          "discover",
+          "searchview",
+          "canvas"
+        ],
+        "note": "kNN 圖驅動關聯發掘與語意路徑，結果可匯出成 Obsidian Canvas。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "vault",
+      "type": "external",
+      "label": "Obsidian Vault",
+      "sublabel": "Markdown 檔案事件",
+      "pos": [
+        40,
+        110
+      ],
+      "size": [
+        130,
+        60
+      ]
+    },
+    {
+      "id": "indexer",
+      "type": "backend",
+      "label": "Indexer",
+      "sublabel": "切塊 / 前處理 / 去噪",
+      "tag": "t2s 折疊",
+      "pos": [
+        250,
+        110
+      ],
+      "size": [
+        130,
+        60
+      ],
+      "sources": [
+        {
+          "path": "src/indexer.ts"
+        },
+        {
+          "path": "src/indexer/chunker.ts"
+        },
+        {
+          "path": "src/indexer/preproc.ts"
+        }
+      ]
+    },
+    {
+      "id": "embedworker",
+      "type": "backend",
+      "label": "Web Workers",
+      "sublabel": "embedding / kNN 建圖",
+      "pos": [
+        460,
+        110
+      ],
+      "size": [
+        130,
+        60
+      ],
+      "sources": [
+        {
+          "path": "src/workers/embeddingWorker.ts"
+        },
+        {
+          "path": "src/workers/knnWorker.ts"
+        }
+      ]
+    },
+    {
+      "id": "provider",
+      "type": "backend",
+      "label": "Embedding Provider 層",
+      "sublabel": "WASM 本地 / 遠端",
+      "pos": [
+        670,
+        110
+      ],
+      "size": [
+        140,
+        60
+      ],
+      "sources": [
+        {
+          "path": "src/embedding/ProviderRegistry.ts"
+        }
+      ]
+    },
+    {
+      "id": "endpoint",
+      "type": "external",
+      "label": "遠端推論端點",
+      "sublabel": "Ollama / OpenAI 相容",
+      "pos": [
+        890,
+        110
+      ],
+      "size": [
+        130,
+        60
+      ]
+    },
+    {
+      "id": "user",
+      "type": "external",
+      "label": "使用者",
+      "sublabel": "桌機 / 行動端",
+      "pos": [
+        40,
+        300
+      ],
+      "size": [
+        130,
+        60
+      ]
+    },
+    {
+      "id": "searchview",
+      "type": "frontend",
+      "label": "Search View",
+      "sublabel": "搜尋介面與結果",
+      "pos": [
+        250,
+        300
+      ],
+      "size": [
+        130,
+        60
+      ],
+      "sources": [
+        {
+          "path": "src/search-view.ts"
+        }
+      ]
+    },
+    {
+      "id": "hybrid",
+      "type": "backend",
+      "label": "Hybrid 檢索",
+      "sublabel": "BM25 + 向量 RRF",
+      "tag": "同義詞展開",
+      "pos": [
+        460,
+        300
+      ],
+      "size": [
+        130,
+        60
+      ],
+      "sources": [
+        {
+          "path": "src/search/searchHybrid.ts"
+        },
+        {
+          "path": "src/search/rrfFuse.ts"
+        }
+      ]
+    },
+    {
+      "id": "store",
+      "type": "database",
+      "label": "SQLiteStore",
+      "sublabel": "sql.js WASM 索引",
+      "tag": "BM25 + 向量 + kNN",
+      "pos": [
+        670,
+        300
+      ],
+      "size": [
+        140,
+        60
+      ],
+      "sources": [
+        {
+          "path": "src/storage/SQLiteStore.ts"
+        },
+        {
+          "path": "src/storage/bm25.ts"
+        }
+      ]
+    },
+    {
+      "id": "mobilegate",
+      "type": "security",
+      "label": "行動端唯讀閘",
+      "sublabel": "載入前健檢",
+      "pos": [
+        890,
+        300
+      ],
+      "size": [
+        130,
+        60
+      ],
+      "sources": [
+        {
+          "path": "src/mobile/indexGate.ts"
+        }
+      ]
+    },
+    {
+      "id": "discover",
+      "type": "backend",
+      "label": "關聯發掘",
+      "sublabel": "融合排序 / 語意路徑",
+      "pos": [
+        460,
+        460
+      ],
+      "size": [
+        130,
+        60
+      ],
+      "sources": [
+        {
+          "path": "src/search/relatedFusion.ts"
+        },
+        {
+          "path": "src/search/semanticPath.ts"
+        }
+      ]
+    },
+    {
+      "id": "canvas",
+      "type": "frontend",
+      "label": "Canvas 匯出",
+      "sublabel": "路徑 / 圖譜 / 展開",
+      "pos": [
+        250,
+        460
+      ],
+      "size": [
+        130,
+        60
+      ],
+      "sources": [
+        {
+          "path": "src/canvas/pathCanvas.ts"
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Obsidian 外掛 vault-curate",
+      "wraps": [
+        "indexer",
+        "embedworker",
+        "provider",
+        "searchview",
+        "hybrid",
+        "store",
+        "mobilegate",
+        "discover",
+        "canvas"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "user-query",
+      "from": "user",
+      "to": "searchview",
+      "label": "查詢",
+      "variant": "emphasis"
+    },
+    {
+      "id": "view-to-hybrid",
+      "from": "searchview",
+      "to": "hybrid",
+      "label": "query",
+      "variant": "emphasis"
+    },
+    {
+      "id": "hybrid-to-store",
+      "from": "hybrid",
+      "to": "store",
+      "label": "BM25 + 向量檢索",
+      "variant": "emphasis"
+    },
+    {
+      "id": "vault-events",
+      "from": "vault",
+      "to": "indexer",
+      "label": "檔案變更事件"
+    },
+    {
+      "id": "indexer-chunks",
+      "from": "indexer",
+      "to": "embedworker",
+      "label": "chunk 批次"
+    },
+    {
+      "id": "worker-embed",
+      "from": "embedworker",
+      "to": "provider",
+      "label": "embedding 請求"
+    },
+    {
+      "id": "provider-remote",
+      "from": "provider",
+      "to": "endpoint",
+      "label": "HTTP（遠端模式）",
+      "variant": "dashed",
+      "labelDy": 54
+    },
+    {
+      "id": "worker-persist",
+      "from": "embedworker",
+      "to": "store",
+      "label": "向量 / kNN 圖",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "store-discover",
+      "from": "store",
+      "to": "discover",
+      "label": "kNN 圖 + chunk"
+    },
+    {
+      "id": "discover-view",
+      "from": "discover",
+      "to": "searchview",
+      "label": "關聯 / 語意路徑"
+    },
+    {
+      "id": "view-canvas",
+      "from": "searchview",
+      "to": "canvas",
+      "label": "匯出",
+      "labelDy": 24
+    },
+    {
+      "id": "gate-store",
+      "from": "mobilegate",
+      "to": "store",
+      "label": "唯讀載入",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "查詢閉環",
+      "items": [
+        "BM25 與向量雙路 RRF 融合",
+        "同義詞展開與繁簡折疊在檢索前處理",
+        "結果可原地展開或匯出 Canvas"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "索引管線",
+      "items": [
+        "檔案事件驅動增量索引",
+        "Web Worker 批次 embedding 與 kNN 建圖",
+        "索引壓實後單檔隨 vault 同步"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "跨裝置",
+      "items": [
+        "桌機建索引，行動端唯讀查詢",
+        "載入閘三層防線擋損毀索引"
+      ]
+    }
+  ]
+}

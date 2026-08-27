@@ -283,6 +283,8 @@ npm run build  # production build
 npm test       # vitest unit tests
 ```
 
+New to the codebase? Start with the [interactive architecture map](https://notoriouslab.github.io/vault-curate/architecture.html) — components link back to their source files.
+
 ---
 
 ## License
