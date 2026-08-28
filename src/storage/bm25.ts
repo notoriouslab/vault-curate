@@ -45,11 +45,24 @@ export type BM25Hit = {
  * Tokenise text into BM25-ready tokens. Wraps `tokenizeCJK` to produce an array
  * rather than a space-joined string.
  */
-export function tokenizeForBM25(text: string): string[] {
+function tokenizeNormalized(text: string, bigrams: boolean): string[] {
     if (!text) return [];
-    const s = tokenizeCJK(normalizeForSearch(text));
+    const s = tokenizeCJK(normalizeForSearch(text), { bigrams });
     if (!s) return [];
     return s.split(' ').filter((t) => t.length > 0);
+}
+
+/** Query-side tokenization — MUST stay bigram-free (030): a 2-char query run
+ *  already emits itself whole, and corpus-side bigrams are what it matches. */
+export function tokenizeForBM25(text: string): string[] {
+    return tokenizeNormalized(text, false);
+}
+
+/** Corpus-side tokenization (030): trigrams + step-1 bigrams for CJK runs ≥3,
+ *  so 2-char queries reach words embedded inside longer runs. Used by the
+ *  four corpus collection sites in SQLiteStore; never by the query path. */
+export function tokenizeForBM25Corpus(text: string): string[] {
+    return tokenizeNormalized(text, true);
 }
 
 /**

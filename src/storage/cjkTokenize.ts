@@ -31,7 +31,19 @@
  */
 export const TOKENIZER_VERSION = '2';
 
-const CJK_RE = /[㐀-鿿豈-﫿]/;
+/**
+ * 030: written as explicit escapes because the literal form hid a bug for six
+ * releases — the second range was meant to start at U+F900 (CJK Compatibility
+ * Ideographs, 豈) but the source held U+8C48 (the ordinary 豈; identical glyph,
+ * different code point), so the effective range [8C48-FAFF] silently covered
+ * the surrogate block D800-DFFF and CJK runs absorbed lone surrogate halves
+ * (emoji next to CJK produced unsearchable polluted trigrams).
+ *
+ * The fix removes ONLY D800-DFFF. The accidental coverage of Hangul
+ * (AC00-D7AF), Yi/others (A000-...), and PUA (E000-F8FF) is deliberately
+ * preserved: those users' tokenization must not change under a bug fix.
+ */
+const CJK_RE = /[\u3400-\u9FFF\uA000-\uD7FF\uE000-\uFAFF]/;
 const ASCII_WORD_RE = /[a-zA-Z0-9_-]/;
 
 function isCJK(ch: string): boolean {
@@ -47,7 +59,15 @@ function isHighSurrogate(ch: string): boolean {
     return code >= 0xd800 && code <= 0xdbff;
 }
 
-export function tokenizeCJK(text: string): string {
+/**
+ * 030: `bigrams` is the corpus-side mode — runs of ≥3 additionally emit every
+ * step-1 2-gram so that a 2-char query token (which the query side emits
+ * as-is for a 2-char run) can reach words embedded inside longer runs
+ * (`台北` must find 台北靈糧堂). Query-side tokenization stays bigram-free:
+ * emitting query bigrams for ≥3-char runs would broaden every long query.
+ * Runs of exactly 2 already emit themselves, runs of 1 have no 2-gram.
+ */
+export function tokenizeCJK(text: string, opts?: { bigrams?: boolean }): string {
     if (!text) return '';
     const tokens: string[] = [];
     const n = text.length;
@@ -63,6 +83,11 @@ export function tokenizeCJK(text: string): string {
             } else {
                 for (let s = 0; s <= run.length - 3; s++) {
                     tokens.push(run.slice(s, s + 3));
+                }
+            }
+            if (opts?.bigrams && run.length >= 3) {
+                for (let s = 0; s <= run.length - 2; s++) {
+                    tokens.push(run.slice(s, s + 2));
                 }
             }
             i = end;

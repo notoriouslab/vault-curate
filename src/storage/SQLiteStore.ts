@@ -17,6 +17,7 @@ import { l2normalize } from '../utils/l2normalize';
 import { composeNoteVec } from '../utils/composeVec';
 import {
     tokenizeForBM25,
+    tokenizeForBM25Corpus,
     buildBM25Index,
     searchBM25Index,
     type BM25Doc,
@@ -433,7 +434,7 @@ export class SQLiteStore {
             for (const row of res[0].values) {
                 docs.push({
                     id: `${row[0] as string}#${row[1] as number}`,
-                    tokens: tokenizeForBM25(row[2] as string),
+                    tokens: tokenizeForBM25Corpus(row[2] as string),
                 });
             }
         }
@@ -448,7 +449,7 @@ export class SQLiteStore {
             for (const row of descRes[0].values) {
                 docs.push({
                     id: `${row[0] as string}#-1`,
-                    tokens: tokenizeForBM25(row[1] as string),
+                    tokens: tokenizeForBM25Corpus(row[1] as string),
                 });
             }
         }
@@ -507,7 +508,7 @@ export class SQLiteStore {
                 const row = rows[i];
                 docs.push({
                     id: `${row[0] as string}#${row[1] as number}`,
-                    tokens: tokenizeForBM25(row[2] as string),
+                    tokens: tokenizeForBM25Corpus(row[2] as string),
                 });
                 if ((i + 1) % SLICE === 0) {
                     await yieldToUi();
@@ -528,7 +529,7 @@ export class SQLiteStore {
                 const row = rows[i];
                 docs.push({
                     id: `${row[0] as string}#-1`,
-                    tokens: tokenizeForBM25(row[1] as string),
+                    tokens: tokenizeForBM25Corpus(row[1] as string),
                 });
                 if ((i + 1) % SLICE === 0) {
                     await yieldToUi();
