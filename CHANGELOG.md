@@ -1,9 +1,9 @@
 # Changelog
 
-## 1.8.0 — 2026-08-28
+## 1.8.0 — 2026-09-14
 
 ### Fixed
-- **Two-character searches now find words inside longer phrases.** Searching `台北` used to miss a note that only ever writes 台北靈糧堂, and `金管` missed 金管會 — keyword search indexed Chinese text in 3-character windows, so a 2-character query could only match where the word happened to stand alone (measured on a real vault: only 24 of 81 notes were findable by the first two characters of their own title; now all 81 are). The index now also records 2-character windows, so short queries — names, places, abbreviations — hit wherever the word appears. Longer searches are effectively untouched (measured average result-position shift: 0.18 of one rank), queries stay as fast as before, and there is nothing to migrate — the keyword index is rebuilt in memory on load. The in-memory index does grow (roughly doubles; a few MB on a mid-size vault).
+- **Two-character searches now find words inside longer phrases.** Searching `台北` used to miss a note that only ever writes 台北車站, and `金管` missed 金管會 — keyword search indexed Chinese text in 3-character windows, so a 2-character query could only match where the word happened to stand alone (measured on a real vault: only 24 of 81 notes were findable by the first two characters of their own title; now all 81 are). The index now also records 2-character windows, so short queries — names, places, abbreviations — hit wherever the word appears. Longer searches are effectively untouched (measured average result-position shift: 0.18 of one rank), queries stay as fast as before, and there is nothing to migrate — the keyword index is rebuilt in memory on load. The in-memory index does grow (roughly doubles; a few MB on a mid-size vault).
 - **Emoji sitting next to Chinese text no longer breaks search around it.** A character-range typo (two identically-looking 豈 characters, different code points) made the tokenizer swallow emoji into the surrounding Chinese run, corrupting the indexed text within two characters of the emoji — `😀測試` could make 測試 unfindable in that note. Emoji now stand alone and the neighbouring text indexes cleanly.
 
 ## 1.7.0 — 2026-08-26
