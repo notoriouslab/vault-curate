@@ -224,7 +224,7 @@ export function widestPath(
 
     let prev = new Map<string, number>();
     prev.set(from, Infinity);
-    const parent: Array<Map<string, string>> = [new Map()];
+    const parent: Array<Map<string, string>> = [new Map<string, string>()];
 
     let best: { bottleneck: number; hops: number; path: string[] } | null = null;
 

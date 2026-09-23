@@ -15,7 +15,6 @@
 import { Notice, TFile } from "obsidian";
 import type VaultSearchPlugin from "./main";
 import { checkLLMReachable, requestLlmJson, stripFrontmatter } from "./utils";
-import { coerceTagList } from "./utils/coerceTagList";
 import { resolveLlmUrl } from "./utils/resolveLlmUrl";
 import { DESCRIPTION_LENGTH_CAP, safeSlice, safeTail, stripDangerousInvisibles } from "./utils/sanitize";
 import { parseGeneratedDescription } from "./utils/parseGeneratedDescription";

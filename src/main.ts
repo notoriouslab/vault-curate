@@ -1061,7 +1061,8 @@ export default class VaultSearchPlugin extends Plugin {
             new Notice("vault-curate: backend not ready — see console for init error");
             return;
         }
-        await runIndexJob(this.indexer, () => this.indexer!.rebuild(), {
+        const indexer = this.indexer;
+        await runIndexJob(indexer, () => indexer.rebuild(), {
             busy: () => { new Notice(t.indexingInProgress); },
             failed: (msg) => { new Notice(t.noticeIndexFailed(msg), 10000); },
             log: (err) => console.error("vault-curate: rebuild failed", err),
@@ -1073,7 +1074,8 @@ export default class VaultSearchPlugin extends Plugin {
             new Notice("vault-curate: backend not ready — see console for init error");
             return;
         }
-        await runIndexJob(this.indexer, () => this.indexer!.update(), {
+        const indexer = this.indexer;
+        await runIndexJob(indexer, () => indexer.update(), {
             busy: () => { new Notice(t.indexingInProgress); },
             failed: (msg) => { new Notice(t.noticeIndexFailed(msg), 10000); },
             log: (err) => console.error("vault-curate: update failed", err),

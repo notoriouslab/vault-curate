@@ -18,13 +18,11 @@ function optionLabel(m: OllamaModel): string {
     return `${m.name} (${size})`;
 }
 
-// `ownerDocument`, not the global `document`: Obsidian can host Settings and
-// modals in a pop-out window, where the global points at the main window.
+// Obsidian's `createEl`, not the raw DOM constructor: it builds the node in
+// the parent's own document, so pop-out windows get the right one, and it is
+// what the plugin review lint expects (obsidianmd/prefer-create-el).
 function addOption(parent: HTMLElement, value: string, text: string): void {
-    const opt = parent.ownerDocument.createElement("option");
-    opt.value = value;
-    opt.textContent = text;
-    parent.appendChild(opt);
+    parent.createEl("option", { value, text });
 }
 
 /**
@@ -59,13 +57,13 @@ export function fillModelSelect(
         const injectMissing = isFirstGroup && missing;
         isFirstGroup = false;
         if (group.items.length === 0 && !injectMissing) continue;
-        const optgroup = select.ownerDocument.createElement("optgroup");
-        optgroup.label = group.kind === "embedding" ? labels.embeddingGroup : labels.otherGroup;
+        const optgroup = select.createEl("optgroup", {
+            attr: { label: group.kind === "embedding" ? labels.embeddingGroup : labels.otherGroup },
+        });
         if (injectMissing) {
             addOption(optgroup, currentValue, `${currentValue} (${labels.notInstalled})`);
         }
         for (const m of group.items) addOption(optgroup, m.name, optionLabel(m));
-        select.appendChild(optgroup);
     }
 
     select.value = currentValue;
