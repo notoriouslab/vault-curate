@@ -72,6 +72,9 @@ export default class VaultSearchPlugin extends Plugin {
     descGenerator!: DescriptionGenerator;
     store: SQLiteStore | null = null;
     provider: EmbeddingProvider | null = null;
+    /** 032: kept so the tab can re-evaluate its predicates once the backend
+     *  is ready (the definitions are built while it is still starting). */
+    settingTab: VaultSearchSettingTab | null = null;
     /** 015 D4: mobile query-intent loading gate (null on desktop). State
      *  lives here, not in the view — reopening the sidebar reads the same
      *  gate; the view only renders it. */
@@ -145,6 +148,7 @@ export default class VaultSearchPlugin extends Plugin {
                 this.indexer.onMutation = (type, path) => {
                     if (this.store) this.knnManager.onMutation(type, path, this.store);
                 };
+                this.settingTab?.notifyBackendReady();
             } catch (err) {
                 console.error("vault-curate: backend init failed", err);
                 new Notice(
@@ -446,7 +450,8 @@ export default class VaultSearchPlugin extends Plugin {
         });
 
         // Settings tab
-        this.addSettingTab(new VaultSearchSettingTab(this.app, this));
+        this.settingTab = new VaultSearchSettingTab(this.app, this);
+        this.addSettingTab(this.settingTab);
 
         // Phase 8 (004 rebrand) first-launch onboarding. The modal pops
         // when both signals are absent:
@@ -1237,6 +1242,7 @@ export default class VaultSearchPlugin extends Plugin {
         if (this.store !== store) {
             this.store = store;
             this.scheduleBM25Warm(0); // warm strictly after the store is ready
+            this.settingTab?.notifyBackendReady();
         }
         return store;
     }
