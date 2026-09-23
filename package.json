@@ -22,7 +22,7 @@
     "@types/sql.js": "^1.4.11",
     "esbuild": "^0.28.0",
     "happy-dom": "^20.9.0",
-    "obsidian": "latest",
+    "obsidian": "^1.13.1",
     "sql.js": "^1.14.1",
     "typescript": "^5.7.0",
     "vitest": "^4.1.6"
