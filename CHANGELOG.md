@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.1 — 2026-09-23
+
+### Fixed
+- **Ollama embedding models no longer go missing from the model picker.** The Embedding model dropdown used to decide what counts as an embedding model by looking for "embed" in the name, so `bge-m3`, `bge-small-zh` and similar models were hidden and the only way out was renaming them (issue #14). The picker now asks Ollama itself: since Ollama 0.30.0 the model list reports each model's capabilities, and older servers are asked model by model; only endpoints that report nothing fall back to the name check. Both pickers also list every model the server has, grouped by kind (the kind the picker is for comes first), so a model the server classifies unexpectedly is still reachable instead of gone.
+- **A failed rebuild now tells you why instead of stalling on "Indexing…".** When the configured model is not installed (or the server is down), Ollama rejects the first request within milliseconds, but the button never came back and the reason only appeared in the developer console. Rebuild and Update now show the server's own error as a notice and restore the button. The configured model is also flagged as "not installed" in the picker, with the `ollama pull` command to fix it, and the picker says so when the model list cannot be loaded at all.
+- **Onboarding asks which Ollama embedding model to use.** Picking Ollama during setup used to silently keep the default model name, which fails on the first rebuild if that model was never pulled. Setup now lists the embedding models found on the server, preselects the first one, and blocks "Index my vault now" with the install command when none is installed.
+
 ## 1.8.0 — 2026-09-14
 
 ### Fixed
