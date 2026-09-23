@@ -40,6 +40,7 @@ export class OnboardingModal extends Modal {
     private ollamaModel = "";
     private ollamaModelSelect?: HTMLSelectElement;
     private ollamaModelField?: HTMLDivElement;
+    private ollamaModelsLoaded = false;
     private endpointBody!: HTMLDivElement;
     private statusEls = {} as Record<EmbeddingProviderType, HTMLDivElement | undefined>;
     private indexBtn!: HTMLButtonElement;
@@ -168,6 +169,10 @@ export class OnboardingModal extends Modal {
             if (radio.checked) {
                 this.chosenProvider = value;
                 this.endpointBody.toggleClass("vault-curate-hidden", value !== "openai-compatible");
+                this.ollamaModelField?.toggleClass(
+                    "vault-curate-hidden",
+                    value !== "ollama" || !this.ollamaModelsLoaded,
+                );
             }
         });
         return row;
@@ -291,7 +296,9 @@ export class OnboardingModal extends Modal {
             otherGroup: t.modelGroupOther,
             notInstalled: t.modelNotInstalled,
         });
-        this.ollamaModelField?.removeClass("vault-curate-hidden");
+        this.ollamaModelsLoaded = true;
+        // Same rule as the OpenAI fields: shown only while its provider is picked.
+        this.ollamaModelField?.toggleClass("vault-curate-hidden", this.chosenProvider !== "ollama");
         const firstEmbedding = models.find((m) => m.kind === "embedding");
         if (firstEmbedding) {
             this.ollamaModel = firstEmbedding.name;

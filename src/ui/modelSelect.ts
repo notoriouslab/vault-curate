@@ -18,8 +18,10 @@ function optionLabel(m: OllamaModel): string {
     return `${m.name} (${size})`;
 }
 
+// `ownerDocument`, not the global `document`: Obsidian can host Settings and
+// modals in a pop-out window, where the global points at the main window.
 function addOption(parent: HTMLElement, value: string, text: string): void {
-    const opt = document.createElement("option");
+    const opt = parent.ownerDocument.createElement("option");
     opt.value = value;
     opt.textContent = text;
     parent.appendChild(opt);
@@ -57,7 +59,7 @@ export function fillModelSelect(
         const injectMissing = isFirstGroup && missing;
         isFirstGroup = false;
         if (group.items.length === 0 && !injectMissing) continue;
-        const optgroup = document.createElement("optgroup");
+        const optgroup = select.ownerDocument.createElement("optgroup");
         optgroup.label = group.kind === "embedding" ? labels.embeddingGroup : labels.otherGroup;
         if (injectMissing) {
             addOption(optgroup, currentValue, `${currentValue} (${labels.notInstalled})`);
