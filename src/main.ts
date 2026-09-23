@@ -16,6 +16,7 @@ import {
     SearchResult,
 } from "./types";
 import { Indexer } from "./indexer";
+import { runIndexJob } from "./indexer/runIndexJob";
 import { SearchModal } from "./searcher";
 import { searchHybrid } from "./search/searchHybrid";
 import { SearchView, VIEW_TYPE_SEARCH } from "./search-view";
@@ -1060,13 +1061,11 @@ export default class VaultSearchPlugin extends Plugin {
             new Notice("vault-curate: backend not ready — see console for init error");
             return;
         }
-        if (this.indexer.indexing) { new Notice(t.indexingInProgress); return; }
-        this.indexer.indexing = true;
-        try {
-            await this.indexer.rebuild();
-        } finally {
-            this.indexer.indexing = false;
-        }
+        await runIndexJob(this.indexer, () => this.indexer!.rebuild(), {
+            busy: () => { new Notice(t.indexingInProgress); },
+            failed: (msg) => { new Notice(t.noticeIndexFailed(msg), 10000); },
+            log: (err) => console.error("vault-curate: rebuild failed", err),
+        });
     }
 
     async updateIndex() {
@@ -1074,13 +1073,11 @@ export default class VaultSearchPlugin extends Plugin {
             new Notice("vault-curate: backend not ready — see console for init error");
             return;
         }
-        if (this.indexer.indexing) { new Notice(t.indexingInProgress); return; }
-        this.indexer.indexing = true;
-        try {
-            await this.indexer.update();
-        } finally {
-            this.indexer.indexing = false;
-        }
+        await runIndexJob(this.indexer, () => this.indexer!.update(), {
+            busy: () => { new Notice(t.indexingInProgress); },
+            failed: (msg) => { new Notice(t.noticeIndexFailed(msg), 10000); },
+            log: (err) => console.error("vault-curate: update failed", err),
+        });
     }
 
     private onFileChange(file: unknown, type: string) {

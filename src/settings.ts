@@ -601,10 +601,15 @@ export class VaultSearchSettingTab extends PluginSettingTab {
                 btn.onClick(async () => {
                     btn.setDisabled(true);
                     btn.setButtonText(t.indexingBtn);
-                    await this.plugin.rebuildIndex();
-                    btn.setDisabled(false);
-                    btn.setButtonText(t.rebuildBtn);
-                    this.display();
+                    // 031: restore the button even when the run fails, so a
+                    // failed rebuild does not strand it on "Indexing…".
+                    try {
+                        await this.plugin.rebuildIndex();
+                    } finally {
+                        btn.setDisabled(false);
+                        btn.setButtonText(t.rebuildBtn);
+                        this.display();
+                    }
                 });
             });
 
@@ -616,10 +621,13 @@ export class VaultSearchSettingTab extends PluginSettingTab {
                 btn.onClick(async () => {
                     btn.setDisabled(true);
                     btn.setButtonText(t.updatingBtn);
-                    await this.plugin.updateIndex();
-                    btn.setDisabled(false);
-                    btn.setButtonText(t.updateBtn);
-                    this.display();
+                    try {
+                        await this.plugin.updateIndex();
+                    } finally {
+                        btn.setDisabled(false);
+                        btn.setButtonText(t.updateBtn);
+                        this.display();
+                    }
                 });
             });
 

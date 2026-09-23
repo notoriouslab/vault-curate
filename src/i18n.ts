@@ -134,6 +134,7 @@ export interface Locale {
     modelGroupOther: string;
     modelGroupLlm: string;
     modelNotInstalled: string;
+    noticeIndexFailed: (msg: string) => string;
     // Discover
     tabSearch: string;
     tabDiscover: string;
@@ -422,6 +423,7 @@ const en: Locale = {
     modelGroupOther: "Other models",
     modelGroupLlm: "LLM models",
     modelNotInstalled: "not installed",
+    noticeIndexFailed: (msg: string) => `Vault Curate: indexing failed. ${msg}`,
     tabSearch: "Search",
     tabDiscover: "Discover",
     discoverCurrentNote: "Current note",
@@ -736,6 +738,7 @@ const zhTW: Locale = {
     modelGroupOther: "其他模型",
     modelGroupLlm: "LLM 模型",
     modelNotInstalled: "未安裝",
+    noticeIndexFailed: (msg: string) => `Vault Curate：索引失敗。${msg}`,
     tabSearch: "搜尋",
     tabDiscover: "發掘",
     discoverCurrentNote: "當前筆記",
@@ -1053,6 +1056,7 @@ const zhCN: Locale = {
     modelGroupOther: "其他模型",
     modelGroupLlm: "LLM 模型",
     modelNotInstalled: "未安装",
+    noticeIndexFailed: (msg: string) => `Vault Curate：索引失败。${msg}`,
     tabSearch: "搜索",
     tabDiscover: "发掘",
     discoverCurrentNote: "当前笔记",
