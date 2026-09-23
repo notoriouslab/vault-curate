@@ -2,7 +2,7 @@
 // the model dropdown, the long-running index actions and the stats panel.
 // Split out of definitions.ts; the bodies are unchanged.
 
-import type { Setting } from "obsidian";
+import type { ButtonComponent, Setting } from "obsidian";
 import type { SettingsContext } from "./types";
 import { fetchOllamaModels, formatLocalDateTime, isLoopbackHost } from "../utils";
 import { resolveLlmUrl } from "../utils/resolveLlmUrl";
@@ -46,6 +46,10 @@ export function renderModelDropdown(
         kind: "embedding" | "llm";
         current: string;
         onChange: (val: string) => Promise<void>;
+        /** Whether the row is actually shown. On 1.13 a row whose `visible`
+         *  predicate is false is still rendered (just CSS-hidden, spike S2),
+         *  so a hidden row must not spend a network round-trip. */
+        active: () => boolean;
     },
 ): () => void {
     const settings = o.ctx.plugin.settings;
@@ -63,6 +67,10 @@ export function renderModelDropdown(
         drop.onChange(o.onChange);
         select = drop.selectEl;
     });
+
+    // Hidden row: keep the current value selectable, skip the fetch. A later
+    // ctx.refresh() re-renders the row once it becomes visible.
+    if (!o.active()) return () => { /* nothing fetched, nothing to tear down */ };
 
     // 023: the LLM dropdown lists what its own (possibly separate) server
     // offers; the embedding dropdown always lists the main server's models.
@@ -122,35 +130,24 @@ export function renderModelDropdown(
     };
 }
 
-/** The element an `action` receives is the row (1.13) or the button (legacy). */
-export function actionButtonEl(el: HTMLElement): HTMLButtonElement | null {
-    if (el.tagName === "BUTTON") return el as HTMLButtonElement;
-    return el.querySelector("button");
-}
-
 /** Run a long index action with the button parked on `busyText` meanwhile. */
 export function runIndexAction(
     ctx: SettingsContext,
-    el: HTMLElement,
+    button: ButtonComponent,
+    idleText: string,
     busyText: string,
     run: () => Promise<void>,
 ) {
-    const button = actionButtonEl(el);
-    const idleText = button?.textContent ?? "";
-    if (button) {
-        button.disabled = true;
-        button.textContent = busyText;
-    }
+    button.setDisabled(true);
+    button.setButtonText(busyText);
     void (async () => {
         // 031: restore the button even when the run fails, so a failed
         // rebuild does not strand it on "Indexing…".
         try {
             await run();
         } finally {
-            if (button) {
-                button.disabled = false;
-                button.textContent = idleText;
-            }
+            button.setDisabled(false);
+            button.setButtonText(idleText);
             ctx.refresh();
         }
     })();

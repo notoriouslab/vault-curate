@@ -2,7 +2,7 @@
 // the mobile-only index-card rows. Split out of definitions.ts; the bodies are
 // unchanged.
 
-import type { SettingDefinitionAction, SettingDefinitionRender } from "obsidian";
+import type { SettingDefinitionRender } from "obsidian";
 import type { SettingsContext } from "./types";
 import { renderStatsInto, runIndexAction } from "./rowHelpers";
 import type { Predicate } from "./rowHelpers";
@@ -66,19 +66,26 @@ export function searchScopeRow(ctx: SettingsContext): SettingDefinitionRender {
     };
 }
 
-/** 013 D6: dismissed suggestions — count + manage modal. The count is part
- *  of the definition, so a restore refreshes the tab to recompute it. */
-export function dismissedRow(ctx: SettingsContext): SettingDefinitionAction {
-    const dismissedCount =
+/** 013 D6: dismissed suggestions — count + manage modal. The count is read
+ *  at render time and refreshed in place when the modal closes. */
+export function dismissedRow(ctx: SettingsContext): SettingDefinitionRender {
+    const dismissedCount = () =>
         Object.keys(ctx.plugin.settings.dismissedPairs).length +
         Object.keys(ctx.plugin.settings.dismissedNotes).length;
     return {
         name: t.dismissedHeading,
-        desc: t.dismissedManageDesc(dismissedCount),
-        action: () => {
-            new DismissedModal(ctx.app, ctx.plugin, () => {
-                ctx.refresh();
-            }).open();
+        // Build-time count feeds the search index; render refreshes it live.
+        desc: t.dismissedManageDesc(dismissedCount()),
+        render: (setting) => {
+            setting.setDesc(t.dismissedManageDesc(dismissedCount()));
+            setting.addButton(btn => {
+                btn.setButtonText(t.dismissedManage);
+                btn.onClick(() => {
+                    new DismissedModal(ctx.app, ctx.plugin, () => {
+                        setting.setDesc(t.dismissedManageDesc(dismissedCount()));
+                    }).open();
+                });
+            });
         },
     };
 }
@@ -173,7 +180,9 @@ export function hotDaysRow(ctx: SettingsContext): SettingDefinitionRender {
                         // Debounced: typing "365" is three keystrokes and
                         // each sweep walks the whole vault.
                         if (statsTimer !== null) window.clearTimeout(statsTimer);
-                        statsTimer = window.setTimeout(() => ctx.refresh(), 300);
+                        // Only the stats panel redraws: a full refresh would
+                        // rebuild this very input and steal its focus.
+                        statsTimer = window.setTimeout(() => ctx.refreshStats(), 300);
                     }
                 });
             });
@@ -267,19 +276,30 @@ export function autoIndexRow(ctx: SettingsContext): SettingDefinitionRender {
     };
 }
 
-export function rebuildIndexRow(ctx: SettingsContext): SettingDefinitionAction {
+export function rebuildIndexRow(ctx: SettingsContext): SettingDefinitionRender {
     return {
         name: t.rebuildIndex,
         desc: t.rebuildIndexDesc,
-        action: (el) => runIndexAction(ctx, el, t.indexingBtn, () => ctx.plugin.rebuildIndex()),
+        render: (setting) => {
+            setting.addButton(btn => {
+                btn.setButtonText(t.rebuildBtn);
+                btn.setCta();
+                btn.onClick(() => runIndexAction(ctx, btn, t.rebuildBtn, t.indexingBtn, () => ctx.plugin.rebuildIndex()));
+            });
+        },
     };
 }
 
-export function updateIndexRow(ctx: SettingsContext): SettingDefinitionAction {
+export function updateIndexRow(ctx: SettingsContext): SettingDefinitionRender {
     return {
         name: t.updateIndex,
         desc: t.updateIndexDesc,
-        action: (el) => runIndexAction(ctx, el, t.updatingBtn, () => ctx.plugin.updateIndex()),
+        render: (setting) => {
+            setting.addButton(btn => {
+                btn.setButtonText(t.updateBtn);
+                btn.onClick(() => runIndexAction(ctx, btn, t.updateBtn, t.updatingBtn, () => ctx.plugin.updateIndex()));
+            });
+        },
     };
 }
 
@@ -290,7 +310,11 @@ export function indexStatsRow(ctx: SettingsContext, visible?: Predicate): Settin
         render: (setting) => {
             const stats = setting.settingEl.createDiv({ cls: "vault-curate-stats" });
             renderStatsInto(ctx, stats);
-            return () => stats.remove();
+            ctx.setStatsRefresher(() => renderStatsInto(ctx, stats));
+            return () => {
+                ctx.setStatsRefresher(null);
+                stats.remove();
+            };
         },
     };
 }
@@ -310,14 +334,17 @@ export function mobileGateStatusRow(ctx: SettingsContext): SettingDefinitionRend
     };
 }
 
-export function mobileReloadRow(ctx: SettingsContext): SettingDefinitionAction {
+export function mobileReloadRow(ctx: SettingsContext): SettingDefinitionRender {
     return {
         name: t.mobileReloadIndex,
-        action: () => {
-            void (async () => {
-                await ctx.plugin.reloadMobileIndex().catch(() => { /* state renders below */ });
-                ctx.refresh(); // re-render card with fresh state
-            })();
+        render: (setting) => {
+            setting.addButton(btn => {
+                btn.setButtonText(t.mobileReloadIndex);
+                btn.onClick(async () => {
+                    await ctx.plugin.reloadMobileIndex().catch(() => { /* state renders below */ });
+                    ctx.refresh(); // re-render card with fresh state
+                });
+            });
         },
     };
 }

@@ -117,6 +117,7 @@ export function embeddingModelRow(ctx: SettingsContext, visible?: Predicate): Se
             ctx,
             kind: "embedding",
             current: ctx.plugin.settings.ollamaModel,
+            active: visible ?? (() => true),
             onChange: async (val) => {
                 const old = ctx.plugin.settings.ollamaModel;
                 if (val === old) return;

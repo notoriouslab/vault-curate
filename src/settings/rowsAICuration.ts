@@ -3,7 +3,7 @@
 // bodies are unchanged.
 
 import { Platform } from "obsidian";
-import type { SettingDefinitionAction, SettingDefinitionRender } from "obsidian";
+import type { SettingDefinitionRender } from "obsidian";
 import type { SettingsContext } from "./types";
 import { clearRemoteWarning, renderModelDropdown, updateRemoteWarning } from "./rowHelpers";
 import type { Predicate } from "./rowHelpers";
@@ -21,7 +21,10 @@ export function enableAICurationRow(ctx: SettingsContext): SettingDefinitionRend
                 toggle.onChange(async (val) => {
                     ctx.plugin.settings.enableAICuration = val;
                     await ctx.plugin.saveSettings();
-                    ctx.refreshPredicates();
+                    // Full re-render, not just predicates: the gated rows were
+                    // rendered hidden with their network work skipped, so they
+                    // need a real render pass now that they are shown.
+                    ctx.refresh();
                 });
             });
         },
@@ -91,6 +94,7 @@ export function llmModelRow(ctx: SettingsContext, visible: Predicate): SettingDe
             ctx,
             kind: "llm",
             current: ctx.plugin.settings.llmModel,
+            active: visible,
             onChange: async (val) => {
                 ctx.plugin.settings.llmModel = val;
                 await ctx.plugin.saveSettings();
@@ -109,6 +113,9 @@ export function llmEndpointRow(ctx: SettingsContext, visible: Predicate): Settin
         name: t.llmEndpointHeading,
         visible,
         render: (setting) => {
+            // Hidden row (curation off): no probe. ctx.refresh() on the
+            // toggle re-renders this row for real once it is shown.
+            if (!visible()) return;
             let disposed = false;
             const desc = setting.descEl;
             desc.empty();
@@ -147,13 +154,20 @@ export function llmEndpointRow(ctx: SettingsContext, visible: Predicate): Settin
     };
 }
 
-export function rerunOnboardingRow(ctx: SettingsContext): SettingDefinitionAction {
+export function rerunOnboardingRow(ctx: SettingsContext): SettingDefinitionRender {
     // Production path back to the Onboarding modal — survives a Skip and
     // doesn't require the dev command. Last in the section and outside the
     // gate: still reachable with AI curation off (024).
+    // A render row with a button (not an `action` row): identical look on
+    // both renderers, and the button keeps its own label.
     return {
         name: t.rerunOnboarding,
         desc: t.rerunOnboardingDesc,
-        action: () => ctx.plugin.showOnboardingModal(),
+        render: (setting) => {
+            setting.addButton(btn => {
+                btn.setButtonText(t.rerunOnboardingBtn);
+                btn.onClick(() => ctx.plugin.showOnboardingModal());
+            });
+        },
     };
 }

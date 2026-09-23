@@ -69,6 +69,16 @@ export class VaultSearchSettingTab extends PluginSettingTab implements SettingsC
         });
     }
 
+    private statsRefresher: (() => void) | null = null;
+
+    setStatsRefresher(cb: (() => void) | null): void {
+        this.statsRefresher = cb;
+    }
+
+    refreshStats(): void {
+        this.statsRefresher?.();
+    }
+
     private runCleanups(): void {
         const pending = this.cleanups;
         this.cleanups = [];

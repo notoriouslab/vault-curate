@@ -50,6 +50,8 @@ function makeCtx(settingsOverrides: Record<string, unknown> = {}) {
         refresh,
         refreshPredicates,
         confirmProviderSwitch,
+        setStatsRefresher: vi.fn(),
+        refreshStats: vi.fn(),
     } as unknown as SettingsContext;
     return { ctx, plugin, saveSettings, refresh, refreshPredicates, confirmProviderSwitch };
 }
