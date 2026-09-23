@@ -2,11 +2,58 @@ import { App, requestUrl, TFile } from "obsidian";
 import type { ApiFormat } from "./types";
 import { stripReasoningWrappers } from "./utils/stripReasoningWrappers";
 import { validateServerUrl, isLoopbackHost } from "./utils/hostGuards";
+import { resolveModelKind } from "./utils/modelCapabilities";
+import type { ModelKind, ModelKindSource } from "./utils/modelCapabilities";
 
 export interface OllamaModel {
     name: string;
     sizeGB: number;
+    /** Convenience alias for `kind === "embedding"` — kept for existing callers. */
     isEmbedding: boolean;
+    kind: ModelKind;
+    source: ModelKindSource;
+}
+
+interface OllamaTagEntry {
+    name: string;
+    size: number;
+    digest?: string;
+    capabilities?: string[];
+}
+
+// Capabilities fetched from `/api/show`, cached across Settings repaints.
+// The key carries the server URL because the same digest on a different
+// server is a different model list — classifications are never shared
+// between servers.
+const showCapsCache = new Map<string, string[]>();
+
+const SHOW_TIMEOUT_MS = 3000;
+
+/**
+ * Fill in `capabilities` for a tags entry that omitted it (Ollama < 0.30.0).
+ * Any failure — non-200, timeout, malformed payload — degrades to undefined
+ * so the caller falls through to the name heuristic. Only successes are cached.
+ */
+async function fetchShowCapabilities(url: string, entry: OllamaTagEntry): Promise<string[] | undefined> {
+    const key = `${url.replace(/\/+$/, "")}|${entry.digest ?? entry.name}`;
+    const cached = showCapsCache.get(key);
+    if (cached) return cached;
+    try {
+        const resp = await withTimeout(requestUrl({
+            url: `${url}/api/show`,
+            method: "POST",
+            headers: buildHeaders(),
+            body: JSON.stringify({ model: entry.name }),
+            throw: false,
+        }), SHOW_TIMEOUT_MS, "Ollama show");
+        if (resp.status !== 200) return undefined;
+        const caps = (resp.json as { capabilities?: string[] } | undefined)?.capabilities;
+        if (!Array.isArray(caps)) return undefined;
+        showCapsCache.set(key, caps);
+        return caps;
+    } catch {
+        return undefined;
+    }
 }
 
 export async function fetchOllamaModels(url: string, format: ApiFormat = "ollama"): Promise<OllamaModel[]> {
@@ -17,21 +64,26 @@ export async function fetchOllamaModels(url: string, format: ApiFormat = "ollama
             const resp = await requestUrl({ url: `${url}/v1/models`, throw: false });
             if (resp.status !== 200) return [];
             const data = resp.json as { data?: Array<{ id: string }> };
-            return (data.data ?? []).map((m) => ({
-                name: m.id,
-                sizeGB: 0,
-                isEmbedding: /embed/i.test(m.id),
-            }));
+            // `/v1/models` carries no type information — name heuristic only.
+            return (data.data ?? []).map((m) => {
+                const { kind, source } = resolveModelKind(m.id, undefined);
+                return { name: m.id, sizeGB: 0, isEmbedding: kind === "embedding", kind, source };
+            });
         }
 
         const resp = await requestUrl({ url: `${url}/api/tags`, throw: false });
         if (resp.status !== 200) return [];
-        const data = resp.json as { models?: Array<{ name: string; size: number }> };
-        return (data.models ?? []).map((m) => ({
-            name: m.name,
-            sizeGB: m.size / 1e9,
-            isEmbedding: /embed/i.test(m.name),
-        }));
+        const data = resp.json as { models?: OllamaTagEntry[] };
+        const entries = data.models ?? [];
+        const capsList = await Promise.all(entries.map((m) =>
+            m.capabilities !== undefined
+                ? Promise.resolve<string[] | undefined>(m.capabilities)
+                : fetchShowCapabilities(url, m)
+        ));
+        return entries.map((m, i) => {
+            const { kind, source } = resolveModelKind(m.name, capsList[i]);
+            return { name: m.name, sizeGB: m.size / 1e9, isEmbedding: kind === "embedding", kind, source };
+        });
     } catch {
         return [];
     }
