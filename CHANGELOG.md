@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.9.0 — 2026-09-23
+
+### Changed
+- **Every setting is now searchable from Obsidian's settings search (Obsidian 1.13+).** The settings tab is now described declaratively, so on Obsidian 1.13 and later Obsidian renders it itself and indexes each option by name and description: type "chunk", "hot" or "synonym" in the settings search box and you land on the right row. On 1.13 the "Advanced" section becomes a sub-page you step into; on older versions the tab looks exactly as before (same rows, same collapsible Advanced section), because the same definitions are rendered the old way there. Nothing changes about what the settings do or how they are stored, and the minimum Obsidian version stays 1.7.2.
+
+### Fixed
+- **Plugin review warnings cleared.** The model picker now builds its options through Obsidian's own element helpers (pop-out window safe), and a few redundant type assertions and an unused import are gone. No behaviour change.
+
 ## 1.8.1 — 2026-09-23
 
 ### Fixed
