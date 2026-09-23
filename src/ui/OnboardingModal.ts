@@ -9,7 +9,9 @@
 import { App, Modal, Notice, requestUrl } from "obsidian";
 import type VaultSearchPlugin from "../main";
 import type { ApiFormat, EmbeddingProviderType } from "../types";
-import { validateServerUrl, isLoopbackHost } from "../utils";
+import { DEFAULT_SETTINGS } from "../types";
+import { validateServerUrl, isLoopbackHost, fetchOllamaModels } from "../utils";
+import { fillModelSelect } from "./modelSelect";
 import { t } from "../i18n";
 
 type AICurationChoice = "yes" | "no";
@@ -22,6 +24,8 @@ export interface OnboardingChoice {
     openaiUrl?: string;
     openaiModel?: string;
     openaiKey?: string;
+    /** Populated only when provider === "ollama". */
+    ollamaModel?: string;
     /** True when the user dismissed with "Skip for now" (vs. picked a provider). */
     dismissed: boolean;
 }
@@ -33,6 +37,9 @@ export class OnboardingModal extends Modal {
     private openaiUrl = "http://localhost:11434/v1";
     private openaiModel = "";
     private openaiKey = "";
+    private ollamaModel = "";
+    private ollamaModelSelect?: HTMLSelectElement;
+    private ollamaModelField?: HTMLDivElement;
     private endpointBody!: HTMLDivElement;
     private statusEls = {} as Record<EmbeddingProviderType, HTMLDivElement | undefined>;
     private indexBtn!: HTMLButtonElement;
@@ -58,7 +65,8 @@ export class OnboardingModal extends Modal {
         this.contentEl.createEl("h4", { text: t.onboardingProviderHeading });
         const providerGroup = this.contentEl.createDiv({ cls: "vault-curate-onboarding-providers" });
         this.buildProviderOption(providerGroup, "wasm", t.embeddingProviderBuiltin, t.builtinModelNote);
-        this.buildProviderOption(providerGroup, "ollama", t.embeddingProviderOllama, "");
+        const ollamaRow = this.buildProviderOption(providerGroup, "ollama", t.embeddingProviderOllama, "");
+        this.buildOllamaModelField(ollamaRow);
         this.buildProviderOption(providerGroup, "openai-compatible", t.embeddingProviderOpenAI, "");
 
         this.endpointBody = this.contentEl.createDiv({ cls: "vault-curate-onboarding-endpoint vault-curate-hidden" });
@@ -98,6 +106,7 @@ export class OnboardingModal extends Modal {
             openaiUrl: this.chosenProvider === "openai-compatible" ? this.openaiUrl : undefined,
             openaiModel: this.chosenProvider === "openai-compatible" ? this.openaiModel : undefined,
             openaiKey: this.chosenProvider === "openai-compatible" ? this.openaiKey : undefined,
+            ollamaModel: this.chosenProvider === "ollama" ? this.ollamaModel : undefined,
             dismissed,
         });
         if (!this.isClosed) this.close();
@@ -121,6 +130,10 @@ export class OnboardingModal extends Modal {
             new Notice(t.onboardingOllamaNotDetected, 8000);
             return;
         }
+        if (this.chosenProvider === "ollama" && !this.ollamaModel) {
+            new Notice(t.onboardingNoEmbeddingModel(DEFAULT_SETTINGS.ollamaModel), 8000);
+            return;
+        }
         if (this.chosenProvider === "openai-compatible") {
             if (!this.openaiUrl || !this.openaiModel) {
                 new Notice(t.onboardingTestFail, 6000);
@@ -141,7 +154,7 @@ export class OnboardingModal extends Modal {
         value: EmbeddingProviderType,
         label: string,
         note: string,
-    ) {
+    ): HTMLDivElement {
         const row = parent.createDiv({ cls: "vault-curate-onboarding-option" });
         const radio = row.createEl("input", { type: "radio", attr: { name: "vault-curate-provider", value } });
         if (value === this.chosenProvider) radio.checked = true;
@@ -157,6 +170,18 @@ export class OnboardingModal extends Modal {
                 this.endpointBody.toggleClass("vault-curate-hidden", value !== "openai-compatible");
             }
         });
+        return row;
+    }
+
+    /** Embedding-model picker for the Ollama row — hidden until the probe
+     *  comes back with a model list. */
+    private buildOllamaModelField(row: HTMLDivElement) {
+        const field = row.createDiv({ cls: "vault-curate-onboarding-field vault-curate-hidden" });
+        field.createEl("label", { text: t.embeddingModel });
+        const select = field.createEl("select");
+        select.addEventListener("change", () => { this.ollamaModel = select.value; });
+        this.ollamaModelField = field;
+        this.ollamaModelSelect = select;
     }
 
     private buildAIOption(parent: HTMLElement, value: AICurationChoice, label: string) {
@@ -240,12 +265,41 @@ export class OnboardingModal extends Modal {
             );
             const ok = resp.status >= 200 && resp.status < 300;
             this.ollamaReachable = ok;
-            if (this.isClosed || !status) return;
-            status.setText(ok ? t.onboardingOllamaDetected : t.onboardingOllamaNotDetected);
+            if (this.isClosed) return;
+            status?.setText(ok ? t.onboardingOllamaDetected : t.onboardingOllamaNotDetected);
+            if (ok) await this.loadOllamaModels(url);
         } catch {
             this.ollamaReachable = false;
             if (this.isClosed || !status) return;
             status.setText(t.onboardingOllamaNotDetected);
+        }
+    }
+
+    /**
+     * Fill the Ollama embedding-model picker from the live server. An empty
+     * embedding group is the actionable case (issue #14): the user has Ollama
+     * but no embedding model, so say which command installs one.
+     */
+    private async loadOllamaModels(url: string) {
+        const select = this.ollamaModelSelect;
+        if (!select) return;
+        const models = await fetchOllamaModels(url, "ollama");
+        if (this.isClosed) return;
+        fillModelSelect(select, models, "embedding", "", {
+            placeholder: t.selectModel,
+            embeddingGroup: t.modelGroupEmbedding,
+            otherGroup: t.modelGroupOther,
+            notInstalled: t.modelNotInstalled,
+        });
+        this.ollamaModelField?.removeClass("vault-curate-hidden");
+        const firstEmbedding = models.find((m) => m.kind === "embedding");
+        if (firstEmbedding) {
+            this.ollamaModel = firstEmbedding.name;
+            select.value = firstEmbedding.name;
+        } else {
+            this.statusEls.ollama?.setText(
+                t.onboardingNoEmbeddingModel(DEFAULT_SETTINGS.ollamaModel),
+            );
         }
     }
 
@@ -321,6 +375,7 @@ export async function applyOnboardingChoice(
     plugin.settings.enableAICuration = choice.aiCuration === "yes";
     if (choice.provider === "ollama") {
         plugin.settings.apiFormat = "ollama" satisfies ApiFormat;
+        if (choice.ollamaModel) plugin.settings.ollamaModel = choice.ollamaModel;
     } else if (choice.provider === "openai-compatible") {
         plugin.settings.apiFormat = "openai" satisfies ApiFormat;
         if (choice.openaiUrl) plugin.settings.ollamaUrl = choice.openaiUrl;

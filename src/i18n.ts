@@ -174,6 +174,7 @@ export interface Locale {
     onboardingProviderHeading: string;
     onboardingOllamaDetected: string;
     onboardingOllamaNotDetected: string;
+    onboardingNoEmbeddingModel: (name: string) => string;
     onboardingOpenaiEndpoint: string;
     onboardingOpenaiModel: string;
     onboardingTestConnection: string;
@@ -466,6 +467,8 @@ const en: Locale = {
     onboardingProviderHeading: "Embedding provider",
     onboardingOllamaDetected: "✓ Ollama detected on localhost:11434",
     onboardingOllamaNotDetected: "⚠ Ollama not running. Install from ollama.com, then reopen this dialog.",
+    onboardingNoEmbeddingModel: (name: string) =>
+        `⚠ No embedding model installed. Run: ollama pull ${name}`,
     onboardingOpenaiEndpoint: "Endpoint URL",
     onboardingOpenaiModel: "Model name",
     onboardingTestConnection: "Test connection",
@@ -785,6 +788,8 @@ const zhTW: Locale = {
     onboardingProviderHeading: "Embedding 提供者",
     onboardingOllamaDetected: "✓ 偵測到 Ollama（localhost:11434）",
     onboardingOllamaNotDetected: "⚠ 未偵測到 Ollama。請從 ollama.com 安裝後重開此視窗。",
+    onboardingNoEmbeddingModel: (name: string) =>
+        `⚠ 未安裝 embedding 模型。請先執行：ollama pull ${name}`,
     onboardingOpenaiEndpoint: "Endpoint URL",
     onboardingOpenaiModel: "模型名稱",
     onboardingTestConnection: "測試連線",
@@ -1107,6 +1112,8 @@ const zhCN: Locale = {
     onboardingProviderHeading: "Embedding 提供者",
     onboardingOllamaDetected: "✓ 检测到 Ollama（localhost:11434）",
     onboardingOllamaNotDetected: "⚠ 未检测到 Ollama。请从 ollama.com 安装后重新打开此窗口。",
+    onboardingNoEmbeddingModel: (name: string) =>
+        `⚠ 未安装 embedding 模型。请先执行：ollama pull ${name}`,
     onboardingOpenaiEndpoint: "Endpoint URL",
     onboardingOpenaiModel: "模型名称",
     onboardingTestConnection: "测试连接",
