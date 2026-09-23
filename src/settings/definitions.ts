@@ -63,8 +63,10 @@ export function buildDesktopDefinitions(ctx: SettingsContext): SettingDefinition
     };
     return [
         {
+            // No heading: Obsidian's plugin guidelines keep the general
+            // settings at the top without one, and 1.13 hides a leading
+            // group heading anyway (dogfood 2026-09-23). Legacy matches.
             type: "group",
-            heading: t.sectionQuickSetup,
             items: [
                 providerRow(ctx),
                 builtinNote,
