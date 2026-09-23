@@ -32,7 +32,7 @@ export function renderLegacy(
             if (group.heading) {
                 new Setting(container).setName(group.heading).setHeading();
             }
-            renderLegacy(container, (group.items ?? []) as SettingDefinitionItem[], cleanups);
+            renderLegacy(container, group.items ?? [], cleanups);
             continue;
         }
 
