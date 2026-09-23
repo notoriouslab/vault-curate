@@ -9,6 +9,7 @@ import type VaultSearchPlugin from "./main";
 import type { EmbeddingProviderType } from "./types";
 import { checkLLMReachable, fetchOllamaModels, formatLocalDateTime, isLoopbackHost } from "./utils";
 import { resolveLlmUrl } from "./utils/resolveLlmUrl";
+import { fillModelSelect } from "./ui/modelSelect";
 import { t } from "./i18n";
 import { DismissedModal } from "./ui/DismissedModal";
 
@@ -751,26 +752,23 @@ export class VaultSearchSettingTab extends PluginSettingTab {
             const models = filterType === "llm" ? llmModels : mainModels;
             if (models.length === 0) return;
 
-            select.empty();
-            select.createEl("option", { value: "", text: t.selectModel });
-
-            const filtered = models.filter(m => {
-                if (filterType === "embedding") return m.isEmbedding;
-                if (filterType === "llm") return !m.isEmbedding;
-                return true;
-            });
-
-            for (const m of filtered) {
-                let label = m.name;
-                if (m.sizeGB > 0) {
-                    const sizeLabel = m.sizeGB < 1
-                        ? `${(m.sizeGB * 1000).toFixed(0)}MB`
-                        : `${m.sizeGB.toFixed(1)}GB`;
-                    label = `${m.name} (${sizeLabel})`;
-                }
-                select.createEl("option", { value: m.name, text: label });
-            }
-            select.value = currentValue;
+            // 031: list every model the server reports, grouped by kind, with
+            // this dropdown's kind first. Filtering by kind used to hide
+            // embedding models the name heuristic did not recognise.
+            const isLlm = filterType === "llm";
+            const { missing } = fillModelSelect(
+                select,
+                models,
+                isLlm ? "other" : "embedding",
+                currentValue,
+                {
+                    placeholder: t.selectModel,
+                    embeddingGroup: t.modelGroupEmbedding,
+                    otherGroup: isLlm ? t.modelGroupLlm : t.modelGroupOther,
+                    notInstalled: t.modelNotInstalled,
+                },
+            );
+            void missing;
         });
     }
 }

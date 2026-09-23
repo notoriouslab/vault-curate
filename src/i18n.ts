@@ -130,6 +130,10 @@ export interface Locale {
     remoteWarning: string;
     httpApiKeyWarning: string;
     selectModel: string;
+    modelGroupEmbedding: string;
+    modelGroupOther: string;
+    modelGroupLlm: string;
+    modelNotInstalled: string;
     // Discover
     tabSearch: string;
     tabDiscover: string;
@@ -414,6 +418,10 @@ const en: Locale = {
     remoteWarning: "\u26a0 Remote server — note content will be sent outside your machine",
     httpApiKeyWarning: "\u26a0 API key will be sent in plain text over HTTP. Consider using HTTPS.",
     selectModel: "Select a model",
+    modelGroupEmbedding: "Embedding models",
+    modelGroupOther: "Other models",
+    modelGroupLlm: "LLM models",
+    modelNotInstalled: "not installed",
     tabSearch: "Search",
     tabDiscover: "Discover",
     discoverCurrentNote: "Current note",
@@ -724,6 +732,10 @@ const zhTW: Locale = {
     remoteWarning: "\u26a0 遠端伺服器 — 筆記內容將傳送至外部機器",
     httpApiKeyWarning: "\u26a0 API key 將以明文透過 HTTP 傳送，建議改用 HTTPS。",
     selectModel: "選擇模型",
+    modelGroupEmbedding: "Embedding 模型",
+    modelGroupOther: "其他模型",
+    modelGroupLlm: "LLM 模型",
+    modelNotInstalled: "未安裝",
     tabSearch: "搜尋",
     tabDiscover: "發掘",
     discoverCurrentNote: "當前筆記",
@@ -1037,6 +1049,10 @@ const zhCN: Locale = {
     remoteWarning: "⚠ 远程服务器 — 笔记内容将发送到外部设备",
     httpApiKeyWarning: "⚠ API key 将以明文通过 HTTP 发送，建议改用 HTTPS。",
     selectModel: "选择模型",
+    modelGroupEmbedding: "Embedding 模型",
+    modelGroupOther: "其他模型",
+    modelGroupLlm: "LLM 模型",
+    modelNotInstalled: "未安装",
     tabSearch: "搜索",
     tabDiscover: "发掘",
     discoverCurrentNote: "当前笔记",
