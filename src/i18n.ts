@@ -135,6 +135,9 @@ export interface Locale {
     modelGroupLlm: string;
     modelNotInstalled: string;
     noticeIndexFailed: (msg: string) => string;
+    modelNotInstalledHintOllama: (name: string) => string;
+    modelNotListedHint: string;
+    modelListUnavailable: string;
     // Discover
     tabSearch: string;
     tabDiscover: string;
@@ -424,6 +427,10 @@ const en: Locale = {
     modelGroupLlm: "LLM models",
     modelNotInstalled: "not installed",
     noticeIndexFailed: (msg: string) => `Vault Curate: indexing failed. ${msg}`,
+    modelNotInstalledHintOllama: (name: string) =>
+        `This model is not on the server. Install it with: ollama pull ${name}`,
+    modelNotListedHint: "This model is not in the server's model list.",
+    modelListUnavailable: "Could not load the model list. Check the server address.",
     tabSearch: "Search",
     tabDiscover: "Discover",
     discoverCurrentNote: "Current note",
@@ -739,6 +746,10 @@ const zhTW: Locale = {
     modelGroupLlm: "LLM 模型",
     modelNotInstalled: "未安裝",
     noticeIndexFailed: (msg: string) => `Vault Curate：索引失敗。${msg}`,
+    modelNotInstalledHintOllama: (name: string) =>
+        `伺服器上沒有這個模型。安裝：ollama pull ${name}`,
+    modelNotListedHint: "伺服器的模型清單裡沒有這個模型。",
+    modelListUnavailable: "無法取得模型清單，請確認伺服器地址。",
     tabSearch: "搜尋",
     tabDiscover: "發掘",
     discoverCurrentNote: "當前筆記",
@@ -1057,6 +1068,10 @@ const zhCN: Locale = {
     modelGroupLlm: "LLM 模型",
     modelNotInstalled: "未安装",
     noticeIndexFailed: (msg: string) => `Vault Curate：索引失败。${msg}`,
+    modelNotInstalledHintOllama: (name: string) =>
+        `服务器上没有这个模型。安装：ollama pull ${name}`,
+    modelNotListedHint: "服务器的模型列表里没有这个模型。",
+    modelListUnavailable: "无法获取模型列表，请确认服务器地址。",
     tabSearch: "搜索",
     tabDiscover: "发掘",
     discoverCurrentNote: "当前笔记",

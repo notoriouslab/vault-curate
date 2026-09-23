@@ -749,21 +749,29 @@ export class VaultSearchSettingTab extends PluginSettingTab {
         const llmModels = (needsLLMFetch && llmSeparate)
             ? await fetchOllamaModels(llmResolved, this.plugin.settings.apiFormat)
             : mainModels;
-        if (mainModels.length === 0 && llmModels.length === 0) return;
-
+        // 031: an empty list is itself a finding — the dropdown must say the
+        // server could not be reached instead of sitting on "Loading...".
         const dropdowns = this.containerEl.querySelectorAll("select[data-model-dropdown]");
         dropdowns.forEach((selectEl) => {
             const select = selectEl as HTMLSelectElement;
             const currentValue = select.value;
             const filterType = select.dataset.modelDropdown;
+            const isLlm = filterType === "llm";
+            const models = isLlm ? llmModels : mainModels;
+            const item = select.closest(".setting-item");
+            const hintHost = item?.querySelector(".setting-item-description") as HTMLElement | null;
+            item?.querySelector(".vault-curate-model-hint")?.remove();
 
-            const models = filterType === "llm" ? llmModels : mainModels;
-            if (models.length === 0) return;
+            if (models.length === 0) {
+                const placeholder = select.querySelector('option[value=""]');
+                if (placeholder) placeholder.textContent = t.modelListUnavailable;
+                select.value = currentValue;
+                return;
+            }
 
             // 031: list every model the server reports, grouped by kind, with
             // this dropdown's kind first. Filtering by kind used to hide
             // embedding models the name heuristic did not recognise.
-            const isLlm = filterType === "llm";
             const { missing } = fillModelSelect(
                 select,
                 models,
@@ -776,7 +784,18 @@ export class VaultSearchSettingTab extends PluginSettingTab {
                     notInstalled: t.modelNotInstalled,
                 },
             );
-            void missing;
+
+            if (missing && hintHost) {
+                // Each dropdown speaks its own path's protocol (024); only
+                // Ollama has a `pull` command to point at.
+                const protocol = isLlm ? this.plugin.settings.apiFormat : embFormat;
+                hintHost.createDiv({
+                    cls: "vault-curate-note vault-curate-model-hint",
+                    text: protocol === "ollama"
+                        ? t.modelNotInstalledHintOllama(currentValue)
+                        : t.modelNotListedHint,
+                });
+            }
         });
     }
 }
