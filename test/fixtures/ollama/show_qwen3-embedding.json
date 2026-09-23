@@ -1,0 +1,21 @@
+{
+  "capabilities": [
+    "tools",
+    "thinking",
+    "embedding"
+  ],
+  "details": {
+    "parent_model": "",
+    "format": "gguf",
+    "family": "qwen3",
+    "families": [
+      "qwen3"
+    ],
+    "parameter_size": "595.78M",
+    "quantization_level": "Q8_0"
+  },
+  "model_info": {
+    "general.architecture": "qwen3",
+    "qwen3.pooling_type": 3
+  }
+}

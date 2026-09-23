@@ -1,0 +1,19 @@
+{
+  "capabilities": [
+    "embedding"
+  ],
+  "details": {
+    "parent_model": "",
+    "format": "gguf",
+    "family": "bert",
+    "families": [
+      "bert"
+    ],
+    "parameter_size": "566.70M",
+    "quantization_level": "F16"
+  },
+  "model_info": {
+    "bert.pooling_type": 2,
+    "general.architecture": "bert"
+  }
+}

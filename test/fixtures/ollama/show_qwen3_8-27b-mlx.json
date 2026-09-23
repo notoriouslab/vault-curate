@@ -1,0 +1,19 @@
+{
+  "capabilities": [
+    "completion",
+    "vision",
+    "tools",
+    "thinking"
+  ],
+  "details": {
+    "parent_model": "",
+    "format": "safetensors",
+    "family": "qwen3_5",
+    "families": null,
+    "parameter_size": "27.8B",
+    "quantization_level": "nvfp4"
+  },
+  "model_info": {
+    "general.architecture": "qwen3_5"
+  }
+}
