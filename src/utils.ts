@@ -409,14 +409,14 @@ export function renderResultItem(
  *  nodes only (createEl with `text`), never HTML, so note content cannot
  *  inject markup. */
 export function renderSnippet(parent: HTMLElement, snippet: import("./types").SearchSnippet): void {
-    const el = parent.createEl("div", { cls: "vault-curate-desc vault-curate-snippet" });
+    const el = parent.createDiv({ cls: "vault-curate-desc vault-curate-snippet" });
     let pos = 0;
     for (const [a, b] of snippet.ranges) {
-        if (a > pos) el.createEl("span", { text: snippet.text.slice(pos, a) });
+        if (a > pos) el.createSpan({ text: snippet.text.slice(pos, a) });
         el.createEl("mark", { text: snippet.text.slice(a, b) });
         pos = b;
     }
-    if (pos < snippet.text.length) el.createEl("span", { text: snippet.text.slice(pos) });
+    if (pos < snippet.text.length) el.createSpan({ text: snippet.text.slice(pos) });
 }
 
 /** Format a Date as `YYYY-MM-DD HH:MM+TZ:TZ` with the local timezone offset. */

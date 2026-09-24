@@ -11,8 +11,12 @@ type ElInfo = {
     attr?: Record<string, string | number | boolean | null>;
 };
 
+type CreateFn = (o?: ElInfo | string, cb?: (el: HTMLElement) => void) => HTMLElement;
+
 const proto = Node.prototype as unknown as {
     createEl?: (tag: string, o?: ElInfo | string, cb?: (el: HTMLElement) => void) => HTMLElement;
+    createDiv?: CreateFn;
+    createSpan?: CreateFn;
 };
 
 if (typeof proto.createEl !== "function") {
@@ -31,5 +35,17 @@ if (typeof proto.createEl !== "function") {
         this.appendChild(el);
         cb?.(el);
         return el;
+    };
+}
+
+if (typeof proto.createDiv !== "function") {
+    proto.createDiv = function (this: Node, o?: ElInfo | string, cb?: (el: HTMLElement) => void) {
+        return proto.createEl!.call(this, "div", o, cb);
+    };
+}
+
+if (typeof proto.createSpan !== "function") {
+    proto.createSpan = function (this: Node, o?: ElInfo | string, cb?: (el: HTMLElement) => void) {
+        return proto.createEl!.call(this, "span", o, cb);
     };
 }
