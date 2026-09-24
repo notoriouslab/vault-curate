@@ -17,7 +17,7 @@ export async function openAtSnippet(
     let line: number | null = null;
     if (snippet?.anchor) {
         try {
-            line = locateAnchor(await app.vault.cachedRead(file), snippet.anchor, snippet.chunkIndex, snippet.chunkCount);
+            line = locateAnchor(await app.vault.cachedRead(file), snippet.anchor, snippet.chunkIndex, snippet.chunkCount, snippet.anchorRatio);
         } catch (err) {
             // Unreadable right now: still open the note, just at the top.
             console.warn("vault-curate: could not read note to locate snippet", err);

@@ -130,9 +130,49 @@ describe('buildSnippet', () => {
     });
 
     it('(n) anchors a BM25 snippet at the hit so a jump lands on that line', () => {
-        const content = '前面有很長的一段鋪陳文字。中間這裡寫到頭燈與雨衣。';
+        const content = '前面有很長的一段鋪陳文字。中間這裡寫到頭燈與雨衣。' + '後面還有很多描述裝備細節的內容'.repeat(4);
         const s = buildSnippet({ ...base, queryTokens: tokenizeForBM25('頭燈'), bm25Rank: 1, bm25Real: { chunkIndex: 0, content } })!;
         expect(s.anchor!.startsWith('頭燈')).toBe(true);
         expect(content.includes(s.anchor!)).toBe(true);
+        expect(s.anchorRatio).toBeCloseTo(content.indexOf('頭燈') / content.length, 5);
+    });
+
+    it('(o) reaches back for a full-length anchor when the hit is near the chunk end', () => {
+        const content = '字'.repeat(100) + '結尾提到頭燈';
+        const s = buildSnippet({ ...base, queryTokens: tokenizeForBM25('頭燈'), bm25Rank: 1, bm25Real: { chunkIndex: 0, content } })!;
+        expect([...s.anchor!].length).toBe(40);
+        expect(s.anchor!.endsWith('結尾提到頭燈')).toBe(true);
+    });
+
+    it('(p) does not treat half a word at the window edge as a whole word', () => {
+        // The window opens 20 code points before the hit: here that is the "a"
+        // of "xai", so the cropped text starts with "ai…".
+        const content = '中'.repeat(50) + 'xai' + '中'.repeat(17) + ' AI ' + '中'.repeat(100);
+        const s = buildSnippet({ ...base, queryTokens: ['ai'], bm25Rank: 1, bm25Real: { chunkIndex: 0, content } })!;
+        expect(s.text.startsWith('ai')).toBe(true);
+        expect(hl(s)).toEqual(['AI']);
+    });
+
+    it('(q) gives no snippet for a chunk with no body, so the row keeps its preview', () => {
+        expect(buildSnippet({ ...base, queryTokens: tokenizeForBM25('登山'), bm25Rank: 1, bm25Real: { chunkIndex: 0, content: '   \n ' } })).toBeNull();
+        const s = buildSnippet({
+            ...base, queryTokens: tokenizeForBM25('登山'), bm25Rank: 1, semanticRank: 2,
+            bm25Real: { chunkIndex: 0, content: '' }, semantic: { chunkIndex: 1, content: '另一段有內容' },
+        })!;
+        expect(s.source).toBe('semantic');
+    });
+
+    it('(r) ignores single-character tokens when a longer token matched', () => {
+        const content = '我用了很多工具，用過就忘，最後才學會用AI做筆記的方法';
+        const s = buildSnippet({ ...base, queryTokens: tokenizeForBM25('用AI做筆記'), bm25Rank: 1, bm25Real: { chunkIndex: 0, content } })!;
+        // Adjacent hits merge; the lone 用 hits earlier in the text are ignored.
+        expect(hl(s)).toEqual(['AI做筆記']);
+        expect(s.anchor).toContain('AI');
+    });
+
+    it('(s) keeps a BM25 hit near the start of the text (rows show three lines)', () => {
+        const content = '字'.repeat(300) + '目標詞' + '字'.repeat(300);
+        const s = buildSnippet({ ...base, queryTokens: tokenizeForBM25('目標詞'), bm25Rank: 1, bm25Real: { chunkIndex: 0, content } })!;
+        expect(s.text.indexOf('目標詞')).toBe(20);
     });
 });

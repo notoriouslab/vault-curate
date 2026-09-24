@@ -151,4 +151,8 @@ describe('stripChunkPrefix', () => {
     it('11e. strips a raw multi-line title written by the char splitter', () => {
         expect(stripChunkPrefix('a\nb\n本文', 'a\nb')).toBe('本文');
     });
+
+    it('11f. reduces the title-only chunk of an empty note to nothing', () => {
+        expect(stripChunkPrefix('短標題', '短標題')).toBe('');
+    });
 });

@@ -20,6 +20,9 @@ import { normalizeForSearch } from '../storage/bm25';
 export const SNIPPET_WINDOW = 120;
 /** Anchor length for jumping, in code points. */
 export const ANCHOR_CHARS = 40;
+/** Code points kept before a BM25 hit, so the hit sits in the first line or
+ *  two of a row that is clamped to three lines. */
+const LEAD_CHARS = 20;
 
 export interface LegHit {
     chunkIndex: number;
@@ -56,16 +59,17 @@ export function buildSnippet(input: SnippetInput): SearchSnippet | null {
     if (bm25 === 0 && semantic === 0) return null; // title-only match
 
     const fromBm25 = (): SearchSnippet | null => {
-        if (input.bm25Real) {
-            return fromContent(input.bm25Real.content, input.queryTokens, true, {
+        const real = input.bm25Real
+            ? fromContent(input.bm25Real.content, input.queryTokens, true, {
                 source: 'bm25', chunkIndex: input.bm25Real.chunkIndex, chunkCount: input.chunkCount,
-            });
-        }
+            })
+            : null;
+        if (real) return real;
         if (input.bm25Desc) {
             const s = fromContent(input.bm25Desc.content, input.queryTokens, true, {
                 source: 'description', chunkIndex: null, chunkCount: null,
             });
-            return { ...s, anchor: null };
+            return s && { ...s, anchor: null, anchorRatio: null };
         }
         return null;
     };
@@ -79,24 +83,65 @@ export function buildSnippet(input: SnippetInput): SearchSnippet | null {
     return bm25 >= semantic ? (fromBm25() ?? fromSemantic()) : (fromSemantic() ?? fromBm25());
 }
 
+/** A single-character CJK token matches almost anywhere; it only counts
+ *  when no longer token (or ASCII word) matched. */
+const isStrong = (t: string) => ASCII_TOKEN.test(t) || [...t].length >= 2;
+
 function fromContent(
     content: string,
     tokens: string[],
     centerOnHit: boolean,
     meta: Pick<SearchSnippet, 'source' | 'chunkIndex' | 'chunkCount'>,
-): SearchSnippet {
-    const hits = findHits(content, tokens);
+): SearchSnippet | null {
+    // Nothing to show (a title-only chunk after the prefix is stripped): let
+    // the row fall back to its usual preview instead of an empty snippet.
+    if (content.trim() === '') return null;
+
+    // Match once over the whole content, so whole-word checks see the real
+    // neighbours even at the window's edge.
+    const strong = findHits(content, tokens.filter(isStrong));
+    const hits = strong.length > 0 ? strong : findHits(content, tokens);
+    const offsets = cpOffsets(content);
     const hitStart = centerOnHit && hits.length > 0 ? hits[0][0] : null;
-    const [ws, we] = windowAround(content, hitStart);
-    const windowText = content.slice(ws, we);
-    const folded = foldWhitespace(windowText, findHits(windowText, tokens));
+    const [ws, we] = windowAround(offsets, hitStart);
+    const inWindow = hits
+        .filter(([a, b]) => b > ws && a < we)
+        .map(([a, b]) => [Math.max(a, ws) - ws, Math.min(b, we) - ws] as [number, number]);
+    const folded = foldWhitespace(content.slice(ws, we), inWindow);
+
+    // The anchor starts at the hit so a jump lands on its line; near the end
+    // of the chunk it reaches back instead, since a few trailing characters
+    // alone would match too many other places.
+    let anchorCp = hitStart === null ? 0 : cpIndexAt(offsets, hitStart);
+    const n = offsets.length - 1;
+    if (n - anchorCp < ANCHOR_CHARS) anchorCp = Math.max(0, n - ANCHOR_CHARS);
+    const anchorStart = offsets[anchorCp];
     return {
         ...meta,
         text: folded.text,
         ranges: folded.ranges,
-        // Start the anchor at the hit so a jump lands on its line.
-        anchor: takeCodePoints(content.slice(hitStart ?? 0), ANCHOR_CHARS),
+        anchor: content.slice(anchorStart, offsets[Math.min(n, anchorCp + ANCHOR_CHARS)]),
+        anchorRatio: anchorStart / content.length,
     };
+}
+
+/** UTF-16 offset of each code point, plus content.length at the end. */
+function cpOffsets(text: string): number[] {
+    const offsets: number[] = [];
+    let i = 0;
+    for (const ch of text) {
+        offsets.push(i);
+        i += ch.length;
+    }
+    offsets.push(text.length);
+    return offsets;
+}
+
+/** Index of the code point containing UTF-16 offset `pos`. */
+function cpIndexAt(offsets: number[], pos: number): number {
+    let c = 0;
+    while (c < offsets.length - 2 && offsets[c + 1] <= pos) c++;
+    return c;
 }
 
 /** Every whole-token match in `text`, as merged UTF-16 ranges of `text`. */
@@ -141,23 +186,11 @@ function mergeRanges(ranges: Array<[number, number]>): Array<[number, number]> {
     return out;
 }
 
-/** A SNIPPET_WINDOW-code-point window of `text` (UTF-16 [start, end)),
- *  centred on `center` when given, else starting at the head. */
-function windowAround(text: string, center: number | null): [number, number] {
-    const offsets: number[] = [];
-    let i = 0;
-    for (const ch of text) {
-        offsets.push(i);
-        i += ch.length;
-    }
-    offsets.push(text.length);
+/** A SNIPPET_WINDOW-code-point window (UTF-16 [start, end)) that opens
+ *  LEAD_CHARS before `hit` when given, else at the head. */
+function windowAround(offsets: number[], hit: number | null): [number, number] {
     const n = offsets.length - 1;
-    let startCp = 0;
-    if (center !== null) {
-        let c = 0;
-        while (c < n && offsets[c + 1] <= center) c++;
-        startCp = Math.max(0, Math.min(c - Math.floor(SNIPPET_WINDOW / 2), n - SNIPPET_WINDOW));
-    }
+    const startCp = hit === null ? 0 : Math.max(0, Math.min(cpIndexAt(offsets, hit) - LEAD_CHARS, n - SNIPPET_WINDOW));
     const endCp = Math.min(n, startCp + SNIPPET_WINDOW);
     return [offsets[startCp], offsets[endCp]];
 }
@@ -182,14 +215,4 @@ function foldWhitespace(s: string, ranges: Array<[number, number]>): { text: str
     }
     map[s.length] = out.length;
     return { text: out, ranges: ranges.map(([a, b]) => [map[a], map[b]] as [number, number]) };
-}
-
-function takeCodePoints(s: string, n: number): string {
-    let out = '';
-    let count = 0;
-    for (const ch of s) {
-        if (count++ >= n) break;
-        out += ch;
-    }
-    return out;
 }

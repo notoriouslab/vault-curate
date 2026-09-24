@@ -140,6 +140,8 @@ export interface SearchSnippet {
     chunkIndex: number | null;
     /** Chunks in the note, to estimate where chunkIndex sits; null for descriptions. */
     chunkCount: number | null;
+    /** Where the anchor starts within its chunk (0..1); null for descriptions. */
+    anchorRatio: number | null;
 }
 
 // ============================================================

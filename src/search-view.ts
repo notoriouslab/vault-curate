@@ -279,6 +279,7 @@ export class SearchView extends ItemView {
     }
 
     private scheduleSearch(query: string) {
+        this.syncScopeButtons();
         if (this.debounceTimer) window.clearTimeout(this.debounceTimer);
         if (!query || query.length < 2) {
             this.searchResultsEl.empty();

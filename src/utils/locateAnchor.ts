@@ -6,13 +6,15 @@
  *
  * The frontmatter is skipped (descriptions often repeat the first sentence),
  * and when the anchor occurs more than once the occurrence closest to where
- * the chunk should sit (chunkIndex / chunkCount of the body) wins.
+ * it should sit (its chunk's share of the body, plus its position within
+ * that chunk) wins.
  */
 export function locateAnchor(
     content: string,
     anchor: string,
     chunkIndex: number | null,
     chunkCount: number | null,
+    anchorRatio: number | null = 0,
 ): number | null {
     if (!anchor) return null;
     const bodyStart = frontmatterEnd(content);
@@ -24,7 +26,8 @@ export function locateAnchor(
 
     let pos = hits[0];
     if (hits.length > 1 && chunkIndex !== null && chunkCount) {
-        const estimate = bodyStart + chunkIndex * ((content.length - bodyStart) / chunkCount);
+        // Chunk start plus the anchor's position inside that chunk.
+        const estimate = bodyStart + (chunkIndex + (anchorRatio ?? 0)) * ((content.length - bodyStart) / chunkCount);
         for (const h of hits) {
             if (Math.abs(h - estimate) < Math.abs(pos - estimate)) pos = h;
         }

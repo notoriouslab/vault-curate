@@ -60,7 +60,10 @@ export function stripChunkPrefix(content: string, title: string): string {
         title ? `${title}\n` : "",
     ];
     for (const p of candidates) {
-        if (p && content.startsWith(p)) return content.slice(p.length);
+        if (!p) continue;
+        if (content.startsWith(p)) return content.slice(p.length);
+        // A note with an empty body stores just the title (no trailing "\n").
+        if (content === p.slice(0, -1)) return "";
     }
     return content;
 }

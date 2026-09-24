@@ -62,7 +62,7 @@ describe('searchHybrid with snippets (034 D3)', () => {
         expect(deep.snippet?.chunkIndex).toBe(1);
         expect(deep.snippet?.chunkCount).toBe(2);
         expect(deep.snippet?.text).toContain('頭燈');
-        expect(deep.snippet?.anchor?.startsWith('頭燈')).toBe(true);
+        expect(deep.snippet?.anchor).toContain('頭燈');
     });
 
     it('falls back to the description when only it matched the keywords', async () => {

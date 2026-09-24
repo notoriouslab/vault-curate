@@ -34,6 +34,12 @@ export class SearchModal extends SuggestModal<SearchResult> {
             this.selectActiveSuggestion(evt);
             return false;
         });
+        // The chooser only binds plain Enter, so the "ctrl/⌘ ↵ new tab" hint
+        // above needs its own binding (Obsidian's own modals do the same).
+        this.scope.register(["Mod"], "Enter", (evt) => {
+            this.selectActiveSuggestion(evt);
+            return false;
+        });
     }
 
     getSuggestions(query: string): SearchResult[] {
@@ -55,8 +61,9 @@ export class SearchModal extends SuggestModal<SearchResult> {
 
     onChooseSuggestion(result: SearchResult, evt: MouseEvent | KeyboardEvent) {
         const file = this.app.vault.getAbstractFileByPath(result.path);
-        // Alt+Enter, or Alt+click (same intent), inserts a link.
-        if (evt.altKey && file instanceof TFile) {
+        // Alt+Enter, or Alt+click (same intent), inserts a link. With Cmd/Ctrl
+        // held too it stays Obsidian's "open in split".
+        if (evt.altKey && !evt.metaKey && !evt.ctrlKey && file instanceof TFile) {
             if (!insertLinkAtCursor(this.app, file, this.sourceView)) new Notice(t.noticeInsertLinkNoEditor);
             return;
         }

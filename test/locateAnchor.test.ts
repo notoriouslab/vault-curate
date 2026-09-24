@@ -15,6 +15,15 @@ describe('locateAnchor', () => {
         expect(locateAnchor(content, '重複句', 0, 2)).toBe(0);
     });
 
+    it('uses the anchor position within its chunk to pick between copies', () => {
+        const filler = '字'.repeat(200);
+        // Two copies inside chunk 0 of 1: the one near the chunk end wins when
+        // the anchor sat at the end of its chunk.
+        const content = `重複句\n${filler}\n${filler}\n重複句`;
+        expect(locateAnchor(content, '重複句', 0, 1, 0.99)).toBe(3);
+        expect(locateAnchor(content, '重複句', 0, 1, 0)).toBe(0);
+    });
+
     it('returns null when the anchor is gone (edited since indexing)', () => {
         expect(locateAnchor('完全不同的內容', '目標句', 0, 1)).toBeNull();
     });

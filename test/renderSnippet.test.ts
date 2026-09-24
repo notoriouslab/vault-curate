@@ -3,7 +3,7 @@ import { renderSnippet } from '../src/utils';
 import type { SearchSnippet } from '../src/types';
 
 const snippet = (text: string, ranges: Array<[number, number]>): SearchSnippet => ({
-    text, ranges, source: 'bm25', anchor: text, chunkIndex: 0, chunkCount: 1,
+    text, ranges, source: 'bm25', anchor: text, chunkIndex: 0, chunkCount: 1, anchorRatio: 0,
 });
 
 describe('renderSnippet', () => {
