@@ -17,6 +17,8 @@
  * Migration / re-index logic can detect model changes (Phase 9 Task 9.2).
  */
 
+import type { Chunk } from '../indexer/chunker';
+
 export type ProviderType = 'wasm' | 'ollama' | 'openai-compatible';
 
 export type ProgressCallback = (loaded: number, total: number, phase?: string) => void;
@@ -41,6 +43,14 @@ export interface EmbeddingProvider {
 
     /** Embed N texts. Returns N Float32Array, each of length `dimension`. */
     embed(texts: string[]): Promise<Float32Array[]>;
+
+    /** 034 D1: how this provider wants notes chunked. Present only when it
+     *  differs from the char-based splitter (see effectiveChunkPolicy). */
+    readonly chunkPolicy?: string;
+
+    /** 034 D1: provider-side chunking sized to the model's input limit.
+     *  Absent → the indexer falls back to the char-based splitChunks. */
+    splitForEmbed?(body: string, title: string): Promise<Chunk[]>;
 
     /** Release resources (worker termination, model unload). After dispose,
      *  the provider MUST NOT be reused; create a new instance instead. */

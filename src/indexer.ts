@@ -687,10 +687,14 @@ export class Indexer {
             const description = this.extractDescription(file);
             const tier = this.computeTier(file, incomingSet);
 
-            const chunks = splitChunks(body, title, {
-                chunkSize: this.plugin.settings.chunkSize,
-                chunkOverlap: this.plugin.settings.chunkOverlap,
-            });
+            // 034 D1: providers with an input-token limit (the built-in model)
+            // size chunks themselves; the rest keep the char-based splitter.
+            const chunks = this.provider.splitForEmbed
+                ? await this.provider.splitForEmbed(body, title)
+                : splitChunks(body, title, {
+                    chunkSize: this.plugin.settings.chunkSize,
+                    chunkOverlap: this.plugin.settings.chunkOverlap,
+                });
             console.debug(`vault-curate: indexing ${file.path} — ${chunks.length} chunks (${body.length} chars)`);
 
             // Embed in mini-batches so very long notes don't blow request size.

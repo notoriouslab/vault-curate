@@ -14,12 +14,22 @@
  *   - Main posts `{type:'embed', id, texts}`.
  *   - Worker replies `{type:'result', id, vectors}` (vectors are Float32Array[]).
  *
+ * Split protocol (034 D1):
+ *   - Main posts `{type:'split', id, body, title}`.
+ *   - Worker replies `{type:'split-result', id, chunks}`, sizing each chunk
+ *     with the loaded model's tokenizer so none exceeds its input window.
+ *
  * Dispose:
  *   - Main can post `{type:'dispose'}` to release the model.
  *
  * Workarounds for Electron — see esbuild.config.mjs banner (process.release.name
  * patch must run BEFORE this file's first import of @huggingface/transformers).
  */
+
+import { splitChunksByTokens } from '../indexer/tokenChunker';
+import { denoiseForEmbed } from '../indexer/denoise';
+import { t2sForEmbed } from '../indexer/preproc';
+import { errorReply } from './workerReply';
 
 // `self` typing avoided to keep tsconfig out of WebWorker lib (which conflicts
 // with the DOM lib used by the main bundle).
@@ -43,13 +53,17 @@ type InitMsg = {
     ortWasmBinary?: ArrayBuffer;
 };
 type EmbedMsg = { type: 'embed'; id: number; texts: string[] };
+type SplitMsg = { type: 'split'; id: number; body: string; title: string };
 type DisposeMsg = { type: 'dispose' };
-type IncomingMsg = InitMsg | EmbedMsg | DisposeMsg;
+type IncomingMsg = InitMsg | EmbedMsg | SplitMsg | DisposeMsg;
 
-type Extractor = (
+// The feature-extraction pipeline is callable and also carries its tokenizer.
+type Extractor = ((
     text: string | string[],
     options: { pooling: 'mean'; normalize: boolean },
-) => Promise<{ data: Float32Array; dims: number[] }>;
+) => Promise<{ data: Float32Array; dims: number[] }>) & {
+    tokenizer: { encode(s: string): number[]; model_max_length: number };
+};
 
 let extractor: Extractor | null = null;
 let modelDimension: number | null = null;
@@ -67,6 +81,8 @@ ctx.onmessage = (event: MessageEvent<IncomingMsg>) => {
                 await handleInit(msg);
             } else if (msg.type === 'embed') {
                 await handleEmbed(msg);
+            } else if (msg.type === 'split') {
+                handleSplit(msg);
             } else if (msg.type === 'dispose') {
                 extractor = null;
                 modelDimension = null;
@@ -74,11 +90,7 @@ ctx.onmessage = (event: MessageEvent<IncomingMsg>) => {
         } catch (err) {
             const m = err instanceof Error ? err.message : String(err);
             const stack = err instanceof Error ? err.stack : undefined;
-            if (msg.type === 'embed') {
-                ctx.postMessage({ type: 'result', id: msg.id, vectors: null, error: m });
-            } else {
-                ctx.postMessage({ type: 'init-error', message: m, stack });
-            }
+            ctx.postMessage(errorReply(msg, m, stack));
         }
     })();
 };
@@ -208,6 +220,23 @@ async function handleEmbed(msg: EmbedMsg): Promise<void> {
     // Transfer the underlying buffers to avoid a structured-clone copy.
     const transfers = vectors.map((v) => v.buffer);
     ctx.postMessage({ type: 'result', id: msg.id, vectors }, transfers);
+}
+
+function handleSplit(msg: SplitMsg): void {
+    if (!extractor) throw new Error('worker not initialised (call init first)');
+    const tokenizer = extractor.tokenizer;
+    const mml = tokenizer.model_max_length;
+    const maxTokens = Number.isFinite(mml) && mml > 0 ? Math.min(512, mml) : 512;
+    // Count the exact string the indexer will embed (indexer.ts embeds
+    // denoiseForEmbed(t2sForEmbed(content))), not the stored raw text.
+    const countTokens = (s: string) => tokenizer.encode(denoiseForEmbed(t2sForEmbed(s))).length;
+    const chunks = splitChunksByTokens(msg.body, msg.title, countTokens, {
+        maxTokens,
+        overlapChars: 50,
+        maxWindowChars: 2000,
+        maxTitleChars: 64,
+    });
+    ctx.postMessage({ type: 'split-result', id: msg.id, chunks });
 }
 
 export {};

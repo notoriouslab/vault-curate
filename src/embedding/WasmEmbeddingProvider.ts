@@ -11,6 +11,8 @@ import type {
     ProgressCallback,
     ProviderType,
 } from './EmbeddingProvider';
+import type { Chunk } from '../indexer/chunker';
+import { TOKEN_CHUNK_POLICY } from '../indexer/tokenChunker';
 
 export type WasmProviderConfig = {
     modelId: string;     // e.g. 'Xenova/bge-base-zh'
@@ -22,10 +24,17 @@ type PendingEmbed = {
     reject: (err: Error) => void;
 };
 
+type PendingSplit = {
+    resolve: (chunks: Chunk[]) => void;
+    reject: (err: Error) => void;
+};
+
 const EMBED_TIMEOUT_MS = 180_000;
 
 export class WasmEmbeddingProvider implements EmbeddingProvider {
     readonly providerType: ProviderType = 'wasm';
+    /** 034 D1: chunks are sized in the worker by the model's own tokenizer. */
+    readonly chunkPolicy = TOKEN_CHUNK_POLICY;
     readonly displayName: string;
 
     private worker: Worker | null = null;
@@ -37,6 +46,7 @@ export class WasmEmbeddingProvider implements EmbeddingProvider {
     private onProgress?: ProgressCallback;
     private nextEmbedId = 1;
     private readonly pending = new Map<number, PendingEmbed>();
+    private readonly pendingSplit = new Map<number, PendingSplit>();
     private warmedUp = false;
 
     constructor(
@@ -105,6 +115,33 @@ export class WasmEmbeddingProvider implements EmbeddingProvider {
         });
     }
 
+    /** 034 D1: split a note in the worker, where the tokenizer lives. Shares
+     *  the embed id sequence and timeout; a failure rejects only this call
+     *  (the worker answers `split-result` with an error, never `init-error`). */
+    async splitForEmbed(body: string, title: string): Promise<Chunk[]> {
+        if (!this.warmedUp || !this.worker) {
+            throw new Error('WasmEmbeddingProvider not warmed up. Call warmup() first.');
+        }
+        const id = this.nextEmbedId++;
+        return new Promise<Chunk[]>((resolve, reject) => {
+            const timer = window.setTimeout(() => {
+                this.pendingSplit.delete(id);
+                reject(new Error(`WASM split timeout (${EMBED_TIMEOUT_MS / 1000}s)`));
+            }, EMBED_TIMEOUT_MS);
+            this.pendingSplit.set(id, {
+                resolve: (chunks) => {
+                    window.clearTimeout(timer);
+                    resolve(chunks);
+                },
+                reject: (err) => {
+                    window.clearTimeout(timer);
+                    reject(err);
+                },
+            });
+            this.worker!.postMessage({ type: 'split', id, body, title });
+        });
+    }
+
     dispose(): void {
         if (this.worker) {
             try {
@@ -125,6 +162,10 @@ export class WasmEmbeddingProvider implements EmbeddingProvider {
             p.reject(new Error('Provider disposed'));
         }
         this.pending.clear();
+        for (const p of this.pendingSplit.values()) {
+            p.reject(new Error('Provider disposed'));
+        }
+        this.pendingSplit.clear();
         this.initPromise = null;
         this.initResolve = null;
         this.initReject = null;
@@ -162,6 +203,7 @@ export class WasmEmbeddingProvider implements EmbeddingProvider {
             | { type: 'init-error'; message: string; stack?: string }
             | { type: 'progress'; loaded: number; total: number; phase?: string }
             | { type: 'result'; id: number; vectors: Float32Array[] | null; error?: string }
+            | { type: 'split-result'; id: number; chunks: Chunk[] | null; error?: string }
             | { type: 'log'; message: string };
         if (m.type === 'log') {
             console.warn(m.message);
@@ -183,6 +225,15 @@ export class WasmEmbeddingProvider implements EmbeddingProvider {
                 p.reject(new Error(m.error ?? 'embed failed'));
             } else {
                 p.resolve(m.vectors);
+            }
+        } else if (m.type === 'split-result') {
+            const p = this.pendingSplit.get(m.id);
+            if (!p) return;
+            this.pendingSplit.delete(m.id);
+            if (m.error || !m.chunks) {
+                p.reject(new Error(m.error ?? 'split failed'));
+            } else {
+                p.resolve(m.chunks);
             }
         }
     }
