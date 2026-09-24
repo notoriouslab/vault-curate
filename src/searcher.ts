@@ -1,8 +1,9 @@
-import { Keymap, Platform, SuggestModal, TFile } from "obsidian";
+import { Keymap, MarkdownView, Notice, Platform, SuggestModal, TFile } from "obsidian";
 import type VaultSearchPlugin from "./main";
 import { SearchResult } from "./types";
 import { renderResultItem } from "./utils";
 import { openAtSnippet } from "./utils/openAtSnippet";
+import { insertLinkAtCursor } from "./ui/insertLink";
 import { t } from "./i18n";
 import { searchHybrid } from "./search/searchHybrid";
 
@@ -11,17 +12,28 @@ export class SearchModal extends SuggestModal<SearchResult> {
     private lastResults: SearchResult[] = [];
     private lastQuery = "";
     private debounceTimer: number | null = null;
+    /** 034 D6: the editor that was active when the modal opened (focus moves
+     *  to the modal, so it has to be captured up front). */
+    private readonly sourceView: MarkdownView | null;
 
     constructor(app: typeof SuggestModal.prototype.app, plugin: VaultSearchPlugin) {
         super(app);
         this.plugin = plugin;
         this.setPlaceholder(t.searchPlaceholder);
+        this.sourceView = app.workspace.getActiveViewOfType(MarkdownView);
         this.setInstructions([
             { command: "↑↓", purpose: t.instructNav },
             { command: "↵", purpose: t.instructOpen },
             { command: "ctrl/⌘ ↵", purpose: t.instructOpenTab },
+            { command: "alt ↵", purpose: t.instructInsertLink },
             { command: "esc", purpose: t.instructDismiss },
         ]);
+        // 034 D6: Alt+Enter inserts a link instead of opening (Omnisearch's
+        // binding); onChooseSuggestion sees evt.altKey and branches.
+        this.scope.register(["Alt"], "Enter", (evt) => {
+            this.selectActiveSuggestion(evt);
+            return false;
+        });
     }
 
     getSuggestions(query: string): SearchResult[] {
@@ -43,6 +55,11 @@ export class SearchModal extends SuggestModal<SearchResult> {
 
     onChooseSuggestion(result: SearchResult, evt: MouseEvent | KeyboardEvent) {
         const file = this.app.vault.getAbstractFileByPath(result.path);
+        // Alt+Enter, or Alt+click (same intent), inserts a link.
+        if (evt.altKey && file instanceof TFile) {
+            if (!insertLinkAtCursor(this.app, file, this.sourceView)) new Notice(t.noticeInsertLinkNoEditor);
+            return;
+        }
         if (file instanceof TFile) {
             // 034 D4: open at the matched passage.
             void openAtSnippet(this.app, file, result.snippet, Keymap.isModEvent(evt));

@@ -35,6 +35,9 @@ export interface VaultSearchSettings {
     sameFolderCap: number;
     hotDays: number;
     searchScope: "hot" | "all" | "cold";
+    /** 034 D5: the one-time "search now includes Cold notes" notice has been
+     *  evaluated (shown to Hot users, skipped for everyone else). Hidden. */
+    scopeNoticeShown: boolean;
     excludePatterns: string[];
     autoIndex: boolean;
     synonyms: Record<string, string[]>;
@@ -86,7 +89,10 @@ export const DEFAULT_SETTINGS: VaultSearchSettings = {
     minDescChars: 10,
     sameFolderCap: 3,
     hotDays: 90,
-    searchScope: "hot",
+    // 034 D5: Cold (forgotten) notes are the point of this plugin — search
+    // them by default. Existing users keep their saved value (see scopeNotice).
+    searchScope: "all",
+    scopeNoticeShown: false,
     excludePatterns: ["_templates/", "templates/", ".trash/", "3_wiki/"],
     autoIndex: true,
     synonyms: {},

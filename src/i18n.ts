@@ -285,6 +285,11 @@ export interface Locale {
     instructOpen: string;
     instructOpenTab: string;
     instructDismiss: string;
+    /** 034 D6 */
+    instructInsertLink: string;
+    noticeInsertLinkNoEditor: string;
+    /** 034 D5 */
+    noticeScopeDefaultChanged: string;
     // MOC 2.0
     languageLabel: string;  // e.g. "English" / "繁體中文", embedded in LLM prompts
     cmdGenerateMocGrouped: string;
@@ -587,6 +592,9 @@ const en: Locale = {
     instructOpen: "open note",
     instructOpenTab: "open in new tab",
     instructDismiss: "dismiss",
+    instructInsertLink: "insert link at cursor",
+    noticeInsertLinkNoEditor: "Vault Curate: Open a note in the editor first to insert a link.",
+    noticeScopeDefaultChanged: "Vault Curate: Search now includes forgotten (Cold) notes by default. Yours is still set to Hot only; switch it with the Hot / Cold / All buttons under the search box, or in Settings → Advanced.",
     languageLabel: "English",
     cmdGenerateMocGrouped: "Generate MOC (topic-grouped)",
     mocGroupedDescription: (query) => `Topic-grouped MOC from query: ${query}`,
@@ -909,6 +917,9 @@ const zhTW: Locale = {
     instructOpen: "開啟筆記",
     instructOpenTab: "新分頁開啟",
     instructDismiss: "關閉",
+    instructInsertLink: "在游標處插入連結",
+    noticeInsertLinkNoEditor: "Vault Curate：請先在編輯器開啟一篇筆記，才能插入連結。",
+    noticeScopeDefaultChanged: "Vault Curate：搜尋現在預設會包含很久沒碰的冷門（Cold）筆記。你的設定目前仍是只搜 Hot，可用搜尋框下方的 Hot／Cold／All 按鈕切換，或到「設定 → 進階」調整。",
     languageLabel: "繁體中文",
     cmdGenerateMocGrouped: "生成 MOC（主題分群）",
     mocGroupedDescription: (query) => `主題分群的 MOC，來自查詢：${query}`,
@@ -1234,6 +1245,9 @@ const zhCN: Locale = {
     instructOpen: "打开笔记",
     instructOpenTab: "在新标签页打开",
     instructDismiss: "关闭",
+    instructInsertLink: "在光标处插入链接",
+    noticeInsertLinkNoEditor: "Vault Curate：请先在编辑器中打开一篇笔记，才能插入链接。",
+    noticeScopeDefaultChanged: "Vault Curate：搜索现在默认会包含很久没碰的冷门（Cold）笔记。你的设置目前仍是只搜 Hot，可用搜索框下方的 Hot／Cold／All 按钮切换，或到「设置 → 高级」调整。",
     languageLabel: "简体中文",
     cmdGenerateMocGrouped: "生成 MOC（主题分组）",
     mocGroupedDescription: (query) => `主题分组的 MOC，来自查询：${query}`,

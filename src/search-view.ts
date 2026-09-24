@@ -45,6 +45,8 @@ export class SearchView extends ItemView {
 
     // Search state
     private inputEl!: HTMLInputElement;
+    /** 034 D5: Hot / Cold / All quick switch under the search box. */
+    private scopeBtns!: Record<"hot" | "cold" | "all", HTMLButtonElement>;
     private searchResultsEl!: HTMLDivElement;
     private searchStatusEl!: HTMLDivElement;
     private debounceTimer: number | null = null;
@@ -200,6 +202,28 @@ export class SearchView extends ItemView {
             this.scheduleSearch(this.inputEl.value);
         });
 
+        // 034 D5: writes the same searchScope setting the settings tab edits
+        // (one source of truth), then re-runs the current query.
+        const scopeBar = container.createDiv({ cls: "vault-curate-mode-toggle" });
+        const scopeBtn = (scope: "hot" | "cold" | "all", label: string) => {
+            const btn = scopeBar.createEl("button", { text: label, cls: "vault-curate-mode-btn" });
+            btn.addEventListener("click", () => {
+                void (async () => {
+                    this.plugin.settings.searchScope = scope;
+                    await this.plugin.saveSettings();
+                    this.syncScopeButtons();
+                    this.scheduleSearch(this.inputEl.value);
+                })();
+            });
+            return btn;
+        };
+        this.scopeBtns = {
+            hot: scopeBtn("hot", t.scopeHot),
+            cold: scopeBtn("cold", t.scopeCold),
+            all: scopeBtn("all", t.scopeAll),
+        };
+        this.syncScopeButtons();
+
         const searchActions = container.createDiv({ cls: "vault-curate-mode-toggle" });
         // 017: export current results as a canvas — the search tab's canvas
         // entry (desktop + mobile; tablets are the sweet spot).
@@ -265,8 +289,17 @@ export class SearchView extends ItemView {
         this.debounceTimer = window.setTimeout(() => { void this.executeSearch(query); }, 300);
     }
 
+    /** Reflect the saved scope (it can also change from the settings tab). */
+    private syncScopeButtons() {
+        const current = this.plugin.settings.searchScope;
+        for (const [scope, btn] of Object.entries(this.scopeBtns)) {
+            btn.toggleClass("is-active", scope === current);
+        }
+    }
+
     private async executeSearch(query: string) {
         this.currentQuery = query;
+        this.syncScopeButtons();
 
         // 015: mobile searches without a provider (BM25 + fuzzy); desktop
         // keeps requiring one so a broken provider stays loud, not silent.

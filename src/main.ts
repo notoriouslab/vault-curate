@@ -5,6 +5,7 @@ import { DENOISE_VERSION } from "./indexer/denoise";
 import { T2S_VERSION } from "./indexer/preproc";
 import { chunkUpgradeState, effectiveChunkPolicy } from "./indexer/chunkPolicy";
 import { needsStartupUpdate } from "./utils/startupUpdate";
+import { shouldShowScopeNotice } from "./utils/scopeNotice";
 import {
     createProvider,
     type EmbeddingProvider,
@@ -463,6 +464,13 @@ export default class VaultSearchPlugin extends Plugin {
         // If store init failed, surface a recovery notice rather than going
         // silent.
         this.app.workspace.onLayoutReady(() => {
+            // 034 D5: runs once per install, whether or not the index is up.
+            const scope = shouldShowScopeNotice(this.settings);
+            if (scope.show) new Notice(t.noticeScopeDefaultChanged, 15000);
+            if (scope.markShown) {
+                this.settings.scopeNoticeShown = true;
+                void this.saveSettings();
+            }
             if (!this.store) {
                 // 015: a null store is the mobile default (query-intent
                 // loading) — the sidebar renders gate state instead of a
