@@ -16,6 +16,21 @@ export function locateAnchor(
     chunkCount: number | null,
     anchorRatio: number | null = 0,
 ): number | null {
+    const pos = locateAnchorOffset(content, anchor, chunkIndex, chunkCount, anchorRatio);
+    if (pos === null) return null;
+    let line = 0;
+    for (let i = content.indexOf('\n'); i >= 0 && i < pos; i = content.indexOf('\n', i + 1)) line++;
+    return line;
+}
+
+/** Same search as locateAnchor, returning the UTF-16 offset in `content`. */
+export function locateAnchorOffset(
+    content: string,
+    anchor: string,
+    chunkIndex: number | null,
+    chunkCount: number | null,
+    anchorRatio: number | null = 0,
+): number | null {
     if (!anchor) return null;
     const bodyStart = frontmatterEnd(content);
     const hits: number[] = [];
@@ -32,9 +47,30 @@ export function locateAnchor(
             if (Math.abs(h - estimate) < Math.abs(pos - estimate)) pos = h;
         }
     }
-    let line = 0;
-    for (let i = content.indexOf('\n'); i >= 0 && i < pos; i = content.indexOf('\n', i + 1)) line++;
-    return line;
+    return pos;
+}
+
+/**
+ * The ephemeral state Obsidian's own search opens a match with:
+ * `{ content, matches: [[start, end]] }`, offsets into the file text. Both
+ * reading and editing views scroll a match to the centre and flash it
+ * (checked against Obsidian 1.13.7's MarkdownView / edit and preview modes),
+ * which a bare `line` did not reliably do. The range covers the anchor's
+ * first non-blank line so the flash lands on the hit.
+ */
+export function anchorMatch(
+    content: string,
+    anchor: string,
+    chunkIndex: number | null,
+    chunkCount: number | null,
+    anchorRatio: number | null = 0,
+): { content: string; matches: Array<[number, number]> } | null {
+    const pos = locateAnchorOffset(content, anchor, chunkIndex, chunkCount, anchorRatio);
+    if (pos === null) return null;
+    const lead = anchor.search(/\S/);
+    if (lead < 0) return null;
+    const nl = anchor.indexOf('\n', lead);
+    return { content, matches: [[pos + lead, pos + (nl < 0 ? anchor.length : nl)]] };
 }
 
 /** Offset just past the closing frontmatter fence; same rule as stripFrontmatter (utils.ts). */

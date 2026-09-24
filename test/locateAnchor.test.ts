@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { locateAnchor } from '../src/utils/locateAnchor';
+import { locateAnchor, anchorMatch } from '../src/utils/locateAnchor';
 
 describe('locateAnchor', () => {
     it('ignores a copy of the anchor inside the frontmatter', () => {
@@ -31,5 +31,19 @@ describe('locateAnchor', () => {
     it('counts lines correctly in a CRLF file', () => {
         const content = '第一行\r\n第二行\r\n目標在第三行\r\n';
         expect(locateAnchor(content, '目標在第三行', 0, 1)).toBe(2);
+    });
+
+    it('builds the match Obsidian search opens with, on the anchor\'s first non-blank line', () => {
+        const content = '---\ntitle: x\n---\n前文\n\n  | 巽正 | 周巽正 |\n| 區牧師 | 區永亮 |\n';
+        const anchor = '\n  | 巽正 | 周巽正 |\n| 區牧師';
+        const m = anchorMatch(content, anchor, 0, 1)!;
+        const [a, b] = m.matches[0];
+        expect(m.content).toBe(content);
+        expect(content.slice(a, b)).toBe('| 巽正 | 周巽正 |');
+    });
+
+    it('gives no match for a missing or blank anchor', () => {
+        expect(anchorMatch('內容', '找不到', 0, 1)).toBeNull();
+        expect(anchorMatch('   \n  ', '  \n', 0, 1)).toBeNull();
     });
 });
