@@ -34,11 +34,11 @@ describe('buildSnippet', () => {
             queryTokens: tokenizeForBM25('夕陽'),
             bm25Rank: 9, semanticRank: 1,
             bm25Real: { chunkIndex: 1, content: '別處提到夕陽' },
-            semantic: { chunkIndex: 0, content: '傍晚去河堤散步看風景' },
+            semantic: { chunkIndex: 0, content: '傍晚去河堤散步看夕陽' },
         })!;
         expect(s.source).toBe('semantic');
         expect(s.text.startsWith('傍晚去河堤')).toBe(true);
-        expect(s.anchor).toBe('傍晚去河堤散步看風景');
+        expect(s.anchor).toBe('傍晚去河堤散步看夕陽');
     });
 
     it('(c) falls back to the description when only it matched', () => {
@@ -123,7 +123,7 @@ describe('buildSnippet', () => {
         const input = {
             ...base, queryTokens: tokenizeForBM25('登山'),
             bm25Desc: { content: '描述談登山' },
-            semantic: { chunkIndex: 1, content: '語意相近的段落' },
+            semantic: { chunkIndex: 1, content: '語意相近的登山段落' },
         };
         expect(buildSnippet({ ...input, bm25Rank: 1, semanticRank: 8 })!.source).toBe('description');
         expect(buildSnippet({ ...input, bm25Rank: 8, semanticRank: 1 })!.source).toBe('semantic');
@@ -174,5 +174,17 @@ describe('buildSnippet', () => {
         const content = '字'.repeat(300) + '目標詞' + '字'.repeat(300);
         const s = buildSnippet({ ...base, queryTokens: tokenizeForBM25('目標詞'), bm25Rank: 1, bm25Real: { chunkIndex: 0, content } })!;
         expect(s.text.indexOf('目標詞')).toBe(20);
+    });
+
+    it('(t) shows the passage with the query words when the leading leg has none', () => {
+        // A name query: the note ranked on semantic similarity, but only the
+        // BM25 chunk actually contains the name.
+        const s = buildSnippet({
+            ...base, queryTokens: tokenizeForBM25('梅花'), bm25Rank: 3, semanticRank: 1,
+            bm25Real: { chunkIndex: 0, content: '前文提到梅花開了' },
+            semantic: { chunkIndex: 1, content: '後段談搜尋系統的設計取捨' },
+        })!;
+        expect(s.source).toBe('bm25');
+        expect(hl(s)).toEqual(['梅花']);
     });
 });

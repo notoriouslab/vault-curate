@@ -79,8 +79,14 @@ export function buildSnippet(input: SnippetInput): SearchSnippet | null {
         })
         : null;
 
-    // Ties go to BM25: its window can be centred on a highlight.
-    return bm25 >= semantic ? (fromBm25() ?? fromSemantic()) : (fromSemantic() ?? fromBm25());
+    // The leg that contributed more goes first (ties to BM25, whose window
+    // can open on a highlight). But a passage without a single query word
+    // reads as a wrong result: when the leading leg's passage shows none and
+    // the other leg's does, show the one with the words. Searching a name
+    // must show the name, even if the note ranked on semantic similarity.
+    const [first, second] = bm25 >= semantic ? [fromBm25(), fromSemantic()] : [fromSemantic(), fromBm25()];
+    if (first && first.ranges.length === 0 && second && second.ranges.length > 0) return second;
+    return first ?? second;
 }
 
 /** A single-character CJK token matches almost anywhere; it only counts
