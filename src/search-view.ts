@@ -13,6 +13,7 @@ declare module "obsidian" {
 import type VaultSearchPlugin from "./main";
 import { SearchResult } from "./types";
 import { formatLocalDateTime, getContentPreview, renderResultItem, toWikilink } from "./utils";
+import { openAtSnippet } from "./utils/openAtSnippet";
 import { searchHybrid } from "./search/searchHybrid";
 import { discoverForNoteSqlite, globalDiscoverGroupedSqlite } from "./search/discoverSqlite";
 import type { GroupedResults } from "./search/globalProfile";
@@ -898,10 +899,11 @@ export class SearchView extends ItemView {
 
         // Click → open file. Keymap.isModEvent maps Obsidian's conventions:
         // Cmd/Ctrl+click → new tab, +Alt → split, +Shift → window (issue #8).
+        // 034 D4: a search hit opens at its matched passage.
         const openFile = (paneType: PaneType | boolean) => {
             const file = this.app.vault.getAbstractFileByPath(result.path);
             if (file instanceof TFile) {
-                void this.app.workspace.getLeaf(paneType).openFile(file);
+                void openAtSnippet(this.app, file, result.snippet, paneType);
             }
         };
         item.addEventListener("click", (e) => openFile(Keymap.isModEvent(e)));

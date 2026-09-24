@@ -2,6 +2,7 @@ import { Keymap, Platform, SuggestModal, TFile } from "obsidian";
 import type VaultSearchPlugin from "./main";
 import { SearchResult } from "./types";
 import { renderResultItem } from "./utils";
+import { openAtSnippet } from "./utils/openAtSnippet";
 import { t } from "./i18n";
 import { searchHybrid } from "./search/searchHybrid";
 
@@ -43,7 +44,8 @@ export class SearchModal extends SuggestModal<SearchResult> {
     onChooseSuggestion(result: SearchResult, evt: MouseEvent | KeyboardEvent) {
         const file = this.app.vault.getAbstractFileByPath(result.path);
         if (file instanceof TFile) {
-            void this.app.workspace.getLeaf(Keymap.isModEvent(evt)).openFile(file);
+            // 034 D4: open at the matched passage.
+            void openAtSnippet(this.app, file, result.snippet, Keymap.isModEvent(evt));
         }
     }
 
