@@ -22,7 +22,6 @@ export interface VaultSearchSettings {
     apiKey: string;
     topResults: number;
     minScore: number;
-    maxEmbedChars: number;
     /** 007 D5: desc/body blend weight for note-vector composition.
      *  Hidden setting (no UI control) — tune via data.json. */
     descWeight: number;
@@ -84,7 +83,6 @@ export const DEFAULT_SETTINGS: VaultSearchSettings = {
     apiKey: "",
     topResults: 10,
     minScore: 0.5,
-    maxEmbedChars: 2000,
     descWeight: 0.5,
     minDescChars: 10,
     sameFolderCap: 3,

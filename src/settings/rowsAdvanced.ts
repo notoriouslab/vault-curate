@@ -142,25 +142,6 @@ export function promoteBidirectionalRow(ctx: SettingsContext): SettingDefinition
     };
 }
 
-export function maxEmbedCharsRow(ctx: SettingsContext): SettingDefinitionRender {
-    return {
-        name: t.maxEmbedChars,
-        desc: t.maxEmbedCharsDesc,
-        render: (setting) => {
-            setting.addText(text => {
-                text.setValue(String(ctx.plugin.settings.maxEmbedChars));
-                text.onChange(async (val) => {
-                    const n = parseInt(val, 10);
-                    if (!isNaN(n) && n > 0) {
-                        ctx.plugin.settings.maxEmbedChars = n;
-                        await ctx.plugin.saveSettings();
-                    }
-                });
-            });
-        },
-    };
-}
-
 export function hotDaysRow(ctx: SettingsContext): SettingDefinitionRender {
     return {
         name: t.hotDays,

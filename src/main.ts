@@ -1841,6 +1841,8 @@ export default class VaultSearchPlugin extends Plugin {
         delete settingsAny.chunkingMode;
         delete settingsAny.minDescLength;
         delete settingsAny.index;
+        // 034: never read since the 004 SQLite indexer (chunking took over).
+        delete settingsAny.maxEmbedChars;
 
         this.pruneSelfWrites();
         const migrated: VaultSearchData = { settings: this.settings, selfWrites: this.selfWrites };

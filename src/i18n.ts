@@ -12,8 +12,6 @@ export interface Locale {
     topResultsDesc: string;
     minScore: string;
     minScoreDesc: string;
-    maxEmbedChars: string;
-    maxEmbedCharsDesc: string;
     hotDays: string;
     hotDaysDesc: string;
     searchScope: string;
@@ -121,7 +119,6 @@ export interface Locale {
     descBatchDone: (ok: number, failed: number) => string;
     descLlmFailed: (name: string) => string;
     descNoEligible: string;
-    descAICurationOff: string;
     descOpenSidebarFirst: string;
     apiKeyLabel: string;
     apiKeyDesc: string;
@@ -272,7 +269,6 @@ export interface Locale {
     settingRelatedSectionDesc: string;
     settingPromoteBidirectional: string;
     settingPromoteBidirectionalDesc: string;
-    noticeIndexCorrupt: string;
     indexingInProgress: string;
     viewDisplayName: string;
     mocTitleSearch: (query: string) => string;
@@ -301,9 +297,7 @@ export interface Locale {
     mocTooFewResults: string;
     mocClusteringDegenerate: string;
     mocTooManyResults: (n: number) => string;
-    mocConfirmLarge: (n: number, seconds: number) => string;
     mocFallbackGroup: (n: number) => string;
-    mocCanceled: string;
     mocLlmUnavailable: string;
     mocClusterNamingPrompt: (languageLabel: string, notesBlock: string) => string;
     // LLM
@@ -323,9 +317,7 @@ const en: Locale = {
     topResults: "Top results",
     topResultsDesc: "Max results to show in search and Discover",
     minScore: "Minimum score",
-    minScoreDesc: "Hide results below this similarity threshold (0.0 – 1.0). Lower = more results, higher = stricter match.",
-    maxEmbedChars: "Max embed characters",
-    maxEmbedCharsDesc: "Truncate note content for embedding. Notes with a description use the description instead. Rebuild index after changing.",
+    minScoreDesc: "Find Similar, relation graphs and Discover hide notes below this similarity (0.0 – 1.0). Lower = more notes, higher = stricter. Does not filter search results.",
     hotDays: "Hot days",
     hotDaysDesc: "Notes created or edited within this many days are considered Hot (active) — any edit counts as a deliberate touch, merely opening a note does not. Hot notes have links or recent activity; Cold notes are isolated and surfaced by Discover. Changes take effect immediately, no re-index needed.",
     searchScope: "Default search scope",
@@ -422,7 +414,6 @@ const en: Locale = {
         : `Done — ${ok} notes`,
     descLlmFailed: (name) => `LLM failed for ${name}`,
     descNoEligible: "No notes without a description in the current selection.",
-    descAICurationOff: "AI curation is disabled. Enable it in Settings to use this command.",
     descOpenSidebarFirst: "Open the Vault Curate panel and run a search first.",
     apiKeyLabel: "API key",
     apiKeyDesc: "Optional — for servers that require authentication. Sent to both the embedding server and the AI curation server.",
@@ -579,7 +570,6 @@ const en: Locale = {
     settingRelatedSectionDesc: "Heading the promoted wikilinks are appended under (created at the end of the note when missing). Leave empty to follow the interface language.",
     settingPromoteBidirectional: "Bidirectional promotion",
     settingPromoteBidirectionalDesc: "Write the wikilink into both notes of a promoted pair. Turn off to only write into the edge's source note.",
-    noticeIndexCorrupt: "Vault Curate: Index file is corrupted. Please rebuild index.",
     indexingInProgress: "Vault Curate: Indexing already in progress",
     viewDisplayName: "Vault Curate",
     mocTitleSearch: (query) => `MOC: ${query}`,
@@ -605,9 +595,7 @@ const en: Locale = {
     mocTooFewResults: "Less than 5 results, generating flat MOC instead",
     mocClusteringDegenerate: "Results share a single topic; generating flat MOC instead",
     mocTooManyResults: (n) => `Too many results (${n}). Narrow down with tag or folder filter first.`,
-    mocConfirmLarge: (n, seconds) => `${n} notes will take ~${seconds}s to organize. Continue?`,
     mocFallbackGroup: (n) => `Group ${n}`,
-    mocCanceled: "MOC generation canceled. Partial result saved.",
     mocLlmUnavailable: "LLM unavailable, clusters saved without names",
     mocClusterNamingPrompt: (languageLabel, notesBlock) => `You are organizing a knowledge vault. Below are notes that have been grouped together because they discuss related topics. Based on the common theme, produce:
 
@@ -648,9 +636,7 @@ const zhTW: Locale = {
     topResults: "顯示筆數",
     topResultsDesc: "搜尋和 Discover 最多顯示幾筆結果",
     minScore: "最低分數",
-    minScoreDesc: "低於此門檻的結果不顯示（0.0 – 1.0）。越低結果越多，越高越嚴格。",
-    maxEmbedChars: "最大 Embed 字數",
-    maxEmbedCharsDesc: "每篇筆記取前幾個字做 embedding。有 description 的筆記會優先用 description。修改後需重建索引。",
+    minScoreDesc: "找相似、關聯圖與 Discover 會隱藏相似度低於此值的筆記（0.0 – 1.0）。越低筆記越多，越高越嚴格。不影響搜尋結果。",
     hotDays: "Hot 天數",
     hotDaysDesc: "近幾天內建立或編輯過的筆記視為 Hot（活躍）：任何編輯都算主動判定，只是打開筆記不算。Hot 筆記有連結或近期活動；Cold 筆記是孤立的，會被 Discover 發掘出來。修改即時生效，不需重建索引。",
     searchScope: "預設搜尋範圍",
@@ -747,7 +733,6 @@ const zhTW: Locale = {
         : `完成 — ${ok} 篇`,
     descLlmFailed: (name) => `LLM 對 ${name} 生成失敗`,
     descNoEligible: "目前結果中沒有缺少 description 的筆記。",
-    descAICurationOff: "AI 整理尚未啟用。請到設定開啟後再使用此指令。",
     descOpenSidebarFirst: "請先開啟 Vault Curate 面板並執行搜尋。",
     apiKeyLabel: "API key",
     apiKeyDesc: "選填 — 用於需要認證的伺服器。會同時送到 Embedding 伺服器與 AI 整理伺服器。",
@@ -904,7 +889,6 @@ const zhTW: Locale = {
     settingRelatedSectionDesc: "升級的 wikilink 會寫在這個標題底下（筆記沒有此節時自動在檔尾新建）。留空 = 隨介面語言。",
     settingPromoteBidirectional: "雙向寫入",
     settingPromoteBidirectionalDesc: "升級時把 wikilink 同時寫進兩篇筆記。關閉後只寫入邊的來源筆記。",
-    noticeIndexCorrupt: "Vault Curate：索引檔案已損壞，請重建索引。",
     indexingInProgress: "Vault Curate：正在索引中，請稍候",
     viewDisplayName: "語意搜尋",
     mocTitleSearch: (query) => `MOC：${query}`,
@@ -930,9 +914,7 @@ const zhTW: Locale = {
     mocTooFewResults: "結果少於 5 筆，改產生平面 MOC",
     mocClusteringDegenerate: "結果主題過於相近，改產生平面 MOC",
     mocTooManyResults: (n) => `結果過多（${n} 筆），請先用標籤或資料夾過濾`,
-    mocConfirmLarge: (n, seconds) => `${n} 筆筆記需約 ${seconds} 秒組織，是否繼續？`,
     mocFallbackGroup: (n) => `群組 ${n}`,
-    mocCanceled: "MOC 生成已取消，已儲存部分結果。",
     mocLlmUnavailable: "LLM 無法使用，群組已儲存但未命名",
     mocClusterNamingPrompt: (languageLabel, notesBlock) => `你正在整理一個知識庫。以下筆記因為討論相關主題而被分為一群。根據共同主題，產出：
 
@@ -976,9 +958,7 @@ const zhCN: Locale = {
     topResults: "显示条数",
     topResultsDesc: "搜索和 Discover 最多显示几条结果",
     minScore: "最低分数",
-    minScoreDesc: "低于此阈值的结果不显示（0.0 – 1.0）。越低结果越多，越高越严格。",
-    maxEmbedChars: "最大 Embed 字数",
-    maxEmbedCharsDesc: "每篇笔记取前多少字做 embedding。有 description 的笔记会优先用 description。修改后需重建索引。",
+    minScoreDesc: "查找相似、关联图与 Discover 会隐藏相似度低于此值的笔记（0.0 – 1.0）。越低笔记越多，越高越严格。不影响搜索结果。",
     hotDays: "Hot 天数",
     hotDaysDesc: "近多少天内创建或编辑过的笔记视为 Hot（活跃）：任何编辑都算主动操作，只是打开笔记不算。Hot 笔记有链接或近期活动；Cold 笔记是孤立的，会被 Discover 发掘出来。修改即时生效，无需重建索引。",
     searchScope: "默认搜索范围",
@@ -1075,7 +1055,6 @@ const zhCN: Locale = {
         : `完成 — ${ok} 篇`,
     descLlmFailed: (name) => `${name} 的 description 生成失败`,
     descNoEligible: "当前结果中没有缺少 description 的笔记。",
-    descAICurationOff: "AI 整理尚未启用。请到设置开启后再使用此命令。",
     descOpenSidebarFirst: "请先打开 Vault Curate 面板并执行搜索。",
     apiKeyLabel: "API key",
     apiKeyDesc: "选填 — 用于需要认证的服务器。会同时发送到 Embedding 服务器与 AI 整理服务器。",
@@ -1232,7 +1211,6 @@ const zhCN: Locale = {
     settingRelatedSectionDesc: "升级的 wikilink 会写在这个标题下（笔记没有此节时自动在文末新建）。留空 = 跟随界面语言。",
     settingPromoteBidirectional: "双向写入",
     settingPromoteBidirectionalDesc: "升级时把 wikilink 同时写进两篇笔记。关闭后只写入边的来源笔记。",
-    noticeIndexCorrupt: "Vault Curate：索引文件已损坏，请重建索引。",
     indexingInProgress: "Vault Curate：正在索引中，请稍候",
     viewDisplayName: "语义搜索",
     mocTitleSearch: (query) => `MOC：${query}`,
@@ -1258,9 +1236,7 @@ const zhCN: Locale = {
     mocTooFewResults: "结果少于 5 条，改为生成扁平 MOC",
     mocClusteringDegenerate: "结果主题过于相近，改为生成扁平 MOC",
     mocTooManyResults: (n) => `结果过多（${n} 条），请先用标签或文件夹过滤`,
-    mocConfirmLarge: (n, seconds) => `${n} 篇笔记约需 ${seconds} 秒整理，是否继续？`,
     mocFallbackGroup: (n) => `分组 ${n}`,
-    mocCanceled: "MOC 生成已取消，已保存部分结果。",
     mocLlmUnavailable: "LLM 不可用，分组已保存但未命名",
     mocClusterNamingPrompt: (languageLabel, notesBlock) => `你正在整理一个知识库。以下笔记因为讨论相关主题而被分为一组。根据共同主题，产出：
 

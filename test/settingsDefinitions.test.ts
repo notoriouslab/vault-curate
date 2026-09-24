@@ -79,7 +79,6 @@ describe("setting definitions", () => {
             t.settingRelatedSection,
             t.settingPromoteBidirectional,
             t.dismissedHeading,
-            t.maxEmbedChars,
             t.hotDays,
             t.searchScope,
             t.chunkSize,
@@ -90,7 +89,7 @@ describe("setting definitions", () => {
             t.updateIndex,
             t.indexStats,
         ]);
-        expect(names.length).toBe(28);
+        expect(names.length).toBe(27); // 034: "Max embed characters" row retired
     });
 
     it("uses no control definitions", () => {
