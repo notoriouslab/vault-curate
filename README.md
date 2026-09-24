@@ -59,6 +59,9 @@ Search by meaning, not just literal characters. Three searches run at once and m
 | **Fuzzy title** | Typos, spelling variants |
 
 - Cmd/Ctrl+P → `Vault Curate: Semantic search (modal)` for a quick jump; the sidebar **Search** tab for persistent results.
+- **See where it matched**: search results show the passage that matched, with your search words highlighted, and clicking it opens the note right at that passage. In the search modal, **Alt+Enter** inserts a link to the selected result at your cursor instead of opening it.
+- **Hot / Cold / All**: search covers every note by default, forgotten ones included. The buttons under the search box narrow it to recently touched (Hot) or long-untouched (Cold) notes.
+- **Long notes are read in full**: the built-in model reads every part of a long note (up to 60,000 characters), not just its opening, so a passage deep inside a note can be found by meaning too.
 - **Find similar notes**: right-click any `.md` → **VC: Find similar notes**; results land in the sidebar and drag straight to Canvas. Similarity ranks **content**, not templates: markdown structure is stripped before comparison and the note's `description` property joins the ranking, so even when dozens of notes share the same template, what surfaces is the handful actually about the same thing — not a row of identical-looking template mates. On Traditional-Chinese vaults, text is converted Traditional→Simplified under the hood before semantic matching (stored text, keyword search, and snippets stay Traditional) to sharpen ranking.
 - Ranking is also keyword-aware: Find Similar, the relation graph, and current-note Discover fuse your frontmatter **tags** with semantic similarity, so notes that merely share your writing style stop crowding out notes that share the topic. No tags? Pure semantic ranking.
 - **Your own synonyms**: under Advanced → Synonym list you can teach the search your private vocabulary — nicknames, org shorthand, domain terms no model could know (`Amy = Amy Chen` and the like). A query containing one form silently also searches the others. Especially handy on mobile, where search runs in keyword mode.
@@ -217,12 +220,13 @@ obsidian commands filter=vault-curate   # list all ids
 |---|---|---|
 | **Quick setup** | Embedding provider (Built-in / Ollama / OpenAI-compatible); excluded folders | Built-in; empty |
 | **AI Curation** | Enable toggle; LLM provider; LLM model | off; Ollama; qwen3:1.7b |
-| **Advanced** | top results, min score, relation graph folder, related section heading, bidirectional promotion, hidden suggestions (count + manage/restore), Hot window (days), default search scope, chunk size + overlap, synonym list, auto-index toggle, rebuild + update buttons, index stats | see panel |
+| **Advanced** | top results, min score, relation graph folder, related section heading, bidirectional promotion, hidden suggestions (count + manage/restore), Hot window (days), default search scope, chunk size + overlap (Ollama / OpenAI-compatible only), synonym list, auto-index toggle, rebuild + update buttons, index stats | see panel |
 
 Changing the embedding provider or model triggers a confirmation modal — the index is wiped and rebuilt.
 
 ### Troubleshooting
 
+- **Clicking a result inside a table doesn't scroll to it in editing view.** Obsidian's own search has the same limitation (a table is drawn as one block while editing). Switch the note to reading view and the click lands on the row.
 - **A full rebuild right after a major OS update can be much slower than usual** — the OS itself is busy in the background (rebuilding Spotlight, re-syncing iCloud) and competes for the same resources. It passes on its own; nothing in the plugin needs fixing.
 
 ---

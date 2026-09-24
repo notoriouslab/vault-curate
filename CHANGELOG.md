@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.10.0 — 2026-09-24
+
+### Added
+- **Search results show the passage that matched, and clicking opens the note right there.** Each result now shows a short excerpt from the part of the note that earned its rank, with your search words highlighted, instead of the note's opening lines. Clicking a result opens the note scrolled to that passage and briefly flashes it, the same way Obsidian's own search does. When the note ranked on meaning rather than on your exact words, you see the passage it matched with, unless another matching passage actually contains your words, in which case that one is shown (search a person's name and you see the name). Discover and Find Similar rows are unchanged.
+- **Alt+Enter in the search modal inserts a link.** It puts a link to the selected result at the cursor of the note you were editing, formatted per your link settings, instead of opening it. Cmd/Ctrl+Enter now opens the result in a new tab, as the modal's hint always said (it did nothing before).
+- **Hot / Cold / All buttons under the search box.** They switch what search covers and edit the same setting as Settings → Advanced.
+
+### Changed
+- **Search now covers all notes by default, forgotten ones included.** It used to default to Hot notes only, which kept exactly the notes this plugin exists to resurface out of search results. Your saved choice is kept: if you are still on Hot, a one-time notice tells you how to switch.
+- **The minimum score setting now says what it does.** It filters Find Similar, relation graphs and Discover; it never filtered search results, though its description said so.
+- **The "Max embed characters" setting is gone.** Nothing had read it since the index moved to SQLite; changing it did nothing.
+
+### Fixed
+- **The built-in model now reads every note in full** (up to the existing 60,000-character indexing cap per note). It can only take in about 512 tokens at a time and silently dropped the rest, and notes were cut into 2,000-character pieces, roughly three times what it could read. In one real vault, 56% of the indexed text never reached the model; in a 2,500-note vault, 80% of the pieces were cut short. Notes are now cut to fit what the model reads, so a passage deep inside a long note can be found by meaning. On a test set of sentences taken from those previously unread passages, the right note came first for 54 of 58 queries (was 43). In the same test, 4 of 58 queries quoting a note's opening lines moved from first to second or third place. The index grows about 50%, and since the model now reads about 2.3 times as much text, a full rebuild takes correspondingly longer.
+- **Your index upgrades itself.** If you use the built-in model, the first launch after updating re-indexes your notes in the background with a progress notice; close Obsidian midway and it picks up where it left off next time. Notes that keep failing are retried on the next two launches, then skipped with a notice. Ollama and OpenAI-compatible users are not re-indexed: their chunking has not changed. If you change the chunk size setting there, the next launch now re-indexes automatically in the same way.
+- **Long notes no longer crowd out short ones in meaning-based ranking.** With notes cut into more pieces, a long note got many more chances to look similar to your query than a one-piece note, and short notes that matched better lost out. Ranking now accounts for how many pieces a note has.
+
+### Known limitation
+- **In editing view, clicking a result that sits inside a table does not scroll to that row.** Obsidian's own search behaves the same (tables are drawn as one block while editing). In reading view the click lands on the row.
+
 ## 1.9.0 — 2026-09-23
 
 ### Changed
