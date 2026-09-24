@@ -62,7 +62,8 @@ describe('splitChunksByTokens', () => {
     });
 
     it('4. overlaps adjacent chunks by min(overlapChars, floor(L/2))', () => {
-        const body = 'x'.repeat(40) + 'y'.repeat(300) + 'z'.repeat(40);
+        // Distinct characters, so a wrong overlap cannot pass by accident.
+        const body = Array.from({ length: 380 }, (_, i) => String.fromCharCode(0x4e00 + i)).join('');
         const chunks = splitChunksByTokens(body, '', count, opts());
         for (let i = 1; i < chunks.length; i++) {
             const prev = [...chunks[i - 1].content];

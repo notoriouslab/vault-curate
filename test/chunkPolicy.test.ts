@@ -79,7 +79,7 @@ describe('planChunkUpgrade', () => {
 });
 
 describe('finalizeChunkUpgrade', () => {
-    const base = { effective: 'tok512-v1', runStartMs: 900 };
+    const base = { effective: 'tok512-v1', runStartMs: 900, resumable: true, providerLost: false };
     const none = { stampPolicy: false, deleteTarget: false, writeTarget: null, giveUp: false };
 
     it('(1) does nothing on a clean pass that is already stamped', () => {
@@ -126,5 +126,21 @@ describe('finalizeChunkUpgrade', () => {
             ...base, failed: 2, storedPolicy: null,
             target: { policy: 'tok511-v0', startedAt: 100, attempt: 2 },
         })).toEqual({ stampPolicy: false, deleteTarget: false, writeTarget: 'tok512-v1@900#1', giveUp: false });
+    });
+
+    it('(9) records nothing for a provider that cannot resume on its own', () => {
+        expect(finalizeChunkUpgrade({ ...base, resumable: false, failed: 2, storedPolicy: null, target: null })).toEqual(none);
+    });
+
+    it('(10) keeps the attempt count when the pass lost its provider', () => {
+        expect(finalizeChunkUpgrade({
+            ...base, providerLost: true, failed: 5, storedPolicy: null,
+            target: { policy: 'tok512-v1', startedAt: 100, attempt: 2 },
+        })).toEqual({ stampPolicy: false, deleteTarget: false, writeTarget: 'tok512-v1@100#2', giveUp: false });
+    });
+
+    it('(11) starts at attempt 0 when a provider-lost pass had no target', () => {
+        expect(finalizeChunkUpgrade({ ...base, providerLost: true, failed: 5, storedPolicy: null, target: null }).writeTarget)
+            .toBe('tok512-v1@900#0');
     });
 });

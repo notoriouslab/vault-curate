@@ -169,4 +169,74 @@ describe('indexer chunk-policy upgrade', () => {
         // handler must not warm again after the store is gone.
         expect(p.warmupCalls - warmupsBefore).toBe(1);
     });
+
+    /** A provider whose worker dies on note1: isReady turns false until warmup. */
+    function crashingOn(crashTitle: string, warmupWorks: boolean) {
+        const p = makeProvider({ tokenPolicy: true });
+        let ready = true;
+        p.isReady = async () => ready;
+        p.warmup = async () => {
+            p.warmupCalls++;
+            if (!warmupWorks) throw new Error('worker cannot restart');
+            ready = true;
+        };
+        const split = p.splitForEmbed!;
+        p.splitForEmbed = async (body, title) => {
+            if (title === crashTitle && ready) {
+                p.splitCalls.push(title);
+                ready = false;
+                throw new Error('worker crashed');
+            }
+            return split(body, title);
+        };
+        return p;
+    }
+
+    it('(n) restarts a crashed worker and carries on with the remaining notes', async () => {
+        const h = await prePolicyIndex(true);
+        const p = crashingOn('note1', true);
+        h.setProvider(p);
+        await h.indexer.update();
+        expect(p.warmupCalls).toBe(1);
+        expect(p.splitCalls).toEqual(['note0', 'note1', 'note2', 'note3']);
+        // note1 failed once, so the upgrade is recorded as unfinished.
+        expect(h.store.getMeta(META_TARGET)).toMatch(/#1$/);
+    });
+
+    it('(o) a pass that loses its provider does not count as an attempt', async () => {
+        const h = await prePolicyIndex(true);
+        const p = crashingOn('note1', false);
+        h.setProvider(p);
+        await h.indexer.update();
+        expect(p.splitCalls).toEqual(['note0', 'note1']);
+        expect(h.store.getMeta(META_POLICY)).toBeNull();
+        expect(h.store.getMeta(META_TARGET)).toMatch(/#0$/);
+
+        const healthy = makeProvider({ tokenPolicy: true });
+        h.setProvider(healthy);
+        await h.indexer.update();
+        expect([...healthy.splitCalls].sort()).toEqual(['note1', 'note2', 'note3']);
+        expect(h.store.getMeta(META_POLICY)).toBe('tok512-v1');
+    });
+
+    it('(p) stops without writing meta when the provider is swapped mid-pass', async () => {
+        const h = await prePolicyIndex(true);
+        const a = makeProvider({ tokenPolicy: true });
+        const b = makeProvider({ tokenPolicy: true });
+        b.modelId = 'model-B';
+        const split = a.splitForEmbed!;
+        a.splitForEmbed = async (body, title) => {
+            if (title === 'note1') {
+                h.setProvider(b); // what reloadBackends does from the settings tab
+                throw new Error('provider disposed');
+            }
+            return split(body, title);
+        };
+        h.setProvider(a);
+        await h.indexer.update();
+        expect(b.splitCalls).toHaveLength(0);
+        expect(b.warmupCalls).toBe(0);
+        expect(h.store.getMeta('embedding_model_id')).toBe('fake-model');
+        expect(h.store.getMeta(META_POLICY)).toBeNull();
+    });
 });

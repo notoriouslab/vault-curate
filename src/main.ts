@@ -487,14 +487,8 @@ export default class VaultSearchPlugin extends Plugin {
             if (!indexed && !dismissed && !Platform.isMobile) {
                 this.showOnboardingModal();
             }
-            // 007 D2 / 034 D2: upgrade work that needs an incremental update.
-            // Computed before the catch-up below because a pending update
-            // replaces it (update() compares every mtime anyway), and running
-            // both would let catch-up's `indexing` flag swallow the update.
-            const denoiseStale = this.store.getMeta("denoise_version") !== DENOISE_VERSION;
-            const t2sStale = this.store.getMeta("t2s_version") !== T2S_VERSION;
-            const descPending = this.store.countDescBackfillPending(this.settings.minDescChars) > 0;
-            // A provider that failed to build leaves store set but provider null.
+            // 034 D2: chunking-policy state. A provider that failed to build
+            // leaves store set but provider null, so treat that as "none".
             const chunkState = this.provider && this.indexer
                 ? chunkUpgradeState(this.store.getMeta("chunk_policy"), this.provider, this.settings)
                 : "none";
@@ -503,14 +497,7 @@ export default class VaultSearchPlugin extends Plugin {
             if (chunkState === "stamp-only" && indexed && !Platform.isMobile && this.provider) {
                 this.store.setMeta("chunk_policy", effectiveChunkPolicy(this.provider, this.settings));
             }
-            const kickUpdate = needsStartupUpdate({
-                indexed: !!indexed,
-                isMobile: Platform.isMobile,
-                denoiseStale,
-                t2sStale,
-                descPending,
-                chunkState,
-            });
+            const canReconcile = !Platform.isMobile && this.indexer && this.store.getMeta("bootstrapped");
             // 019 D4 (issue #13): notes deleted while Obsidian wasn't running
             // never fire a `delete` event, and nothing else prunes them — a
             // steady-state launch used to skip reconciling entirely, so ghost
@@ -520,25 +507,39 @@ export default class VaultSearchPlugin extends Plugin {
             // own reconcile degrade to a no-op is cheaper than a branch.
             // Desktop only — mobile is read-only (refuseWrite would swallow
             // the deletes anyway, but 015 doesn't lean on the inner layer).
-            if (!Platform.isMobile && this.indexer && this.store.getMeta("bootstrapped")) {
+            if (canReconcile && this.indexer) {
                 const cleaned = this.indexer.reconcileStale();
                 if (cleaned > 0) {
                     new Notice(t.noticeStaleCleaned(cleaned), 6000);
                 }
-                // 021: the other half — notes whose update was missed (closed
-                // inside the 2s debounce, or edited while Obsidian was shut).
-                // Async because it may embed, so it is fired and forgotten;
-                // the prune above stays synchronous. Skipped when an update
-                // is about to run: it covers the same notes, and catch-up
-                // holding `indexing` would make that update bail as busy.
-                if (!kickUpdate) {
-                    void this.indexer.catchUpChanged().then(({ reindexed, deferred }) => {
-                        if (reindexed > 0) new Notice(t.noticeCatchUpDone(reindexed), 6000);
-                        if (deferred > 0) new Notice(t.noticeCatchUpDeferred(deferred), 10000);
-                    }).catch((err) => {
-                        console.warn("vault-curate: startup catch-up failed", err);
-                    });
-                }
+            }
+            // 007 D2 / 034 D2: upgrade work that needs an incremental update.
+            // After the reconcile (ghost rows would inflate the description
+            // backfill count) and before the catch-up: a pending update
+            // replaces catch-up (update() compares every mtime anyway), and
+            // running both would let catch-up's `indexing` flag swallow it.
+            const denoiseStale = this.store.getMeta("denoise_version") !== DENOISE_VERSION;
+            const t2sStale = this.store.getMeta("t2s_version") !== T2S_VERSION;
+            const descPending = this.store.countDescBackfillPending(this.settings.minDescChars) > 0;
+            const kickUpdate = needsStartupUpdate({
+                indexed: !!indexed,
+                isMobile: Platform.isMobile,
+                denoiseStale,
+                t2sStale,
+                descPending,
+                chunkState,
+            });
+            // 021: the other half of reconcile — notes whose update was missed
+            // (closed inside the 2s debounce, or edited while Obsidian was
+            // shut). Async because it may embed, so it is fired and forgotten.
+            // Skipped when an update is about to run: it covers the same notes.
+            if (canReconcile && this.indexer && !kickUpdate) {
+                void this.indexer.catchUpChanged().then(({ reindexed, deferred }) => {
+                    if (reindexed > 0) new Notice(t.noticeCatchUpDone(reindexed), 6000);
+                    if (deferred > 0) new Notice(t.noticeCatchUpDeferred(deferred), 10000);
+                }).catch((err) => {
+                    console.warn("vault-curate: startup catch-up failed", err);
+                });
             }
             // 007 D2: upgrade re-embed scans live at the top of update(), but
             // nothing ever called update() on startup — an upgraded plugin

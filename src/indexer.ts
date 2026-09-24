@@ -191,6 +191,7 @@ export class Indexer {
         this.store.clearAllData();
         this.emptySkippedCount = 0;
         const runStartMs = Date.now();
+        const passProvider = this.provider;
 
         const files = this.getMarkdownFiles();
         if (files.length === 0) {
@@ -198,7 +199,7 @@ export class Indexer {
             // clearAllData() above just returned every page to the freelist,
             // and skipping it here left the fat image on disk for one more
             // cycle. Same compact-then-flush shape as the main tail below.
-            this.finalizeChunkPass(0, runStartMs, []);
+            this.finalizeChunkPass(0, runStartMs, [], false);
             this.store.compact();
             await this.store.flush();
             new Notice(t.noticeIndexDone(0, 0, 0, 0), 5000);
@@ -214,6 +215,7 @@ export class Indexer {
         let hot = 0;
         let cold = 0;
         const failedPaths: string[] = [];
+        let providerLost = false;
         for (const file of files) {
             const ok = await this.indexOne(file, incomingSet, h1Collisions);
             if (!ok) failed++;
@@ -225,12 +227,17 @@ export class Indexer {
             done++;
             if (!ok) {
                 failedPaths.push(file.path);
-                const stop = await this.recoverAfterFailure();
-                if (stop === "abort") break;
+                const stop = await this.recoverAfterFailure(passProvider);
+                if (stop === "abort") {
+                    progress.hide();
+                    return;
+                }
                 if (stop === "provider-lost") {
-                    const remaining = files.length - done;
-                    failed += remaining;
-                    done += remaining;
+                    const rest = files.slice(done);
+                    failedPaths.push(...rest.map((f) => f.path));
+                    failed += rest.length;
+                    done += rest.length;
+                    providerLost = true;
                     break;
                 }
             }
@@ -247,7 +254,7 @@ export class Indexer {
         // writeIndexMeta() (indexSingleFile calls that on every file edit).
         this.store.setMeta("denoise_version", DENOISE_VERSION);
         this.store.setMeta("t2s_version", T2S_VERSION);
-        this.finalizeChunkPass(failed, runStartMs, failedPaths);
+        this.finalizeChunkPass(failed, runStartMs, failedPaths, providerLost);
         // 019 G1 review C1: a full rebuild holds `indexing` for as long as it
         // takes to re-embed the vault (minutes), and onFileChange drops every
         // delete event for that whole window. clearAllData() only rules out
@@ -333,6 +340,7 @@ export class Indexer {
         // a pre-policy index) only needs the stamp; reembed resumes from the
         // stored target so an interrupted pass never starts over.
         const runStartMs = Date.now();
+        const passProvider = this.provider;
         const effectivePolicy = effectiveChunkPolicy(this.provider, this.plugin.settings);
         const chunkState = hasIndex
             ? chunkUpgradeState(this.store.getMeta("chunk_policy"), this.provider, this.plugin.settings)
@@ -418,7 +426,7 @@ export class Indexer {
             // and a single-file edit would falsely mark the one-time scan as done.
             if (denoiseUpgrade) this.store.setMeta("denoise_version", DENOISE_VERSION);
             if (t2sUpgrade) this.store.setMeta("t2s_version", T2S_VERSION);
-            this.finalizeChunkPass(0, runStartMs, []);
+            this.finalizeChunkPass(0, runStartMs, [], false);
             await this.backfillDescVecs();
             // 019 D6: a delete event that landed while `indexing` was true
             // got dropped by onFileChange's guard, and the pass at the top
@@ -440,18 +448,24 @@ export class Indexer {
         let done = 0;
         let failed = 0;
         const failedPaths: string[] = [];
+        let providerLost = false;
         for (const file of toReindex) {
             const ok = await this.indexOne(file, incomingSet, h1Collisions);
             if (!ok) failed++;
             done++;
             if (!ok) {
                 failedPaths.push(file.path);
-                const stop = await this.recoverAfterFailure();
-                if (stop === "abort") break;
+                const stop = await this.recoverAfterFailure(passProvider);
+                if (stop === "abort") {
+                    progress.hide();
+                    return;
+                }
                 if (stop === "provider-lost") {
-                    const remaining = toReindex.length - done;
-                    failed += remaining;
-                    done += remaining;
+                    const rest = toReindex.slice(done);
+                    failedPaths.push(...rest.map((f) => f.path));
+                    failed += rest.length;
+                    done += rest.length;
+                    providerLost = true;
                     break;
                 }
             }
@@ -480,7 +494,7 @@ export class Indexer {
         // scan as done.
         this.store.setMeta("denoise_version", DENOISE_VERSION);
         this.store.setMeta("t2s_version", T2S_VERSION);
-        this.finalizeChunkPass(failed, runStartMs, failedPaths);
+        this.finalizeChunkPass(failed, runStartMs, failedPaths, providerLost);
         await this.backfillDescVecs();
         // 019 D6: same as the early-return exit above — catch deletes whose
         // events were dropped while this run held `indexing`.
@@ -837,15 +851,17 @@ export class Indexer {
 
     /**
      * 034 D2: after a note fails mid-pass, decide whether to keep going.
-     * "abort" — the store is gone (plugin unloading): stop, and do NOT warm
-     * the provider back up, which would boot a worker nobody disposes.
+     * "abort" — the store is gone (plugin unloading), or the provider was
+     * swapped under this pass (settings change): stop without writing any
+     * meta. Warming up would boot a worker nobody disposes, and carrying on
+     * would mix two models' vectors under the new model's meta.
      * "provider-lost" — the worker died and could not be restarted: every
      * remaining note would fail instantly, so stop and count them failed.
      * "continue" — the provider is fine (or came back), so one note that
      * crashed the worker does not take the rest of the pass down with it.
      */
-    private async recoverAfterFailure(): Promise<"continue" | "abort" | "provider-lost"> {
-        if (this.store.isDisposed) return "abort";
+    private async recoverAfterFailure(passProvider: EmbeddingProvider): Promise<"continue" | "abort" | "provider-lost"> {
+        if (this.store.isDisposed || this.provider !== passProvider) return "abort";
         if (await this.provider.isReady()) return "continue";
         try {
             await this.ensureProviderReady();
@@ -862,7 +878,7 @@ export class Indexer {
      * writeIndexMeta(): indexSingleFile calls that on every edit and would
      * mark an unfinished upgrade as done.
      */
-    private finalizeChunkPass(failed: number, runStartMs: number, failedPaths: string[]): void {
+    private finalizeChunkPass(failed: number, runStartMs: number, failedPaths: string[], providerLost: boolean): void {
         const effective = effectiveChunkPolicy(this.provider, this.plugin.settings);
         const f = finalizeChunkUpgrade({
             failed,
@@ -870,6 +886,8 @@ export class Indexer {
             effective,
             target: parseChunkTarget(this.store.getMeta("chunk_upgrade_target")),
             runStartMs,
+            resumable: this.provider.chunkPolicy !== undefined,
+            providerLost,
         });
         if (f.stampPolicy) this.store.setMeta("chunk_policy", effective);
         if (f.deleteTarget) this.store.deleteMeta("chunk_upgrade_target");

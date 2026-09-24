@@ -85,6 +85,13 @@ export function planChunkUpgrade(
  *     MAX_UPGRADE_ATTEMPTS-th failing pass so a note that always fails
  *     cannot make every launch retry.
  *   - Failures with no upgrade pending: nothing to do here.
+ *   - Failures on a provider that cannot resume (external endpoints: they
+ *     never get a startup re-embed, see chunkUpgradeState's stamp-only):
+ *     nothing either, so no target promises a retry that will not happen.
+ *   - A pass cut short because the provider could not be restarted records
+ *     the target but does not count as an attempt: the notes it never
+ *     reached did not fail, and giving up on them would leave them on the
+ *     old chunking for good.
  */
 export function finalizeChunkUpgrade(i: {
     failed: number;
@@ -92,6 +99,10 @@ export function finalizeChunkUpgrade(i: {
     effective: string;
     target: ChunkTarget | null;
     runStartMs: number;
+    /** The provider resumes an upgrade on its own (it has a chunkPolicy). */
+    resumable: boolean;
+    /** The pass stopped early because the provider could not be restarted. */
+    providerLost: boolean;
 }): { stampPolicy: boolean; deleteTarget: boolean; writeTarget: string | null; giveUp: boolean } {
     if (i.failed === 0) {
         return {
@@ -102,12 +113,16 @@ export function finalizeChunkUpgrade(i: {
         };
     }
     const nothing = { stampPolicy: false, deleteTarget: false, writeTarget: null, giveUp: false };
-    if (i.storedPolicy === i.effective) return nothing;
+    if (i.storedPolicy === i.effective || !i.resumable) return nothing;
 
     // A target left over from another policy says nothing about this one.
     const t = i.target && i.target.policy === i.effective ? i.target : null;
+    const bump = i.providerLost ? 0 : 1;
     if (!t) {
-        return { ...nothing, writeTarget: formatChunkTarget({ policy: i.effective, startedAt: i.runStartMs, attempt: 1 }) };
+        return { ...nothing, writeTarget: formatChunkTarget({ policy: i.effective, startedAt: i.runStartMs, attempt: bump }) };
+    }
+    if (i.providerLost) {
+        return { ...nothing, writeTarget: formatChunkTarget(t) };
     }
     if (t.attempt + 1 < MAX_UPGRADE_ATTEMPTS) {
         return { ...nothing, writeTarget: formatChunkTarget({ ...t, attempt: t.attempt + 1 }) };
