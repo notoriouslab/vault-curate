@@ -18,9 +18,21 @@ import type { SQLiteStore } from '../storage/SQLiteStore';
 import { blobToVec } from '../storage/vecCodec';
 import type { SearchResult } from '../types';
 import { fuzzyTitleSearch } from '../utils/jaroWinkler';
-import { rrfFuse, topNFused } from './rrfFuse';
+import { rankMap, rrfFuse, topNFused } from './rrfFuse';
 import { t2sForEmbed } from '../indexer/preproc';
+import { stripChunkPrefix } from '../indexer/tokenChunker';
+import { tokenizeForBM25 } from '../storage/bm25';
 import { expandQuery } from '../synonyms';
+import { buildSnippet } from './snippet';
+
+/** 034 D3: a leg's best chunk per note, kept alongside its score. */
+type LegBest = { score: number; chunkIndex: number };
+/** BM25 also tracks the best REAL chunk: its best overall may be the
+ *  per-note description doc (chunkIndex -1), which has no place to jump to. */
+type Bm25Best = LegBest & { bestReal: LegBest | null };
+
+const scoresOf = (m: Map<string, LegBest>): Map<string, number> =>
+    new Map(Array.from(m, ([path, v]) => [path, v.score]));
 
 const DEFAULT_WEIGHTS = { bm25: 1.0, semantic: 1.0, fuzzy: 0.5 };
 
@@ -100,14 +112,14 @@ export async function searchHybrid(
     // mobile); a present-but-failing provider degrades to keyword-only
     // instead of poisoning the whole Promise.all (rrfFuse skips empty maps).
     const semanticP = deps.provider === null
-        ? Promise.resolve(new Map<string, number>())
+        ? Promise.resolve(new Map<string, LegBest>())
         : runSemantic(deps.store, deps.provider, qx).then((m) => {
             console.debug(`vault-curate: semantic ${m.size} hits (${Date.now() - tSemantic}ms)`);
             return m;
         }).catch((e) => {
             console.warn("vault-curate: semantic leg failed, falling back to keyword-only", e);
             settings.onDegrade?.("semantic");
-            return new Map<string, number>();
+            return new Map<string, LegBest>();
         });
     const fuzzyP = Promise.resolve(fuzzyTitleSearch(q, deps.store.getAllTitles(), candidatePool)).then((m) => {
         console.debug(`vault-curate: fuzzy ${m.size} hits (${Date.now() - tFuzzy}ms)`);
@@ -115,14 +127,23 @@ export async function searchHybrid(
     });
     const [bm25Map, semanticMap, fuzzyMap] = await Promise.all([bm25P, semanticP, fuzzyP]);
 
+    const bm25Scores = scoresOf(bm25Map);
+    const semanticScores = scoresOf(semanticMap);
     const fused = rrfFuse(
-        [bm25Map, semanticMap, fuzzyMap],
+        [bm25Scores, semanticScores, fuzzyMap],
         [weights.bm25, weights.semantic, weights.fuzzy],
     );
 
     // Take generously, then apply scope filter, then trim to topResults.
     const top = topNFused(fused, Math.min(MAX_FUSED_TAKE, settings.topResults * 3));
-    const out = materialise(top, deps.store, settings);
+    const out = materialise(top, deps.store, settings, {
+        queryTokens: tokenizeForBM25(qx),
+        bm25: bm25Map,
+        semantic: semanticMap,
+        bm25Ranks: rankMap(bm25Scores),
+        semanticRanks: rankMap(semanticScores),
+        weights,
+    });
     console.debug(
         `vault-curate: hybrid '${q}' → ${out.length}/${fused.size} results in ${Date.now() - tStart}ms ` +
         `(weights ${weights.bm25}/${weights.semantic}/${weights.fuzzy}, scope=${settings.searchScope})`,
@@ -138,15 +159,22 @@ function runBM25(
     store: SQLiteStore,
     query: string,
     limit: number,
-): Promise<Map<string, number>> {
+): Promise<Map<string, Bm25Best>> {
     // We pull more chunk hits than we need so max-pooling per note has room
     // to cover notes whose top chunk isn't the absolute best globally.
     const hits = store.searchBM25(query, limit * 2);
-    const out = new Map<string, number>();
+    const out = new Map<string, Bm25Best>();
     for (const h of hits) {
-        const cur = out.get(h.notePath);
-        if (cur === undefined || h.bm25Score > cur) {
-            out.set(h.notePath, h.bm25Score);
+        let cur = out.get(h.notePath);
+        if (cur === undefined) {
+            cur = { score: h.bm25Score, chunkIndex: h.chunkIndex, bestReal: null };
+            out.set(h.notePath, cur);
+        } else if (h.bm25Score > cur.score) {
+            cur.score = h.bm25Score;
+            cur.chunkIndex = h.chunkIndex;
+        }
+        if (h.chunkIndex >= 0 && (cur.bestReal === null || h.bm25Score > cur.bestReal.score)) {
+            cur.bestReal = { score: h.bm25Score, chunkIndex: h.chunkIndex };
         }
     }
     return Promise.resolve(out);
@@ -156,7 +184,7 @@ async function runSemantic(
     store: SQLiteStore,
     provider: EmbeddingProvider,
     query: string,
-): Promise<Map<string, number>> {
+): Promise<Map<string, LegBest>> {
     // The indexer's `ensureProviderReady` only fires from rebuild/update/indexSingleFile.
     // A user who reopens Obsidian and searches without re-indexing must trigger
     // warmup here — otherwise the WASM provider throws on the first embed().
@@ -168,7 +196,7 @@ async function runSemantic(
     const queryVec = (await provider.embed([t2sForEmbed(query)]))[0];
     if (!queryVec || queryVec.length === 0) return new Map();
 
-    const out = new Map<string, number>();
+    const out = new Map<string, LegBest>();
     // getAllChunksRaw keeps the vec as Uint8Array; we decode lazily and only
     // hold one Float32Array view per chunk in scope, which is fine — the
     // bottleneck is the cosine loop, not allocation.
@@ -176,11 +204,39 @@ async function runSemantic(
         const v = blobToVec(c.vec);
         const cos = cosineSim(queryVec, v);
         const cur = out.get(c.notePath);
-        if (cur === undefined || cos > cur) {
-            out.set(c.notePath, cos);
+        if (cur === undefined || cos > cur.score) {
+            out.set(c.notePath, { score: cos, chunkIndex: c.chunkIndex });
         }
     }
     return out;
+}
+
+/** Read the winning chunks for one result and build its snippet. Only called
+ *  for results that made the cut, so the extra reads stay at topResults. */
+function snippetFor(
+    path: string,
+    title: string,
+    description: string | null,
+    store: SQLiteStore,
+    snip: SnippetContext,
+) {
+    const b = snip.bm25.get(path);
+    const s = snip.semantic.get(path);
+    const read = (idx: number) => {
+        const content = store.getChunkContent(path, idx);
+        return content === null ? null : { chunkIndex: idx, content: stripChunkPrefix(content, title) };
+    };
+    return buildSnippet({
+        queryTokens: snip.queryTokens,
+        bm25Rank: snip.bm25Ranks.get(path) ?? null,
+        semanticRank: snip.semanticRanks.get(path) ?? null,
+        bm25Real: b?.bestReal ? read(b.bestReal.chunkIndex) : null,
+        bm25Desc: b && !b.bestReal && description ? { content: description } : null,
+        semantic: s ? read(s.chunkIndex) : null,
+        weights: { bm25: snip.weights.bm25, semantic: snip.weights.semantic },
+        k: 60,
+        chunkCount: store.countChunksFor(path),
+    });
 }
 
 function cosineSim(a: Float32Array, b: Float32Array): number {
@@ -198,10 +254,21 @@ function cosineSim(a: Float32Array, b: Float32Array): number {
     return denom === 0 ? 0 : dot / denom;
 }
 
+/** 034 D3: what materialise needs to build each result's snippet. */
+type SnippetContext = {
+    queryTokens: string[];
+    bm25: Map<string, Bm25Best>;
+    semantic: Map<string, LegBest>;
+    bm25Ranks: Map<string, number>;
+    semanticRanks: Map<string, number>;
+    weights: HybridWeights;
+};
+
 function materialise(
     top: Array<{ docId: string; score: number }>,
     store: SQLiteStore,
     settings: SearchHybridSettings,
+    snip: SnippetContext,
 ): SearchResult[] {
     const out: SearchResult[] = [];
     for (const { docId, score } of top) {
@@ -216,13 +283,16 @@ function materialise(
             ?? (note.tier === 'cold' ? 'cold' : 'hot');
         if (settings.searchScope === 'hot' && tier !== 'hot') continue;
         if (settings.searchScope === 'cold' && tier !== 'cold') continue;
-        out.push({
+        const result: SearchResult = {
             path: docId,
             title: note.title,
             tags: [], // Phase 5 doesn't track tags in SQLiteStore; revisit if UI uses them.
             score,
             tier,
-        });
+        };
+        const snippet = snippetFor(docId, note.title, note.description, store, snip);
+        if (snippet) result.snippet = snippet;
+        out.push(result);
         if (out.length >= settings.topResults) break;
     }
     return out;

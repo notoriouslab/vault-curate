@@ -116,6 +116,24 @@ export interface SearchResult {
     tags: string[];
     score: number;
     tier: "hot" | "cold";
+    /** 034 D3: the passage that matched. Absent for title-only matches and
+     *  for callers that do not build snippets (Discover, Find Similar). */
+    snippet?: SearchSnippet;
+}
+
+/** 034 D3: a window of the chunk that won the note its rank. */
+export interface SearchSnippet {
+    /** Display text: windowed, whitespace folded, ends trimmed. */
+    text: string;
+    /** Highlight spans in `text` (UTF-16 [start, end)), merged and ascending. */
+    ranges: Array<[number, number]>;
+    source: "bm25" | "semantic" | "description";
+    /** Raw text to find in the note when jumping; null for descriptions. */
+    anchor: string | null;
+    /** Index of the matched chunk; null for descriptions. */
+    chunkIndex: number | null;
+    /** Chunks in the note, to estimate where chunkIndex sits; null for descriptions. */
+    chunkCount: number | null;
 }
 
 // ============================================================

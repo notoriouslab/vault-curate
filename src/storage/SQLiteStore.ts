@@ -318,6 +318,22 @@ export class SQLiteStore {
         this.touch();
     }
 
+    /** 034 D3: one chunk's text for a search snippet (null if absent). */
+    getChunkContent(notePath: string, chunkIndex: number): string | null {
+        const res = this.db.exec(
+            'SELECT content FROM chunks WHERE note_path = ? AND chunk_index = ?',
+            [notePath, chunkIndex],
+        );
+        if (res.length === 0 || res[0].values.length === 0) return null;
+        return res[0].values[0][0] as string;
+    }
+
+    /** 034 D4: chunks stored for one note (to place a chunk within it). */
+    countChunksFor(notePath: string): number {
+        const res = this.db.exec('SELECT COUNT(*) FROM chunks WHERE note_path = ?', [notePath]);
+        return res.length === 0 ? 0 : Number(res[0].values[0][0]);
+    }
+
     getChunks(notePath: string): ChunkRecord[] {
         const res = this.db.exec(
             `SELECT note_path, chunk_index, content, vec FROM chunks

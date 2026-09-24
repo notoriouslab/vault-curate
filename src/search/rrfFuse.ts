@@ -11,6 +11,16 @@
  * that's the whole reason RRF wins over linear combination on BM25 + cosine.
  */
 
+/** 1-based rank of each doc within one retriever: sorted by score descending,
+ *  ties kept in insertion order (Array.prototype.sort is stable). rrfFuse and
+ *  the snippet leg choice (034 D3) both rank through this, so they agree. */
+export function rankMap(results: Map<string, number>): Map<string, number> {
+    const ranked = Array.from(results.entries()).sort((a, b) => b[1] - a[1]);
+    const out = new Map<string, number>();
+    ranked.forEach(([docId], i) => out.set(docId, i + 1));
+    return out;
+}
+
 /** Fuse N ranked retriever outputs. Returns docId → fused score (descending). */
 export function rrfFuse(
     results: Map<string, number>[],
@@ -26,10 +36,8 @@ export function rrfFuse(
     for (let i = 0; i < results.length; i++) {
         const w = weights[i];
         if (w === 0) continue; // disabled retriever contributes nothing
-        const ranked = Array.from(results[i].entries()).sort((a, b) => b[1] - a[1]);
-        for (let rank = 0; rank < ranked.length; rank++) {
-            const docId = ranked[rank][0];
-            fused.set(docId, (fused.get(docId) ?? 0) + w / (k + rank + 1));
+        for (const [docId, rank] of rankMap(results[i])) {
+            fused.set(docId, (fused.get(docId) ?? 0) + w / (k + rank));
         }
     }
     return fused;
