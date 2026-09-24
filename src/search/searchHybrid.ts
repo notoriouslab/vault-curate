@@ -36,6 +36,18 @@ const scoresOf = (m: Map<string, LegBest>): Map<string, number> =>
 
 const DEFAULT_WEIGHTS = { bm25: 1.0, semantic: 1.0, fuzzy: 0.5 };
 
+/**
+ * 034 T8: a note's semantic score is its best chunk's cosine minus
+ * SEMANTIC_CHUNK_PENALTY · ln(chunk count). Taking the plain max hands long
+ * notes one draw per chunk, and once chunks shrank to the model's 512-token
+ * window a ten-chunk note routinely out-drew a one-chunk note that matched
+ * better (paired test: 0 better / 9 worse on untruncated paraphrase queries).
+ * 0.02 removed that regression on both the token and the old 2000-char
+ * chunking and held up on held-out query halves (openspec research
+ * 2026-09-24-truncation-pilot, aggregation.ts).
+ */
+export const SEMANTIC_CHUNK_PENALTY = 0.02;
+
 // Hard caps on derived counts so a tampered topResults (or future settings
 // drift) can't blow up BM25 / fusion / sort allocations in large vaults.
 const MAX_CANDIDATE_POOL = 500;
@@ -197,16 +209,21 @@ async function runSemantic(
     if (!queryVec || queryVec.length === 0) return new Map();
 
     const out = new Map<string, LegBest>();
+    const chunkCounts = new Map<string, number>();
     // getAllChunksRaw keeps the vec as Uint8Array; we decode lazily and only
     // hold one Float32Array view per chunk in scope, which is fine — the
     // bottleneck is the cosine loop, not allocation.
     for (const c of store.getAllChunksRaw()) {
         const v = blobToVec(c.vec);
         const cos = cosineSim(queryVec, v);
+        chunkCounts.set(c.notePath, (chunkCounts.get(c.notePath) ?? 0) + 1);
         const cur = out.get(c.notePath);
         if (cur === undefined || cos > cur.score) {
             out.set(c.notePath, { score: cos, chunkIndex: c.chunkIndex });
         }
+    }
+    for (const [path, best] of out) {
+        best.score -= SEMANTIC_CHUNK_PENALTY * Math.log(chunkCounts.get(path) ?? 1);
     }
     return out;
 }
