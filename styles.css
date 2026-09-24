@@ -54,6 +54,11 @@
     -webkit-box-orient: vertical;
 }
 
+.vault-curate-snippet mark {
+    background-color: var(--text-highlight-bg);
+    color: inherit;
+}
+
 .vault-curate-desc-btn {
     margin-top: 4px;
     padding: 2px 8px;

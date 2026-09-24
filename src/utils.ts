@@ -380,13 +380,19 @@ export function renderResultItem(
     titleRow.createSpan({ text: result.title, cls: "vault-curate-title" });
     titleRow.createSpan({ text: result.score.toFixed(3), cls: "vault-curate-score" });
 
-    const file = app.vault.getAbstractFileByPath(result.path);
-    if (file instanceof TFile) {
-        void getContentPreview(app, file).then(preview => {
-            if (preview && container.isConnected) {
-                container.createDiv({ text: preview, cls: "vault-curate-desc" });
-            }
-        });
+    // 034 D3: a search hit shows the passage that matched; everything else
+    // (Discover, title-only hits) keeps the description / head preview.
+    if (result.snippet) {
+        renderSnippet(container, result.snippet);
+    } else {
+        const file = app.vault.getAbstractFileByPath(result.path);
+        if (file instanceof TFile) {
+            void getContentPreview(app, file).then(preview => {
+                if (preview && container.isConnected) {
+                    container.createDiv({ text: preview, cls: "vault-curate-desc" });
+                }
+            });
+        }
     }
 
     const metaRow = container.createDiv({ cls: "vault-curate-meta" });
@@ -397,6 +403,20 @@ export function renderResultItem(
     if (folder) {
         metaRow.createSpan({ text: folder, cls: "vault-curate-folder" });
     }
+}
+
+/** 034 D3: the matched passage, highlighted ranges as <mark>. Built from text
+ *  nodes only (createEl with `text`), never HTML, so note content cannot
+ *  inject markup. */
+export function renderSnippet(parent: HTMLElement, snippet: import("./types").SearchSnippet): void {
+    const el = parent.createEl("div", { cls: "vault-curate-desc vault-curate-snippet" });
+    let pos = 0;
+    for (const [a, b] of snippet.ranges) {
+        if (a > pos) el.createEl("span", { text: snippet.text.slice(pos, a) });
+        el.createEl("mark", { text: snippet.text.slice(a, b) });
+        pos = b;
+    }
+    if (pos < snippet.text.length) el.createEl("span", { text: snippet.text.slice(pos) });
 }
 
 /** Format a Date as `YYYY-MM-DD HH:MM+TZ:TZ` with the local timezone offset. */
