@@ -156,7 +156,6 @@ export interface Locale {
     cmdGlobalDiscover: string;
     scopeCold: string;
     // Settings sections
-    sectionQuickSetup: string;
     sectionAICuration: string;
     sectionAdvanced: string;
     embeddingProvider: string;
@@ -303,7 +302,7 @@ export interface Locale {
 }
 
 const en: Locale = {
-    // 024: key names below are historical (ollamaUrl / sectionQuickSetup); display text was renamed.
+    // 024: the ollamaUrl key name is historical; its display text was renamed.
     ollamaUrl: "Embedding server",
     ollamaUrlDesc: "Embedding server address",
     apiFormat: "API format",
@@ -448,7 +447,6 @@ const en: Locale = {
     mocNoResults: "No results to generate MOC from",
     cmdGlobalDiscover: "Discover related Cold notes",
     scopeCold: "Cold only",
-    sectionQuickSetup: "Embedding & indexing",
     sectionAICuration: "AI curation",
     sectionAdvanced: "Advanced",
     embeddingProvider: "Embedding provider",
@@ -769,7 +767,6 @@ const zhTW: Locale = {
     mocNoResults: "沒有結果可生成 MOC",
     cmdGlobalDiscover: "發掘相關的 Cold 筆記",
     scopeCold: "僅 Cold",
-    sectionQuickSetup: "Embedding 與索引",
     sectionAICuration: "AI 整理",
     sectionAdvanced: "進階",
     embeddingProvider: "Embedding 提供者",
@@ -1093,7 +1090,6 @@ const zhCN: Locale = {
     mocNoResults: "没有结果可生成 MOC",
     cmdGlobalDiscover: "发掘相关的 Cold 笔记",
     scopeCold: "仅 Cold",
-    sectionQuickSetup: "Embedding 与索引",
     sectionAICuration: "AI 整理",
     sectionAdvanced: "高级",
     embeddingProvider: "Embedding 提供者",

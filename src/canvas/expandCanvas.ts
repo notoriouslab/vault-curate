@@ -33,6 +33,7 @@ import {
     type ResolvedLinks,
 } from "./graphCanvas";
 import { pairKey } from "../utils/pairKey";
+import { formatScore } from "../utils/formatScore";
 
 const COLLISION_MARGIN = 100;
 const RADIUS_STEP = 200;
@@ -221,7 +222,7 @@ export function expandCanvas(
             toSide: sides.toSide,
             fromEnd: linked && (direction === "in" || direction === "both") ? "arrow" : "none",
             toEnd: linked && (direction === "out" || direction === "both") ? "arrow" : "none",
-            label: n.score.toFixed(2),
+            label: formatScore(n.score),
         };
         if (!linked) edge.color = COLOR_UNLINKED;
         newEdges.push(edge);
@@ -243,7 +244,7 @@ export function expandCanvas(
             toSide: sides.toSide,
             fromEnd: linked && (direction === "in" || direction === "both") ? "arrow" : "none",
             toEnd: linked && (direction === "out" || direction === "both") ? "arrow" : "none",
-            label: n.score.toFixed(2),
+            label: formatScore(n.score),
         };
         if (!linked) edge.color = COLOR_UNLINKED;
         newEdges.push(edge);

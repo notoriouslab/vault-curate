@@ -21,6 +21,7 @@ import {
     type GraphNodeInput,
     type ResolvedLinks,
 } from "./graphCanvas";
+import { formatScore } from "../utils/formatScore";
 
 const GAP_X = 200;
 
@@ -68,7 +69,7 @@ export function buildPathCanvas(
             toSide: "left",
             fromEnd: linked && (direction === "in" || direction === "both") ? "arrow" : "none",
             toEnd: linked && (direction === "out" || direction === "both") ? "arrow" : "none",
-            label: sims[i].toFixed(2),
+            label: formatScore(sims[i]),
         };
         if (!linked) edge.color = COLOR_UNLINKED;
         edges.push(edge);

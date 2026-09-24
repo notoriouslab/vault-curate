@@ -9,6 +9,8 @@
 // placed at 12 o'clock and placement proceeds clockwise, so input order
 // is the reading order.
 
+import { formatScore } from "../utils/formatScore";
+
 export interface GraphNodeInput {
     path: string;
     tier: "hot" | "cold";
@@ -181,7 +183,7 @@ export function buildGraphCanvas(
             toSide: sides[i].toSide,
             fromEnd: linked && (direction === "in" || direction === "both") ? "arrow" : "none",
             toEnd: linked && (direction === "out" || direction === "both") ? "arrow" : "none",
-            label: n.score.toFixed(2),
+            label: formatScore(n.score),
         };
         if (!linked) edge.color = COLOR_UNLINKED;
         edges.push(edge);
@@ -278,7 +280,7 @@ export function buildResultsCanvas(
             fromEnd: "none",
             toEnd: "none",
             color: COLOR_RELEVANCE,
-            label: r.score.toFixed(2),
+            label: formatScore(r.score),
         });
     }
 
