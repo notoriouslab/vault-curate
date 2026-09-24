@@ -26,6 +26,13 @@ import type { EmbeddingProvider } from "./embedding";
 import { splitChunks } from "./indexer/chunker";
 import { denoiseForEmbed, hasDenoisableContent, DENOISE_VERSION } from "./indexer/denoise";
 import { t2sForEmbed, hasCJK, T2S_VERSION } from "./indexer/preproc";
+import {
+    chunkUpgradeState,
+    effectiveChunkPolicy,
+    finalizeChunkUpgrade,
+    parseChunkTarget,
+    planChunkUpgrade,
+} from "./indexer/chunkPolicy";
 import { findH1Collisions, type FileTitleSource } from "./indexer/titleCollisions";
 import { findStalePaths, findChangedPaths, isImplausibleWipe } from "./indexer/staleReconcile";
 import { deriveTier } from "./heat/deriveTier";
@@ -183,6 +190,7 @@ export class Indexer {
         if (this.store.isDisposed) return;
         this.store.clearAllData();
         this.emptySkippedCount = 0;
+        const runStartMs = Date.now();
 
         const files = this.getMarkdownFiles();
         if (files.length === 0) {
@@ -190,6 +198,7 @@ export class Indexer {
             // clearAllData() above just returned every page to the freelist,
             // and skipping it here left the fat image on disk for one more
             // cycle. Same compact-then-flush shape as the main tail below.
+            this.finalizeChunkPass(0, runStartMs, []);
             this.store.compact();
             await this.store.flush();
             new Notice(t.noticeIndexDone(0, 0, 0, 0), 5000);
@@ -204,6 +213,7 @@ export class Indexer {
         let failed = 0;
         let hot = 0;
         let cold = 0;
+        const failedPaths: string[] = [];
         for (const file of files) {
             const ok = await this.indexOne(file, incomingSet, h1Collisions);
             if (!ok) failed++;
@@ -213,6 +223,17 @@ export class Indexer {
                 else cold++;
             }
             done++;
+            if (!ok) {
+                failedPaths.push(file.path);
+                const stop = await this.recoverAfterFailure();
+                if (stop === "abort") break;
+                if (stop === "provider-lost") {
+                    const remaining = files.length - done;
+                    failed += remaining;
+                    done += remaining;
+                    break;
+                }
+            }
             if (done % PROGRESS_STEP === 0 || done === files.length) {
                 progress.setMessage(t.noticeIndexing(done, files.length));
                 await new Promise(r => window.setTimeout(r, 0));
@@ -226,6 +247,7 @@ export class Indexer {
         // writeIndexMeta() (indexSingleFile calls that on every file edit).
         this.store.setMeta("denoise_version", DENOISE_VERSION);
         this.store.setMeta("t2s_version", T2S_VERSION);
+        this.finalizeChunkPass(failed, runStartMs, failedPaths);
         // 019 G1 review C1: a full rebuild holds `indexing` for as long as it
         // takes to re-embed the vault (minutes), and onFileChange drops every
         // delete event for that whole window. clearAllData() only rules out
@@ -307,6 +329,22 @@ export class Indexer {
         // standard indexing progress notice keeps it visible.
         const t2sUpgrade = hasIndex && this.store.getMeta("t2s_version") !== T2S_VERSION;
 
+        // 034 D2: chunking-policy upgrade. stamp-only (an external provider on
+        // a pre-policy index) only needs the stamp; reembed resumes from the
+        // stored target so an interrupted pass never starts over.
+        const runStartMs = Date.now();
+        const effectivePolicy = effectiveChunkPolicy(this.provider, this.plugin.settings);
+        const chunkState = hasIndex
+            ? chunkUpgradeState(this.store.getMeta("chunk_policy"), this.provider, this.plugin.settings)
+            : "none";
+        if (chunkState === "stamp-only") this.store.setMeta("chunk_policy", effectivePolicy);
+        let chunkStartedAt: number | null = null;
+        if (chunkState === "reembed") {
+            const plan = planChunkUpgrade(this.store.getMeta("chunk_upgrade_target"), effectivePolicy, runStartMs);
+            if (plan.rewrite) this.store.setMeta("chunk_upgrade_target", plan.target);
+            chunkStartedAt = plan.startedAt;
+        }
+
         const files = this.getMarkdownFiles();
         const incomingSet = this.buildIncomingSet();
         const h1Collisions = this.buildH1Collisions(files);
@@ -338,6 +376,12 @@ export class Indexer {
                 toReindex.push(file);
                 continue;
             }
+            // 034 D2: notes indexed since the upgrade started are already on
+            // the new chunking (and the current denoise/t2s rules with it).
+            if (chunkStartedAt !== null) {
+                if (stored.indexedAt < chunkStartedAt) toReindex.push(file);
+                continue;
+            }
             if (denoiseUpgrade || t2sUpgrade) {
                 const content = await this.plugin.app.vault.cachedRead(file);
                 const body = stripFrontmatter(content);
@@ -350,6 +394,9 @@ export class Indexer {
                     toReindex.push(file);
                 }
             }
+        }
+        if (chunkStartedAt !== null) {
+            console.debug(`vault-curate: chunk upgrade → ${toReindex.length} of ${files.length} notes (target ${effectivePolicy})`);
         }
         if (denoiseUpgrade || t2sUpgrade) {
             console.debug(`vault-curate: upgrade scan → ${toReindex.length} notes to re-embed (denoise v${DENOISE_VERSION}${denoiseUpgrade ? "*" : ""}, t2s v${T2S_VERSION}${t2sUpgrade ? "*" : ""})`);
@@ -371,6 +418,7 @@ export class Indexer {
             // and a single-file edit would falsely mark the one-time scan as done.
             if (denoiseUpgrade) this.store.setMeta("denoise_version", DENOISE_VERSION);
             if (t2sUpgrade) this.store.setMeta("t2s_version", T2S_VERSION);
+            this.finalizeChunkPass(0, runStartMs, []);
             await this.backfillDescVecs();
             // 019 D6: a delete event that landed while `indexing` was true
             // got dropped by onFileChange's guard, and the pass at the top
@@ -391,10 +439,22 @@ export class Indexer {
         const progress = new Notice(t.noticeIndexing(0, toReindex.length), 0);
         let done = 0;
         let failed = 0;
+        const failedPaths: string[] = [];
         for (const file of toReindex) {
             const ok = await this.indexOne(file, incomingSet, h1Collisions);
             if (!ok) failed++;
             done++;
+            if (!ok) {
+                failedPaths.push(file.path);
+                const stop = await this.recoverAfterFailure();
+                if (stop === "abort") break;
+                if (stop === "provider-lost") {
+                    const remaining = toReindex.length - done;
+                    failed += remaining;
+                    done += remaining;
+                    break;
+                }
+            }
             if (done % PROGRESS_STEP === 0 || done === toReindex.length) {
                 progress.setMessage(t.noticeIndexing(done, toReindex.length));
                 await new Promise(r => window.setTimeout(r, 0));
@@ -420,6 +480,7 @@ export class Indexer {
         // scan as done.
         this.store.setMeta("denoise_version", DENOISE_VERSION);
         this.store.setMeta("t2s_version", T2S_VERSION);
+        this.finalizeChunkPass(failed, runStartMs, failedPaths);
         await this.backfillDescVecs();
         // 019 D6: same as the early-return exit above — catch deletes whose
         // events were dropped while this run held `indexing`.
@@ -772,6 +833,53 @@ export class Indexer {
         const t0 = Date.now();
         await this.provider.warmup();
         console.debug(`vault-curate: warmup done in ${Date.now() - t0}ms, dim=${this.provider.dimension}, modelId=${this.provider.modelId}`);
+    }
+
+    /**
+     * 034 D2: after a note fails mid-pass, decide whether to keep going.
+     * "abort" — the store is gone (plugin unloading): stop, and do NOT warm
+     * the provider back up, which would boot a worker nobody disposes.
+     * "provider-lost" — the worker died and could not be restarted: every
+     * remaining note would fail instantly, so stop and count them failed.
+     * "continue" — the provider is fine (or came back), so one note that
+     * crashed the worker does not take the rest of the pass down with it.
+     */
+    private async recoverAfterFailure(): Promise<"continue" | "abort" | "provider-lost"> {
+        if (this.store.isDisposed) return "abort";
+        if (await this.provider.isReady()) return "continue";
+        try {
+            await this.ensureProviderReady();
+            return "continue";
+        } catch (err) {
+            console.warn("vault-curate: provider could not be restarted mid-pass", err);
+            return "provider-lost";
+        }
+    }
+
+    /**
+     * 034 D2: settle the chunking-policy stamp at the end of a pass. Rules
+     * live in finalizeChunkUpgrade (pure, unit-tested). MUST NOT move into
+     * writeIndexMeta(): indexSingleFile calls that on every edit and would
+     * mark an unfinished upgrade as done.
+     */
+    private finalizeChunkPass(failed: number, runStartMs: number, failedPaths: string[]): void {
+        const effective = effectiveChunkPolicy(this.provider, this.plugin.settings);
+        const f = finalizeChunkUpgrade({
+            failed,
+            storedPolicy: this.store.getMeta("chunk_policy"),
+            effective,
+            target: parseChunkTarget(this.store.getMeta("chunk_upgrade_target")),
+            runStartMs,
+        });
+        if (f.stampPolicy) this.store.setMeta("chunk_policy", effective);
+        if (f.deleteTarget) this.store.deleteMeta("chunk_upgrade_target");
+        if (f.writeTarget !== null) this.store.setMeta("chunk_upgrade_target", f.writeTarget);
+        if (f.giveUp) {
+            console.warn(`vault-curate: gave up re-indexing ${failed} note(s) after repeated failures:`, failedPaths);
+            new Notice(t.noticeChunkUpgradeGaveUp(failed), 10000);
+        } else if (f.writeTarget !== null) {
+            new Notice(t.noticeChunkUpgradeIncomplete(failed), 10000);
+        }
     }
 
     private writeIndexMeta(): void {

@@ -222,7 +222,20 @@ export class DropdownStub extends ValueStub<HTMLSelectElement> {
 }
 
 export class Modal {}
-export class Notice {}
+// 034 T3: the indexer drives a progress Notice (setMessage / hide), so the
+// stub needs those two methods; constructing one stays a no-op.
+export class Notice {
+    constructor(_msg?: unknown, _timeout?: number) {}
+    setMessage(_m: unknown): this { return this; }
+    hide(): void {}
+}
+// 034 T3: indexer.ts checks `instanceof TFile`; tests build files from this.
+export class TFile {
+    path = "";
+    basename = "";
+    extension = "md";
+    stat = { mtime: 0, ctime: 0, size: 0 };
+}
 export class PluginSettingTab {}
 
 export const Platform = { isMobile: false };

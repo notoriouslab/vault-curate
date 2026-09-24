@@ -209,6 +209,10 @@ export interface Locale {
     /** 021: too many changed notes to re-index at launch. */
     noticeCatchUpDeferred: (n: number) => string;
     noticeLargeVault: (chunks: number) => string;
+    /** 034: notes that failed during a pass; retried on next launch. */
+    noticeChunkUpgradeIncomplete: (n: number) => string;
+    /** 034: notes still failing after repeated passes; skipped for good. */
+    noticeChunkUpgradeGaveUp: (n: number) => string;
     discoverGlobalNoCold: string;
     discoverGlobalAllFiltered: string;
     discoverPin: string;
@@ -328,9 +332,9 @@ const en: Locale = {
     autoIndex: "Auto-index on change",
     autoIndexDesc: "Automatically re-embed notes when modified. Keeps Discover results fresh.",
     chunkSize: "Chunk size",
-    chunkSizeDesc: "Characters per chunk (rebuild index after changing)",
+    chunkSizeDesc: "Characters per chunk (the index is rebuilt automatically on next launch after changing)",
     chunkOverlap: "Chunk overlap",
-    chunkOverlapDesc: "Overlapping characters between chunks",
+    chunkOverlapDesc: "Overlapping characters between chunks (the index is rebuilt automatically on next launch after changing)",
     synonymsLabel: "Synonyms",
     synonymsDesc: "One per line: keyword = synonym1, synonym2",
     llmModel: "LLM model",
@@ -503,7 +507,9 @@ const en: Locale = {
     noticeCatchUpDone: (n) => `Vault Curate: caught up on ${n} note(s) edited since the last index`,
     noticeCatchUpDeferred: (n) => `Vault Curate: ${n} notes changed since the last index — run "Update index" to bring search up to date`,
     noticeLargeVault: (chunks) =>
-        `Vault Curate: indexed ${chunks} chunks. Semantic search may take a few seconds — if it feels slow, try setting search scope to "Hot" in Settings → Advanced.`,
+        `Vault Curate: indexed ${chunks} chunks. Semantic search can slow down on very large vaults; add folders you never search to "Exclude patterns" in Settings to keep it fast.`,
+    noticeChunkUpgradeIncomplete: (n) => `Vault Curate: ${n} note(s) could not be indexed. They will be retried the next time Obsidian starts.`,
+    noticeChunkUpgradeGaveUp: (n) => `Vault Curate: ${n} note(s) still could not be indexed after several tries and were skipped. The developer console lists them.`,
     discoverGlobalNoCold: "No Cold notes — every note in your vault is either linked or recent, so there's nothing to rediscover.",
     discoverGlobalAllFiltered: "All Cold candidates scored below the minimum threshold — lower 'Min score' in Settings → Advanced to surface lower-confidence matches.",
     discoverPin: "Pin",
@@ -648,9 +654,9 @@ const zhTW: Locale = {
     autoIndex: "自動更新索引",
     autoIndexDesc: "筆記修改時自動重新 embed，保持 Discover 結果即時。",
     chunkSize: "Chunk 大小",
-    chunkSizeDesc: "每個 chunk 的字數（修改後需重建索引）",
+    chunkSizeDesc: "每個 chunk 的字數（修改後下次啟動會自動重建索引）",
     chunkOverlap: "Chunk 重疊",
-    chunkOverlapDesc: "相鄰 chunk 重疊的字數",
+    chunkOverlapDesc: "相鄰 chunk 重疊的字數（修改後下次啟動會自動重建索引）",
     synonymsLabel: "同義詞",
     synonymsDesc: "每行一組：關鍵字 = 同義詞1, 同義詞2",
     llmModel: "LLM 模型",
@@ -823,7 +829,9 @@ const zhTW: Locale = {
     noticeCatchUpDone: (n) => `Vault Curate：已補上 ${n} 篇筆記的索引`,
     noticeCatchUpDeferred: (n) => `Vault Curate：有 ${n} 篇筆記在上次索引後被改過，請執行「更新索引」讓搜尋跟上`,
     noticeLargeVault: (chunks) =>
-        `Vault Curate：完成 ${chunks} 個 chunks 索引。語意搜尋可能需要數秒；若感到慢，可至「設定 → 進階 → 搜尋範圍」改為 Hot only。`,
+        `Vault Curate：完成 ${chunks} 個 chunks 索引。資料量很大時語意搜尋可能變慢，可在設定的「排除路徑」加入不需要搜尋的資料夾。`,
+    noticeChunkUpgradeIncomplete: (n) => `Vault Curate：有 ${n} 篇筆記未能完成索引，下次啟動 Obsidian 時會自動重試。`,
+    noticeChunkUpgradeGaveUp: (n) => `Vault Curate：有 ${n} 篇筆記多次重試仍無法索引，已略過；清單請見開發者主控台。`,
     discoverGlobalNoCold: "目前沒有 Cold 筆記 — vault 中所有筆記都有連結或近期建立，沒有可重新發現的內容。",
     discoverGlobalAllFiltered: "所有 Cold 候選筆記分數低於最低門檻 — 請至「設定 → 進階 → 最低分數」調低後重試。",
     discoverPin: "釘選",
@@ -971,9 +979,9 @@ const zhCN: Locale = {
     autoIndex: "自动更新索引",
     autoIndexDesc: "笔记修改时自动重新 embed，保持 Discover 结果即时。",
     chunkSize: "Chunk 大小",
-    chunkSizeDesc: "每个 chunk 的字数（修改后需重建索引）",
+    chunkSizeDesc: "每个 chunk 的字数（修改后下次启动会自动重建索引）",
     chunkOverlap: "Chunk 重叠",
-    chunkOverlapDesc: "相邻 chunk 重叠的字数",
+    chunkOverlapDesc: "相邻 chunk 重叠的字数（修改后下次启动会自动重建索引）",
     synonymsLabel: "同义词",
     synonymsDesc: "每行一组：关键词 = 同义词1, 同义词2",
     llmModel: "LLM 模型",
@@ -1146,7 +1154,9 @@ const zhCN: Locale = {
     noticeCatchUpDone: (n) => `Vault Curate：已补上 ${n} 篇笔记的索引`,
     noticeCatchUpDeferred: (n) => `Vault Curate：有 ${n} 篇笔记在上次索引后被改过，请执行「更新索引」让搜索跟上`,
     noticeLargeVault: (chunks) =>
-        `Vault Curate：完成 ${chunks} 个 chunks 的索引。语义搜索可能需要几秒；如果觉得慢，可到「设置 → 高级 → 搜索范围」改为 Hot only。`,
+        `Vault Curate：完成 ${chunks} 个 chunks 的索引。数据量很大时语义搜索可能变慢，可在设置的「排除路径」加入不需要搜索的文件夹。`,
+    noticeChunkUpgradeIncomplete: (n) => `Vault Curate：有 ${n} 篇笔记未能完成索引，下次启动 Obsidian 时会自动重试。`,
+    noticeChunkUpgradeGaveUp: (n) => `Vault Curate：有 ${n} 篇笔记多次重试仍无法索引，已跳过；清单请见开发者控制台。`,
     discoverGlobalNoCold: "目前没有 Cold 笔记 — vault 中所有笔记都有链接或近期创建，没有可重新发现的内容。",
     discoverGlobalAllFiltered: "所有 Cold 候选笔记的分数低于最低阈值 — 请到「设置 → 高级 → 最低分数」调低后重试。",
     discoverPin: "固定",

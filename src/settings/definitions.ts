@@ -101,8 +101,8 @@ export function buildDesktopDefinitions(ctx: SettingsContext): SettingDefinition
                 maxEmbedCharsRow(ctx),
                 hotDaysRow(ctx),
                 searchScopeRow(ctx),
-                chunkSizeRow(ctx),
-                chunkOverlapRow(ctx),
+                chunkSizeRow(ctx, external),
+                chunkOverlapRow(ctx, external),
                 synonymsRow(ctx),
                 autoIndexRow(ctx),
                 {

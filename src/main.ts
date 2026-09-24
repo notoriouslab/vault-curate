@@ -3,6 +3,8 @@ import workerSource from "@inline/worker";
 import { SQLiteStore, type PersistAdapter } from "./storage/SQLiteStore";
 import { DENOISE_VERSION } from "./indexer/denoise";
 import { T2S_VERSION } from "./indexer/preproc";
+import { chunkUpgradeState, effectiveChunkPolicy } from "./indexer/chunkPolicy";
+import { needsStartupUpdate } from "./utils/startupUpdate";
 import {
     createProvider,
     type EmbeddingProvider,
@@ -477,6 +479,30 @@ export default class VaultSearchPlugin extends Plugin {
             if (!indexed && !dismissed && !Platform.isMobile) {
                 this.showOnboardingModal();
             }
+            // 007 D2 / 034 D2: upgrade work that needs an incremental update.
+            // Computed before the catch-up below because a pending update
+            // replaces it (update() compares every mtime anyway), and running
+            // both would let catch-up's `indexing` flag swallow the update.
+            const denoiseStale = this.store.getMeta("denoise_version") !== DENOISE_VERSION;
+            const t2sStale = this.store.getMeta("t2s_version") !== T2S_VERSION;
+            const descPending = this.store.countDescBackfillPending(this.settings.minDescChars) > 0;
+            // A provider that failed to build leaves store set but provider null.
+            const chunkState = this.provider && this.indexer
+                ? chunkUpgradeState(this.store.getMeta("chunk_policy"), this.provider, this.settings)
+                : "none";
+            // stamp-only: an external provider on a pre-policy index chunks
+            // exactly as before — record the stamp, skip the update (G14).
+            if (chunkState === "stamp-only" && indexed && !Platform.isMobile && this.provider) {
+                this.store.setMeta("chunk_policy", effectiveChunkPolicy(this.provider, this.settings));
+            }
+            const kickUpdate = needsStartupUpdate({
+                indexed: !!indexed,
+                isMobile: Platform.isMobile,
+                denoiseStale,
+                t2sStale,
+                descPending,
+                chunkState,
+            });
             // 019 D4 (issue #13): notes deleted while Obsidian wasn't running
             // never fire a `delete` event, and nothing else prunes them — a
             // steady-state launch used to skip reconciling entirely, so ghost
@@ -494,13 +520,17 @@ export default class VaultSearchPlugin extends Plugin {
                 // 021: the other half — notes whose update was missed (closed
                 // inside the 2s debounce, or edited while Obsidian was shut).
                 // Async because it may embed, so it is fired and forgotten;
-                // the prune above stays synchronous.
-                void this.indexer.catchUpChanged().then(({ reindexed, deferred }) => {
-                    if (reindexed > 0) new Notice(t.noticeCatchUpDone(reindexed), 6000);
-                    if (deferred > 0) new Notice(t.noticeCatchUpDeferred(deferred), 10000);
-                }).catch((err) => {
-                    console.warn("vault-curate: startup catch-up failed", err);
-                });
+                // the prune above stays synchronous. Skipped when an update
+                // is about to run: it covers the same notes, and catch-up
+                // holding `indexing` would make that update bail as busy.
+                if (!kickUpdate) {
+                    void this.indexer.catchUpChanged().then(({ reindexed, deferred }) => {
+                        if (reindexed > 0) new Notice(t.noticeCatchUpDone(reindexed), 6000);
+                        if (deferred > 0) new Notice(t.noticeCatchUpDeferred(deferred), 10000);
+                    }).catch((err) => {
+                        console.warn("vault-curate: startup catch-up failed", err);
+                    });
+                }
             }
             // 007 D2: upgrade re-embed scans live at the top of update(), but
             // nothing ever called update() on startup — an upgraded plugin
@@ -510,12 +540,10 @@ export default class VaultSearchPlugin extends Plugin {
             // schema v3 upgrade leaves existing desc_vec NULL). Bonus: the
             // pre-existing tokenizer/model rebuild checks at the top of
             // update() get a startup trigger through the same call.
-            const denoiseStale = this.store.getMeta("denoise_version") !== DENOISE_VERSION;
-            const t2sStale = this.store.getMeta("t2s_version") !== T2S_VERSION;
-            const descPending = this.store.countDescBackfillPending(this.settings.minDescChars) > 0;
-            // 015: staleness auto-update is a full-embed write path — desktop only.
-            if (indexed && !Platform.isMobile && (denoiseStale || t2sStale || descPending)) {
-                console.debug(`vault-curate: upgrade work pending (denoiseStale=${denoiseStale}, t2sStale=${t2sStale}, descBackfill=${descPending}) — kicking incremental update`);
+            // 015: staleness auto-update is a full-embed write path — desktop
+            // only (needsStartupUpdate checks both that and `indexed`).
+            if (kickUpdate) {
+                console.debug(`vault-curate: upgrade work pending (denoiseStale=${denoiseStale}, t2sStale=${t2sStale}, descBackfill=${descPending}, chunks=${chunkState}) — kicking incremental update`);
                 void this.updateIndex();
             }
         });

@@ -585,6 +585,13 @@ export class SQLiteStore {
         this.touch();
     }
 
+    deleteMeta(key: string): void {
+        if (this.disposed) return;
+        if (this.refuseWrite("deleteMeta")) return;
+        this.db.run('DELETE FROM meta WHERE key = ?', [key]);
+        this.touch();
+    }
+
     // ─── Bulk operations ──────────────────────────────────────────────────────
 
     /** 028: reclaim freelist pages after mass deletions. DELETE hands pages to
@@ -635,7 +642,9 @@ export class SQLiteStore {
                     'embedding_provider',
                     'embedding_model_id',
                     'embedding_dim',
-                    'last_indexed_at'
+                    'last_indexed_at',
+                    'chunk_policy',
+                    'chunk_upgrade_target'
                 );
                 COMMIT;
             `);

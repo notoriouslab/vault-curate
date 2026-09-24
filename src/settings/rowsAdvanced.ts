@@ -193,10 +193,13 @@ export function hotDaysRow(ctx: SettingsContext): SettingDefinitionRender {
     };
 }
 
-export function chunkSizeRow(ctx: SettingsContext): SettingDefinitionRender {
+// 034 D2: the built-in model sizes chunks by token count, so these two
+// only apply to external providers (pass `external`).
+export function chunkSizeRow(ctx: SettingsContext, visible?: Predicate): SettingDefinitionRender {
     return {
         name: t.chunkSize,
         desc: t.chunkSizeDesc,
+        visible,
         render: (setting) => {
             setting.addText(text => {
                 text.setValue(String(ctx.plugin.settings.chunkSize));
@@ -212,10 +215,11 @@ export function chunkSizeRow(ctx: SettingsContext): SettingDefinitionRender {
     };
 }
 
-export function chunkOverlapRow(ctx: SettingsContext): SettingDefinitionRender {
+export function chunkOverlapRow(ctx: SettingsContext, visible?: Predicate): SettingDefinitionRender {
     return {
         name: t.chunkOverlap,
         desc: t.chunkOverlapDesc,
+        visible,
         render: (setting) => {
             setting.addText(text => {
                 text.setValue(String(ctx.plugin.settings.chunkOverlap));
