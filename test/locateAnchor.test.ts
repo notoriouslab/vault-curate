@@ -34,12 +34,12 @@ describe('locateAnchor', () => {
     });
 
     it('builds the match Obsidian search opens with, on the anchor\'s first non-blank line', () => {
-        const content = '---\ntitle: x\n---\n前文\n\n  | 巽正 | 周巽正 |\n| 區牧師 | 區永亮 |\n';
-        const anchor = '\n  | 巽正 | 周巽正 |\n| 區牧師';
+        const content = '---\ntitle: x\n---\n前文\n\n  | 簡稱 | 台北車站 |\n| 主管機關 | 金管會 |\n';
+        const anchor = '\n  | 簡稱 | 台北車站 |\n| 主管機關';
         const m = anchorMatch(content, anchor, 0, 1)!;
         const [a, b] = m.matches[0];
         expect(m.content).toBe(content);
-        expect(content.slice(a, b)).toBe('| 巽正 | 周巽正 |');
+        expect(content.slice(a, b)).toBe('| 簡稱 | 台北車站 |');
     });
 
     it('gives no match for a missing or blank anchor', () => {
