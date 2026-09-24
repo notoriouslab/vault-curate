@@ -239,4 +239,20 @@ describe('indexer chunk-policy upgrade', () => {
         expect(h.store.getMeta('embedding_model_id')).toBe('fake-model');
         expect(h.store.getMeta(META_POLICY)).toBeNull();
     });
+
+    it('(q) counts attempts for an external provider whose chunk size changed', async () => {
+        const h = await makeHarness(notesWith(3), makeProvider({ tokenPolicy: false }));
+        await h.indexer.rebuild();
+        expect(h.store.getMeta(META_POLICY)).toBe('char2000-o100');
+        h.settings.chunkSize = 1500; // launch now sees a reembed and retries
+        const failing = makeProvider({ tokenPolicy: false, failPaths: new Set(['note1']) });
+        h.setProvider(failing);
+        await h.indexer.update();
+        expect(h.store.getMeta(META_TARGET)).toMatch(/^char1500-o100@\d+#1$/);
+        await h.indexer.update();
+        await h.indexer.update();
+        // Third failing pass gives up instead of retrying on every launch.
+        expect(h.store.getMeta(META_POLICY)).toBe('char1500-o100');
+        expect(h.store.getMeta(META_TARGET)).toBeNull();
+    });
 });

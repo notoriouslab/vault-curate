@@ -880,13 +880,17 @@ export class Indexer {
      */
     private finalizeChunkPass(failed: number, runStartMs: number, failedPaths: string[], providerLost: boolean): void {
         const effective = effectiveChunkPolicy(this.provider, this.plugin.settings);
+        const storedPolicy = this.store.getMeta("chunk_policy");
         const f = finalizeChunkUpgrade({
             failed,
-            storedPolicy: this.store.getMeta("chunk_policy"),
+            storedPolicy,
             effective,
             target: parseChunkTarget(this.store.getMeta("chunk_upgrade_target")),
             runStartMs,
-            resumable: this.provider.chunkPolicy !== undefined,
+            // Launch retries a pending upgrade whenever the stored stamp exists
+            // and differs (reembed). Only a stamp-less index on an external
+            // provider (stamp-only) never gets that retry.
+            resumable: this.provider.chunkPolicy !== undefined || storedPolicy !== null,
             providerLost,
         });
         if (f.stampPolicy) this.store.setMeta("chunk_policy", effective);

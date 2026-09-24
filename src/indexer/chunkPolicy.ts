@@ -85,9 +85,11 @@ export function planChunkUpgrade(
  *     MAX_UPGRADE_ATTEMPTS-th failing pass so a note that always fails
  *     cannot make every launch retry.
  *   - Failures with no upgrade pending: nothing to do here.
- *   - Failures on a provider that cannot resume (external endpoints: they
- *     never get a startup re-embed, see chunkUpgradeState's stamp-only):
- *     nothing either, so no target promises a retry that will not happen.
+ *   - Failures where launch will not retry (an external provider on an
+ *     index with no stamp yet: chunkUpgradeState's stamp-only never kicks
+ *     an update): nothing either, so no target promises a retry that will
+ *     not happen. An external provider whose chunk size changed does get
+ *     the startup retry (reembed), so it is resumable like the built-in one.
  *   - A pass cut short because the provider could not be restarted records
  *     the target but does not count as an attempt: the notes it never
  *     reached did not fail, and giving up on them would leave them on the

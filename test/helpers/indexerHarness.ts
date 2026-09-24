@@ -85,6 +85,7 @@ export function makeProvider(opts: FakeProviderOptions): FakeProvider {
 export interface Harness {
     store: SQLiteStore;
     indexer: Indexer;
+    settings: typeof DEFAULT_SETTINGS;
     files: Map<string, { file: TFile; body: string }>;
     setProvider(p: EmbeddingProvider): void;
 }
@@ -121,6 +122,7 @@ export async function makeHarness(notes: Record<string, string>, provider: Embed
     return {
         store,
         indexer,
+        settings: plugin.settings,
         files,
         setProvider: (p) => indexer.setBackends(store, p),
     };
