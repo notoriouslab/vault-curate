@@ -158,6 +158,7 @@ describe("setting definitions", () => {
             .find(i => i.name === t.apiFormat)!;
         expect((apiFormat.visible as () => boolean)()).toBe(false);
     });
+
     it("shows the custom language row only for custom output with AI curation on (036)", () => {
         const visibleOf = (overrides: Record<string, unknown>) => {
             const { ctx } = makeCtx(overrides);

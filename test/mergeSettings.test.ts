@@ -54,6 +54,7 @@ describe('mergeSettings', () => {
         expect(merged.dismissedPairs).not.toBe(DEFAULT_SETTINGS.dismissedPairs);
         expect(merged.dismissedNotes).not.toBe(DEFAULT_SETTINGS.dismissedNotes);
     });
+
     it('defaults the AI output language fields for pre-036 data.json', () => {
         const merged = mergeSettings({}, DEFAULT_SETTINGS);
         expect(merged.aiOutputLanguage).toBe('auto');
