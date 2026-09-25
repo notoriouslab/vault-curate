@@ -9,6 +9,7 @@ import { clearRemoteWarning, renderModelDropdown, updateRemoteWarning } from "./
 import type { Predicate } from "./rowHelpers";
 import { checkLLMReachable } from "../utils";
 import { resolveLlmUrl } from "../utils/resolveLlmUrl";
+import { normalizeAiOutputLanguage } from "../utils/aiOutputLanguage";
 import { t } from "../i18n";
 
 export function enableAICurationRow(ctx: SettingsContext): SettingDefinitionRender {
@@ -100,6 +101,51 @@ export function llmModelRow(ctx: SettingsContext, visible: Predicate): SettingDe
                 await ctx.plugin.saveSettings();
             },
         }),
+    };
+}
+
+export function aiOutputLanguageRow(ctx: SettingsContext, visible: Predicate): SettingDefinitionRender {
+    // 036 D8: listed languages use prompts written in that language; the
+    // endonym labels are the same in every interface language.
+    return {
+        name: t.aiOutputLanguage,
+        desc: t.aiOutputLanguageDesc,
+        visible,
+        render: (setting) => {
+            setting.addDropdown(drop => {
+                drop.addOption("auto", t.aiOutputLanguageAuto);
+                drop.addOption("en", "English");
+                drop.addOption("zh-TW", "繁體中文");
+                drop.addOption("zh-CN", "简体中文");
+                drop.addOption("custom", t.aiOutputLanguageCustomOption);
+                drop.setValue(ctx.plugin.settings.aiOutputLanguage);
+                drop.onChange(async (val) => {
+                    ctx.plugin.settings.aiOutputLanguage = normalizeAiOutputLanguage(val);
+                    await ctx.plugin.saveSettings();
+                    // Only the custom-name row's visibility depends on this.
+                    ctx.refreshPredicates();
+                });
+            });
+        },
+    };
+}
+
+export function aiOutputLanguageCustomRow(ctx: SettingsContext, visible: Predicate): SettingDefinitionRender {
+    return {
+        name: t.aiOutputLanguageCustomName,
+        desc: t.aiOutputLanguageCustomDesc,
+        visible,
+        render: (setting) => {
+            setting.addText(text => {
+                text.setPlaceholder("Français");
+                text.setValue(ctx.plugin.settings.aiOutputLanguageCustom);
+                // Save only: a re-render would steal focus mid-typing.
+                text.onChange(async (val) => {
+                    ctx.plugin.settings.aiOutputLanguageCustom = val;
+                    await ctx.plugin.saveSettings();
+                });
+            });
+        },
     };
 }
 

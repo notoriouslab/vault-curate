@@ -30,6 +30,13 @@ export interface Locale {
     chunkOverlapDesc: string;
     llmModel: string;
     llmModelDesc: string;
+    /** 036 */
+    aiOutputLanguage: string;
+    aiOutputLanguageDesc: string;
+    aiOutputLanguageAuto: string;
+    aiOutputLanguageCustomOption: string;
+    aiOutputLanguageCustomName: string;
+    aiOutputLanguageCustomDesc: string;
     llmUrlName: string;
     llmUrlDesc: string;
     enableAICuration: string;
@@ -336,6 +343,12 @@ const en: Locale = {
     synonymsDesc: "One per line: keyword = synonym1, synonym2",
     llmModel: "LLM model",
     llmModelDesc: "Model used by AI curation (description / MOC naming). Recommended: qwen3:1.7b for Ollama; gpt-4o-mini for OpenAI-compatible.",
+    aiOutputLanguage: "AI output language",
+    aiOutputLanguageDesc: "Language for AI-written descriptions, tags and MOC group names. Only affects what is generated from now on; existing descriptions and tags are not rewritten. Fixed MOC labels (such as Miscellaneous) follow the interface language.",
+    aiOutputLanguageAuto: "Follow interface language",
+    aiOutputLanguageCustomOption: "Custom…",
+    aiOutputLanguageCustomName: "Custom language",
+    aiOutputLanguageCustomDesc: "Language name to write in, e.g. Français or Deutsch. Prefer a listed language when available: those use prompts written in that language, which small models follow more reliably. Leave empty to follow the interface language.",
     llmUrlName: "AI curation server (optional)",
     llmUrlDesc: "Separate server for AI curation only. Leave empty to use the embedding server above. Useful when your LLM runs on a server that doesn't serve embeddings (e.g. mlx_lm.server). Note: the API key above is sent to both servers.",
     enableAICuration: "Enable AI curation",
@@ -655,6 +668,12 @@ const zhTW: Locale = {
     synonymsDesc: "每行一組：關鍵字 = 同義詞1, 同義詞2",
     llmModel: "LLM 模型",
     llmModelDesc: "AI 整理（description / MOC 群組命名）使用的 LLM 模型。Ollama 推薦：qwen3:1.7b；OpenAI-compatible 可用 gpt-4o-mini 等。",
+    aiOutputLanguage: "AI 輸出語言",
+    aiOutputLanguageDesc: "AI 產生的描述、標籤與 MOC 群組名稱使用的語言。只影響之後產生的內容，既有的描述和標籤不會改寫。MOC 的固定標籤（如「其他」）仍跟介面語言。",
+    aiOutputLanguageAuto: "跟隨介面語言",
+    aiOutputLanguageCustomOption: "自訂…",
+    aiOutputLanguageCustomName: "自訂語言",
+    aiOutputLanguageCustomDesc: "要輸出的語言名稱，例如 Français、Deutsch。清單裡有的語言請直接選：那些用的是以該語言寫的提示詞，小模型比較聽話。留空＝跟隨介面語言。",
     llmUrlName: "AI 整理伺服器（選填）",
     llmUrlDesc: "只給 AI 整理用的獨立伺服器。留空則使用上方的 Embedding 伺服器。適合 LLM 跑在不提供 embeddings 的伺服器（如 mlx_lm.server）時使用。注意：上方的 API key 會同時送到兩台伺服器。",
     enableAICuration: "啟用 AI 整理",
@@ -977,6 +996,12 @@ const zhCN: Locale = {
     synonymsDesc: "每行一组：关键词 = 同义词1, 同义词2",
     llmModel: "LLM 模型",
     llmModelDesc: "AI 整理（description / MOC 分组命名）使用的 LLM 模型。Ollama 推荐：qwen3:1.7b；OpenAI-compatible 可用 gpt-4o-mini 等。",
+    aiOutputLanguage: "AI 输出语言",
+    aiOutputLanguageDesc: "AI 生成的描述、标签与 MOC 分组名称使用的语言。只影响之后生成的内容，已有的描述和标签不会改写。MOC 的固定标签（如「其他」）仍跟界面语言。",
+    aiOutputLanguageAuto: "跟随界面语言",
+    aiOutputLanguageCustomOption: "自定义…",
+    aiOutputLanguageCustomName: "自定义语言",
+    aiOutputLanguageCustomDesc: "要输出的语言名称，例如 Français、Deutsch。列表里有的语言请直接选：那些用的是以该语言写的提示词，小模型更听话。留空＝跟随界面语言。",
     llmUrlName: "AI 整理服务器（选填）",
     llmUrlDesc: "只给 AI 整理用的独立服务器。留空则使用上方的 Embedding 服务器。适合 LLM 跑在不提供 embeddings 的服务器（如 mlx_lm.server）时使用。注意：上方的 API key 会同时发送到两台服务器。",
     enableAICuration: "启用 AI 整理",

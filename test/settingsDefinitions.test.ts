@@ -4,6 +4,7 @@ import { buildDesktopDefinitions, buildMobileDefinitions } from "../src/settings
 import type { SettingsContext } from "../src/settings/types";
 import { DEFAULT_SETTINGS } from "../src/types";
 import { t } from "../src/i18n";
+import { Setting } from "obsidian";
 
 vi.mock("obsidian", () => import("./setup/obsidianSettingStub"));
 
@@ -71,6 +72,8 @@ describe("setting definitions", () => {
             t.apiFormat,
             t.llmUrlName,
             t.llmModel,
+            t.aiOutputLanguage,
+            t.aiOutputLanguageCustomName,
             t.llmEndpointHeading,
             t.rerunOnboarding,
             t.topResults,
@@ -89,7 +92,7 @@ describe("setting definitions", () => {
             t.updateIndex,
             t.indexStats,
         ]);
-        expect(names.length).toBe(27); // 034: "Max embed characters" row retired
+        expect(names.length).toBe(29); // 034: "Max embed characters" row retired; 036: +2 AI output language rows
     });
 
     it("uses no control definitions", () => {
@@ -154,5 +157,57 @@ describe("setting definitions", () => {
         const apiFormat = flatten(buildDesktopDefinitions(curationOff.ctx))
             .find(i => i.name === t.apiFormat)!;
         expect((apiFormat.visible as () => boolean)()).toBe(false);
+    });
+    it("shows the custom language row only for custom output with AI curation on (036)", () => {
+        const visibleOf = (overrides: Record<string, unknown>) => {
+            const { ctx } = makeCtx(overrides);
+            const row = flatten(buildDesktopDefinitions(ctx)).find(i => i.name === t.aiOutputLanguageCustomName)!;
+            return (row.visible as () => boolean)();
+        };
+        expect(visibleOf({ enableAICuration: true, aiOutputLanguage: "auto" })).toBe(false);
+        expect(visibleOf({ enableAICuration: true, aiOutputLanguage: "custom" })).toBe(true);
+        expect(visibleOf({ enableAICuration: false, aiOutputLanguage: "custom" })).toBe(false);
+    });
+
+    it("keeps the AI output language rows off the mobile list (036)", () => {
+        const { ctx } = makeCtx();
+        const names = flatten(buildMobileDefinitions(ctx)).map(i => i.name);
+        expect(names).not.toContain(t.aiOutputLanguage);
+        expect(names).not.toContain(t.aiOutputLanguageCustomName);
+    });
+
+    it("saves the output language and refreshes predicates only; the name field just saves (036)", async () => {
+        type Emitter = { emit(val: string): unknown };
+        const render = (leaf: Leaf): Emitter => {
+            const setting = new Setting(document.createElement("div")) as Setting & Record<string, unknown>;
+            let captured: Emitter | undefined;
+            for (const method of ["addDropdown", "addText"] as const) {
+                const orig = (setting[method] as (cb: (c: Emitter) => unknown) => unknown).bind(setting);
+                setting[method] = (cb: (c: Emitter) => unknown) => orig((c: Emitter) => { captured = c; return cb(c); });
+            }
+            (leaf.render as (s: Setting) => void)(setting);
+            return captured!;
+        };
+        const { ctx, plugin, saveSettings, refresh, refreshPredicates } = makeCtx({ enableAICuration: true });
+        const leaves = flatten(buildDesktopDefinitions(ctx));
+        const drop = render(leaves.find(i => i.name === t.aiOutputLanguage)!);
+
+        await drop.emit("custom");
+        expect(plugin.settings.aiOutputLanguage).toBe("custom");
+        expect(saveSettings).toHaveBeenCalledTimes(1);
+        expect(refreshPredicates).toHaveBeenCalledTimes(1);
+
+        await drop.emit("xx");
+        expect(plugin.settings.aiOutputLanguage).toBe("auto");
+
+        refresh.mockClear();
+        refreshPredicates.mockClear();
+        saveSettings.mockClear();
+        const text = render(leaves.find(i => i.name === t.aiOutputLanguageCustomName)!);
+        await text.emit("Français");
+        expect(plugin.settings.aiOutputLanguageCustom).toBe("Français");
+        expect(saveSettings).toHaveBeenCalledTimes(1);
+        expect(refresh).not.toHaveBeenCalled();
+        expect(refreshPredicates).not.toHaveBeenCalled();
     });
 });

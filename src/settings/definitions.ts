@@ -23,6 +23,8 @@ import {
     providerRow,
 } from "./rowsQuickSetup";
 import {
+    aiOutputLanguageCustomRow,
+    aiOutputLanguageRow,
     apiFormatRow,
     enableAICurationRow,
     llmEndpointRow,
@@ -83,6 +85,8 @@ export function buildDesktopDefinitions(ctx: SettingsContext): SettingDefinition
                 apiFormatRow(ctx, curation),
                 llmUrlRow(ctx, curation),
                 llmModelRow(ctx, curation),
+                aiOutputLanguageRow(ctx, curation),
+                aiOutputLanguageCustomRow(ctx, () => curation() && ctx.plugin.settings.aiOutputLanguage === "custom"),
                 llmEndpointRow(ctx, curation),
                 rerunOnboardingRow(ctx),
             ],
