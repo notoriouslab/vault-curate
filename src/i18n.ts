@@ -1265,7 +1265,7 @@ ${notesBlock}
 ${content}`,
 };
 
-const locales: Record<string, Locale> = { en, "zh-TW": zhTW, "zh-CN": zhCN };
+export const locales: Record<string, Locale> = { en, "zh-TW": zhTW, "zh-CN": zhCN };
 
 export function getLocale(): Locale {
     // Use moment locale set by Obsidian (avoids direct localStorage access).
