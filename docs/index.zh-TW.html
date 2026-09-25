@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Vault Curate：Obsidian 的本地第二大腦</title>
-<meta name="description" content="在 Obsidian 裡找到、看見、重新想起自己的筆記。語意搜尋（繁體中文表現強）、關聯圖看見你從沒手動連過的關係、把被遺忘的好筆記重新撈回來。全程在自己的電腦上運作，不需要 API 金鑰。">
+<title>Vault Curate：中文筆記的語意搜尋與關聯整理</title>
+<meta name="description" content="Obsidian 外掛：換句話說也找得到自己的筆記，把沒連過的相關筆記畫成關聯圖，讓多年沒打開的舊筆記重新浮現。繁體中文友善，預設全部在自己電腦上算。">
 <style>
   :root {
     --bg: #ffffff; --fg: #1d1d1f; --muted: #6e6e73; --card: #f5f5f7;
@@ -105,9 +105,9 @@
 <main>
 
 <div class="hero">
-  <h1>Vault Curate<br><span style="font-size:0.62em">Obsidian 的本地第二大腦</span></h1>
-  <p class="tagline">找到、看見、重新想起自己的筆記。用意思搜尋，看見你從沒手動連過的關係，把當初寫得很好卻早就忘了的筆記重新撈回眼前。<br>
-  <strong>全程在你自己的電腦上運作，不需要 API 金鑰、不註冊、不追蹤。</strong></p>
+  <h1>Vault Curate<br><span style="font-size:0.62em">中文筆記的語意搜尋與關聯整理</span></h1>
+  <p class="tagline">換句話說也找得到自己的筆記，看見從沒連過的相關筆記，讓多年沒打開的舊筆記重新浮到眼前。<br>
+  <strong>預設全部在自己電腦上算，不需要 API 金鑰、不註冊、不追蹤。</strong></p>
   <p class="badges">Obsidian 外掛，桌機與手機皆可用 ·
   <span class="free">完全免費</span>、開放原始碼（MIT 授權）·
   不連網也能用 · 繁體中文表現強</p>
@@ -154,9 +154,15 @@
 <div class="disclaimer">
 <strong>開始之前</strong>：Vault Curate 需要 Obsidian 1.7.2 或更新的版本。索引在桌機上建立，模型只需下載一次（約 110 MB），之後一個約 5,000 個片段的知識庫大約一分半鐘建完。手機與平板則透過你原本就在用的同步方式讀取同一份索引，裝置上不必設定、也不必下載模型。AI 整理功能預設關閉，沒有你的明確點擊，任何東西都不會被寫進你的筆記。</div>
 
-<h2>這是什麼？</h2>
-<p>找到一則筆記只是第一步。更難的在後面：看見筆記之間的關係（包含那些你從來沒有手動連起來的），以及不要讓寫得好的筆記默默沉底。Obsidian 內建搜尋是照字面找的（搜「禱告」就漏掉「靈修」），關聯圖只顯示你自己畫過的連線，舊筆記則會慢慢淡出視野。</p>
-<p>Vault Curate 在你的知識庫裡把這個迴圈補完：用意思<strong>找到</strong>筆記，<strong>看見</strong>它和什麼有關，再把你早就忘了的<strong>重新撈回來</strong>。它只負責提議，決定權在你，沒有聊天機器人代你回答，也沒有背景程序偷改你的筆記。</p>
+<h2>為什麼做 Vault Curate？</h2>
+<p>筆記越寫越多，我自己一直卡在這幾件事：</p>
+<ul>
+  <li>大致記得寫過，但沒用到當初那個關鍵字，就是找不到</li>
+  <li>好幾篇筆記其實在講相關的事，卻散落各處，要一篇篇手動建連結很麻煩</li>
+  <li>多年累積的筆記像逝去的記憶，寫完就再也沒打開過</li>
+  <li>不想讓 AI 把所有筆記無腦整理成一套 Wiki：那是 AI 的記憶庫，不是我的</li>
+</ul>
+<p>Vault Curate 就是為這幾件事做的。它只負責提議，要或不要由你決定：不在背景偷跑 AI，也不自動改你的筆記。預設全部在自己電腦上算；AI 整理要接雲端服務才會送出資料，決定權在你自己手上。</p>
 
 <figure>
   <img src="landing/concept-graph.png" alt="示意圖：語意關聯如何把整個知識庫的筆記串起來" loading="lazy">

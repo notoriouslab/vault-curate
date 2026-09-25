@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Vault Curate — a local-first second brain for Obsidian</title>
-<meta name="description" content="Find, connect, and rediscover your notes in Obsidian. Semantic search with strong Chinese/CJK, relation graphs for links you never drew, and Hot/Cold surfacing of forgotten notes. Runs on your own device. No API keys.">
+<title>Vault Curate: semantic search and connections for your Obsidian notes</title>
+<meta name="description" content="An Obsidian plugin: find your notes even when you phrase it differently, see related notes you never linked on a relation graph, and bring back notes you haven't opened in years. Strong on Chinese/CJK. Everything runs on your own computer by default.">
 <style>
   :root {
     --bg: #ffffff; --fg: #1d1d1f; --muted: #6e6e73; --card: #f5f5f7;
@@ -108,12 +108,11 @@
 <main>
 
 <div class="hero">
-  <h1>Vault Curate<br><span style="font-size:0.62em">A local-first second brain for Obsidian</span></h1>
-  <p class="tagline">Find, connect, and rediscover your notes. Search by meaning,
-  see the links you never drew by hand, and bring back the good notes you forgot
-  you had.<br>
-  <strong>Everything runs on your own computer, with no API keys, no accounts
-  and no tracking.</strong></p>
+  <h1>Vault Curate<br><span style="font-size:0.62em">Semantic search and connections for your Obsidian notes</span></h1>
+  <p class="tagline">Find your notes even when you phrase it differently, see related notes
+  you never linked, and bring back the ones you haven't opened in years.<br>
+  <strong>Everything runs on your own computer by default, with no API keys,
+  no accounts and no tracking.</strong></p>
   <p class="badges">Obsidian plugin, desktop and mobile ·
   <span class="free">Free</span> and open source (MIT license) ·
   Works without an internet connection · Strong on Chinese and other CJK notes</p>
@@ -161,23 +160,25 @@
 
 <div class="disclaimer">
 <strong>Before you start</strong>: Vault Curate needs Obsidian 1.7.2 or newer.
-The index is built on desktop — a one-time model download of about 110 MB, then
+The index is built on desktop: a one-time model download of about 110 MB, then
 roughly a minute and a half for a vault of 5,000 chunks. Phones and tablets read
 that same index through whatever vault sync you already use, so there is nothing
 to set up and nothing to download on the device. AI curation is switched off by
 default, and nothing is ever written into your notes without your explicit click.
 </div>
 
-<h2>What is this?</h2>
-<p>Finding a note is only the first step. The harder parts come after: seeing how
-your notes relate to each other, including the connections you never linked by
-hand, and not letting good notes quietly sink out of sight. Obsidian's built-in
-search is literal — look for "prayer" and you miss "devotional" — its graph shows
-only the links you drew yourself, and older notes gradually fall off your radar.</p>
-<p>Vault Curate closes that loop inside your vault: <strong>find</strong> a note
-by meaning, <strong>see</strong> what it relates to, and <strong>rediscover</strong>
-what you had forgotten. It suggests; you decide. There is no chatbot answering on
-your behalf and no background process rewriting your notes.</p>
+<h2>Why I built Vault Curate</h2>
+<p>As my notes piled up, I kept running into the same problems:</p>
+<ul>
+  <li>I roughly remember writing something, but without the exact keyword I used back then, I can't find it</li>
+  <li>Several notes are really about related things, but they're scattered around, and linking them one by one by hand is tedious</li>
+  <li>Years of notes turn into lost memories: written once, never opened again</li>
+  <li>I don't want an AI to mindlessly reorganize all my notes into a wiki. That would be the AI's memory, not mine</li>
+</ul>
+<p>Vault Curate is built for exactly these. It suggests; you decide: no AI running
+in the background, no automatic edits to your notes. Everything runs on your own
+computer by default; AI curation only sends data out if you point it at a cloud
+service, and that choice is yours.</p>
 
 <figure>
   <img src="landing/concept-graph.png" alt="Diagram: how semantic relations connect notes across a vault" loading="lazy">
@@ -195,7 +196,7 @@ your behalf and no background process rewriting your notes.</p>
   <li><strong>One click turns a suggestion into a real link</strong>: tick the
     pairs you agree with and they become proper wikilinks in both notes</li>
   <li><strong>Chains between two notes</strong>: pick any two and get the
-    stepping-stone notes between them — or an honest "these aren't connected",
+    stepping-stone notes between them, or an honest "these aren't connected",
     with the actual numbers</li>
   <li><strong>Forgotten notes come back</strong>: notes you haven't touched in a
     while are surfaced when they relate to what you're working on now</li>
@@ -266,7 +267,7 @@ automatically.</p>
   <summary>Does the text of my notes leave my computer?</summary>
   <p>With the built-in model, no: it runs on your own device. With a local Ollama
   daemon, also no. The only mode that sends anything out is the
-  OpenAI-compatible option, and only to the endpoint you choose yourself — which
+  OpenAI-compatible option, and only to the endpoint you choose yourself, which
   can equally be a local server such as LM Studio. There is no telemetry and no
   usage tracking in any mode.</p>
 </details>
@@ -283,7 +284,7 @@ automatically.</p>
   built. Search, related notes, forgotten notes and graph generation all work;
   building the index, turning suggestions into wikilinks and the AI features stay
   on the desktop. The index travels to the device with whatever sync you already
-  use — iCloud, Obsidian Sync, Syncthing — so there is nothing to configure and
+  use (iCloud, Obsidian Sync, Syncthing), so there is nothing to configure and
   no model to download on the phone.</p>
 </details>
 <details>
