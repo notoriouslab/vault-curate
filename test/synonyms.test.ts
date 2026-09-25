@@ -48,7 +48,7 @@ describe('searchHybrid synonym expansion (026)', () => {
         // expansion. NOTE the punctuation before 禱告: BM25 tokenizes CJK
         // runs longer than 3 chars into trigrams only, so a 2-char query
         // term matches solely where it occurs as an isolated short run
-        // (real example: the title "先知性 禱告"). A 2-char synonym
+        // (e.g. a title like "晨間 禱告"). A 2-char synonym
         // embedded mid-sentence is invisible to BM25 — that hop belongs
         // to the semantic leg. This fixture mirrors the isolated case.
         store.upsertNote({
