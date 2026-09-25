@@ -36,7 +36,8 @@ Rules:
 2. Description must describe specific content, never repeat the title
 3. Describe only the note's subject matter — never its format or structure (tables, statistics, charts, sections)
 4. Tags in ${language}, 3-5 tags, no # prefix, no spaces
-5. Reply only in JSON
+5. Start directly with the subject; never open with filler such as "This note", "This article" or "This document"
+6. Reply only in JSON
 
 {"description": "...", "tags": ["...", "...", "..."]}
 

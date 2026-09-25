@@ -627,7 +627,8 @@ Rules:
 2. Description must describe specific content, never repeat the title
 3. Describe only the note's subject matter — never its format or structure (tables, statistics, charts, sections)
 4. Tags in English, 3-5 tags, no # prefix, no spaces
-5. Reply only in JSON
+5. Start directly with the subject; never open with filler such as "This note", "This article" or "This document"
+6. Reply only in JSON
 
 {"description": "...", "tags": ["...", "...", "..."]}
 
@@ -952,7 +953,8 @@ ${notesBlock}
 2. description 必須描述具體內容，禁止重複標題
 3. 只描述筆記的內容主題，禁止描述筆記的格式或結構（如表格、統計、圖表、欄位）
 4. tags 必須使用繁體中文，3-5 個，不要 # 前綴，不能有空格
-5. 只回覆 JSON，不要解釋
+5. description 開頭直接寫主題，禁止用「本文」「本筆記」「這篇」「本篇」等套語開頭
+6. 只回覆 JSON，不要解釋
 
 {"description": "...", "tags": ["...", "...", "..."]}
 
@@ -1280,7 +1282,8 @@ ${notesBlock}
 2. description 必须描述具体内容，禁止重复标题
 3. 只描述笔记的内容主题，禁止描述笔记的格式或结构（如表格、统计、图表、字段）
 4. tags 必须使用简体中文，3-5 个，不要 # 前缀，不能有空格
-5. 只回复 JSON，不要解释
+5. description 开头直接写主题，禁止用「本文」「本笔记」「这篇」「本篇」等套语开头
+6. 只回复 JSON，不要解释
 
 {"description": "...", "tags": ["...", "...", "..."]}
 
