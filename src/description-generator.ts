@@ -19,7 +19,8 @@ import { resolveLlmUrl } from "./utils/resolveLlmUrl";
 import { DESCRIPTION_LENGTH_CAP, safeSlice, safeTail, stripDangerousInvisibles } from "./utils/sanitize";
 import { parseGeneratedDescription } from "./utils/parseGeneratedDescription";
 import { denoiseForEmbed } from "./indexer/denoise";
-import { t } from "./i18n";
+import { locales, t } from "./i18n";
+import { resolvePromptSet } from "./utils/aiOutputLanguage";
 
 // LLM sampling budget (007 D6): total stays 2000 chars, split head 1200 +
 // tail 800 when the (denoised) body is longer — see sampleForLlm().
@@ -265,7 +266,7 @@ export class DescriptionGenerator {
                 apiFormat: this.plugin.settings.apiFormat,
                 apiKey: this.plugin.settings.apiKey,
             },
-            t.llmPrompt(title, content),
+            resolvePromptSet(this.plugin.settings, t, locales).description(title, content),
             (raw) => this.parseGeneratedJSON(raw),
         );
     }

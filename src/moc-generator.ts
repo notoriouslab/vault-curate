@@ -13,7 +13,8 @@ import { clusterEmbeddings, shouldFallbackToFlat } from "./clustering";
 import { formatLocalDateTime, requestLlmJson, toWikilink } from "./utils";
 import { resolveLlmUrl } from "./utils/resolveLlmUrl";
 import { stripDangerousInvisibles } from "./description-generator";
-import { t } from "./i18n";
+import { locales, t } from "./i18n";
+import { resolvePromptSet } from "./utils/aiOutputLanguage";
 
 const LLM_NAMING_TIMEOUT_MS = 30000;
 const NOTE_DESCRIPTION_CAP = 200;
@@ -123,7 +124,7 @@ async function nameCluster(
         })
         .join("\n");
 
-    const prompt = t.mocClusterNamingPrompt(t.languageLabel, notesBlock);
+    const prompt = resolvePromptSet(settings, t, locales).mocNaming(notesBlock);
 
     return requestLlmJson(
         {
