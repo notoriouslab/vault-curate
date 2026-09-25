@@ -17,20 +17,21 @@ const content = "週一討論預算。";
 const nb = "1. A — x";
 
 // Copied verbatim from main's src/i18n.ts (f164c70) with the template
-// arguments substituted by hand, plus the 036 D10 rule 5 inserted by hand.
+// arguments substituted by hand, plus the 036 D10 rule 5 inserted by hand
+// into the two Chinese prompts.
 // NOT produced by running the locales, so an accidental edit to an existing
 // prompt fails here (036 G1 W3).
 const GOLDEN: Record<"en" | "zh-TW" | "zh-CN", { desc: string; moc: string }> = {
     "en": {
-        desc: "Task: Generate a description and tags for this note.\n\nRules:\n1. Description in English, 50-100 words\n2. Description must describe specific content, never repeat the title\n3. Describe only the note's subject matter — never its format or structure (tables, statistics, charts, sections)\n4. Tags in English, 3-5 tags, no # prefix, no spaces\n5. Start directly with the subject; never open with filler such as \"This note\", \"This article\" or \"This document\"\n6. Reply only in JSON\n\n{\"description\": \"...\", \"tags\": [\"...\", \"...\", \"...\"]}\n\nNote title: T\n\nNote content:\nC",
+        desc: "Task: Generate a description and tags for this note.\n\nRules:\n1. Description in English, 50-100 words\n2. Description must describe specific content, never repeat the title\n3. Describe only the note's subject matter — never its format or structure (tables, statistics, charts, sections)\n4. Tags in English, 3-5 tags, no # prefix, no spaces\n5. Reply only in JSON\n\n{\"description\": \"...\", \"tags\": [\"...\", \"...\", \"...\"]}\n\nNote title: T\n\nNote content:\nC",
         moc: "You are organizing a knowledge vault. Below are notes that have been grouped together because they discuss related topics. Based on the common theme, produce:\n\n- title: a concise heading (3-8 words or English characters)\n- intro: 1-2 sentences (40-80 characters) describing what ties these notes together\n\nNotes:\nN\n\nRespond with valid JSON only, in English:\n{\"title\": \"...\", \"intro\": \"...\"}",
     },
     "zh-TW": {
-        desc: "任務：為筆記產生 description 和 tags。\n\n規則：\n1. description 必須使用繁體中文，50-100 字，禁止用英文或簡體中文\n2. description 必須描述具體內容，禁止重複標題\n3. 只描述筆記的內容主題，禁止描述筆記的格式或結構（如表格、統計、圖表、欄位）\n4. tags 必須使用繁體中文，3-5 個，不要 # 前綴，不能有空格\n5. description 開頭直接寫主題，禁止用「本文」「本筆記」「這篇」「本篇」等套語開頭\n6. 只回覆 JSON，不要解釋\n\n{\"description\": \"...\", \"tags\": [\"...\", \"...\", \"...\"]}\n\n筆記標題：T\n\n筆記內容：\nC",
+        desc: "任務：為筆記產生 description 和 tags。\n\n規則：\n1. description 必須使用繁體中文，50-100 字，禁止用英文或簡體中文\n2. description 必須描述具體內容，禁止重複標題\n3. 只描述筆記的內容主題，禁止描述筆記的格式或結構（如表格、統計、圖表、欄位）\n4. tags 必須使用繁體中文，3-5 個，不要 # 前綴，不能有空格\n5. description 至少寫兩句完整句子，以筆記討論的具體人、事、物當句子開頭\n6. 只回覆 JSON，不要解釋\n\n{\"description\": \"...\", \"tags\": [\"...\", \"...\", \"...\"]}\n\n筆記標題：T\n\n筆記內容：\nC",
         moc: "你正在整理一個知識庫。以下筆記因為討論相關主題而被分為一群。根據共同主題，產出：\n\n- title：精煉標題（3-8 個繁體中文字）\n- intro：1-2 句介紹（40-80 字），描述這群筆記的共通主題\n\n筆記：\nN\n\n只回覆有效的 JSON（使用繁體中文）：\n{\"title\": \"...\", \"intro\": \"...\"}",
     },
     "zh-CN": {
-        desc: "任务：为笔记生成 description 和 tags。\n\n规则：\n1. description 必须使用简体中文，50-100 字，禁止使用英文或繁体中文\n2. description 必须描述具体内容，禁止重复标题\n3. 只描述笔记的内容主题，禁止描述笔记的格式或结构（如表格、统计、图表、字段）\n4. tags 必须使用简体中文，3-5 个，不要 # 前缀，不能有空格\n5. description 开头直接写主题，禁止用「本文」「本笔记」「这篇」「本篇」等套语开头\n6. 只回复 JSON，不要解释\n\n{\"description\": \"...\", \"tags\": [\"...\", \"...\", \"...\"]}\n\n笔记标题：T\n\n笔记内容：\nC",
+        desc: "任务：为笔记生成 description 和 tags。\n\n规则：\n1. description 必须使用简体中文，50-100 字，禁止使用英文或繁体中文\n2. description 必须描述具体内容，禁止重复标题\n3. 只描述笔记的内容主题，禁止描述笔记的格式或结构（如表格、统计、图表、字段）\n4. tags 必须使用简体中文，3-5 个，不要 # 前缀，不能有空格\n5. description 至少写两句完整句子，以笔记讨论的具体人、事、物当句子开头\n6. 只回复 JSON，不要解释\n\n{\"description\": \"...\", \"tags\": [\"...\", \"...\", \"...\"]}\n\n笔记标题：T\n\n笔记内容：\nC",
         moc: "你正在整理一个知识库。以下笔记因为讨论相关主题而被分为一组。根据共同主题，产出：\n\n- title：精炼标题（3-8 个简体中文字）\n- intro：1-2 句介绍（40-80 字），描述这组笔记的共同主题\n\n笔记：\nN\n\n只回复有效的 JSON（使用简体中文）：\n{\"title\": \"...\", \"intro\": \"...\"}",
     },
 };
@@ -49,18 +50,19 @@ describe("existing prompts are untouched (golden)", () => {
     }
 });
 
-describe("descriptions never open with filler (036 D10)", () => {
-    it("every description prompt carries rule 5 and moves JSON to rule 6", () => {
-        const cases: Array<[string, string]> = [
-            [locales.en.llmPrompt(title, content), "5. Start directly with the subject"],
-            [locales["zh-TW"].llmPrompt(title, content), "5. description 開頭直接寫主題"],
-            [locales["zh-CN"].llmPrompt(title, content), "5. description 开头直接写主题"],
-            [resolvePromptSet({ aiOutputLanguage: "custom", aiOutputLanguageCustom: "Français" }, locales.en, table)
-                .description(title, content), "5. Start directly with the subject"],
-        ];
-        for (const [prompt, rule] of cases) {
-            expect(prompt).toContain(rule);
-            expect(prompt).toContain("\n6. ");
+describe("Chinese descriptions open with the subject (036 D10)", () => {
+    it("zh-TW / zh-CN carry rule 5 and move JSON to rule 6; en and custom stay as before", () => {
+        expect(locales["zh-TW"].llmPrompt(title, content)).toContain("5. description 至少寫兩句完整句子");
+        expect(locales["zh-TW"].llmPrompt(title, content)).toContain("\n6. 只回覆 JSON");
+        expect(locales["zh-CN"].llmPrompt(title, content)).toContain("5. description 至少写两句完整句子");
+        expect(locales["zh-CN"].llmPrompt(title, content)).toContain("\n6. 只回复 JSON");
+        // English phrasings of the rule made qwen3:1.7b open with "This note"
+        // more often, not less (T5 pilot), so en and custom keep rule 5 = JSON.
+        const custom = resolvePromptSet(
+            { aiOutputLanguage: "custom", aiOutputLanguageCustom: "Français" }, locales.en, table);
+        for (const prompt of [locales.en.llmPrompt(title, content), custom.description(title, content)]) {
+            expect(prompt).toContain("\n5. Reply only in JSON");
+            expect(prompt).not.toContain("\n6. ");
         }
     });
 });
