@@ -115,7 +115,7 @@ Turn it on under **Settings → AI Curation → Enable AI curation** to unlock t
 - Run description generation across the sidebar's search / discover results in a batch
 - Generate a **topic-grouped MOC**: results are clustered by topic automatically and the AI names each group, producing a table-of-contents note
 
-The LLM provider is configured separately under **Settings → AI Curation** (local Ollama or any OpenAI-compatible endpoint).
+The LLM provider is configured separately under **Settings → AI Curation** (local Ollama or any OpenAI-compatible endpoint). **AI output language** picks the language the AI writes in, separately from Obsidian's interface language: follow the interface (default), English, 繁體中文, 简体中文, or type any other language name. Handy when your interface is in English but your notes are not.
 
 ### 📱 One vault, every device
 
@@ -219,7 +219,7 @@ obsidian commands filter=vault-curate   # list all ids
 | Section | Settings | Default |
 |---|---|---|
 | **Quick setup** | Embedding provider (Built-in / Ollama / OpenAI-compatible); excluded folders | Built-in; empty |
-| **AI Curation** | Enable toggle; LLM provider; LLM model | off; Ollama; qwen3:1.7b |
+| **AI Curation** | Enable toggle; LLM provider; LLM model; AI output language | off; Ollama; qwen3:1.7b; follow interface |
 | **Advanced** | top results, min score, relation graph folder, related section heading, bidirectional promotion, hidden suggestions (count + manage/restore), Hot window (days), default search scope, chunk size + overlap (Ollama / OpenAI-compatible only), synonym list, auto-index toggle, rebuild + update buttons, index stats | see panel |
 
 Changing the embedding provider or model triggers a confirmation modal — the index is wiped and rebuilt.

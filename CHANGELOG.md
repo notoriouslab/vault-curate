@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.11.0 — 2026-09-25
+
+### Added
+- **Choose the language AI curation writes in (#15).** Settings → AI Curation → AI output language sets the language of generated descriptions, tags and topic-group names, independently of Obsidian's interface language. Pick English, 繁體中文 or 简体中文 to use prompts written in that language, or choose Custom and type any language name (for example Français). The default, "Follow interface language", behaves exactly as before. Only what you generate from now on changes; existing descriptions and tags are left alone, and fixed MOC labels such as "Miscellaneous" still follow the interface language.
+
+### Changed
+- **Chinese descriptions now start with what the note is about.** Generated descriptions in Traditional or Simplified Chinese used to open with stock phrases like 「本文探討」, which wasted the few characters visible in search previews and zoomed-out canvases. They now open with the subject itself. In testing with qwen3:1.7b on 16 notes, stock openings dropped to zero. English descriptions are unchanged: every rewording tried made small models open with "This note" more often, not less.
+
+### Fixed
+- **Plugin review warning cleared.** The search snippet renderer now builds its elements with Obsidian's own helpers. No behaviour change.
+
 ## 1.10.0 — 2026-09-24
 
 ### Added
