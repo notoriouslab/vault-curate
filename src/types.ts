@@ -2,6 +2,8 @@
 // vault-curate types
 // ============================================================
 
+import type { AiOutputLanguage } from "./utils/aiOutputLanguage";
+
 export type ApiFormat = "ollama" | "openai";
 export type EmbeddingProviderType = "wasm" | "ollama" | "openai-compatible";
 
@@ -45,6 +47,12 @@ export interface VaultSearchSettings {
      *  "use ollamaUrl" — the embedding server — like before the split.
      *  Resolve only through resolveLlmUrl(); never read this raw. */
     llmUrl: string;
+    /** 036 D1: language for LLM-written text (descriptions, tags, MOC names).
+     *  "auto" = follow the interface language (pre-036 behaviour). */
+    aiOutputLanguage: AiOutputLanguage;
+    /** 036 D3: free-text language name, used only when aiOutputLanguage is
+     *  "custom". Sanitised at use time (sanitizeCustomLanguage), stored raw. */
+    aiOutputLanguageCustom: string;
     chunkSize: number;
     chunkOverlap: number;
     /** AI curation master switch (design D9). Gates description generation
@@ -96,6 +104,8 @@ export const DEFAULT_SETTINGS: VaultSearchSettings = {
     synonyms: {},
     llmModel: "qwen3:1.7b",
     llmUrl: "",
+    aiOutputLanguage: "auto",
+    aiOutputLanguageCustom: "",
     chunkSize: 2000,
     chunkOverlap: 100,
     enableAICuration: false,

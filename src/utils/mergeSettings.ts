@@ -1,4 +1,5 @@
 import type { VaultSearchSettings } from "../types";
+import { normalizeAiOutputLanguage } from "./aiOutputLanguage";
 
 /** Keep only string-key → finite-number entries (same tamper defence as
  *  the selfWrites ledger in loadSettings). A hand-edited data.json where
@@ -27,5 +28,9 @@ export function mergeSettings(rawSettings: unknown, defaults: VaultSearchSetting
     const merged = Object.assign({}, defaults, saved);
     merged.dismissedPairs = sanitizeRecord(merged.dismissedPairs);
     merged.dismissedNotes = sanitizeRecord(merged.dismissedNotes);
+    // 036 D6: a hand-edited value outside the list falls back to "auto";
+    // the custom name is kept as typed (sanitised only when used).
+    merged.aiOutputLanguage = normalizeAiOutputLanguage(merged.aiOutputLanguage);
+    if (typeof merged.aiOutputLanguageCustom !== "string") merged.aiOutputLanguageCustom = "";
     return merged;
 }

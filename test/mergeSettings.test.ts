@@ -54,4 +54,26 @@ describe('mergeSettings', () => {
         expect(merged.dismissedPairs).not.toBe(DEFAULT_SETTINGS.dismissedPairs);
         expect(merged.dismissedNotes).not.toBe(DEFAULT_SETTINGS.dismissedNotes);
     });
+    it('defaults the AI output language fields for pre-036 data.json', () => {
+        const merged = mergeSettings({}, DEFAULT_SETTINGS);
+        expect(merged.aiOutputLanguage).toBe('auto');
+        expect(merged.aiOutputLanguageCustom).toBe('');
+    });
+
+    it('keeps a listed AI output language', () => {
+        expect(mergeSettings({ aiOutputLanguage: 'zh-TW' }, DEFAULT_SETTINGS).aiOutputLanguage).toBe('zh-TW');
+    });
+
+    it('falls back to auto for a hand-edited value outside the list, and "" for a non-string name', () => {
+        const merged = mergeSettings({ aiOutputLanguage: 'fr', aiOutputLanguageCustom: 5 }, DEFAULT_SETTINGS);
+        expect(merged.aiOutputLanguage).toBe('auto');
+        expect(merged.aiOutputLanguageCustom).toBe('');
+    });
+
+    it('stores the custom language name as typed (sanitised only at use time)', () => {
+        const merged = mergeSettings(
+            { aiOutputLanguage: 'custom', aiOutputLanguageCustom: '  Fran\nçais ' }, DEFAULT_SETTINGS);
+        expect(merged.aiOutputLanguage).toBe('custom');
+        expect(merged.aiOutputLanguageCustom).toBe('  Fran\nçais ');
+    });
 });
