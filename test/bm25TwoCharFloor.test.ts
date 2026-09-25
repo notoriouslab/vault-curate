@@ -13,13 +13,13 @@ import {
  *
  * Before 030, a 2-char CJK query emitted a single 2-char token that could
  * never match the 3-char trigrams of longer corpus runs — `台北` missed
- * every note that only writes 台北靈糧堂. Corpus-side bigram emission
+ * every note that only writes 台北體育館. Corpus-side bigram emission
  * (tokenizeForBM25Corpus) closes that floor; the query side stays as-is.
  */
 describe('bm25 two-char floor (030)', () => {
     // Embedded-form fixtures: the 2-char term appears ONLY inside longer runs.
     const fixtures: Array<{ id: string; text: string; query: string }> = [
-        { id: 'a', text: '今天去台北靈糧堂聚會', query: '台北' },
+        { id: 'a', text: '今天去台北體育館聚會', query: '台北' },
         { id: 'b', text: '金管會發布新的監管框架', query: '金管' },
         { id: 'c', text: '智慧詩歌選用顧問系統', query: '智慧' },
         { id: 'd', text: '搜尋系統品質測試報告', query: '搜尋' },
@@ -58,7 +58,7 @@ describe('bm25 two-char floor (030)', () => {
     // tokenizer makes ≥3-char query runs emit extra bigram tokens — this
     // assertion is the tripwire.
     it('query tokenization never emits bigrams', () => {
-        expect(tokenizeForBM25('台北靈糧堂')).toEqual(['台北灵', '北灵粮', '灵粮堂']);
+        expect(tokenizeForBM25('台北體育館')).toEqual(['台北体', '北体育', '体育馆']);
         expect(tokenizeForBM25('台北')).toEqual(['台北']);
     });
 

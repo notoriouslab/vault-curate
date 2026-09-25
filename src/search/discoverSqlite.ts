@@ -121,7 +121,7 @@ export async function discoverForNoteSqlite(
     }
 
     // Current-note Discover ranks purely by (fused) relatedness — cold
-    // notes keep their ❄️ mark but no longer jump the queue (主公裁決
+    // notes keep their ❄️ mark but no longer jump the queue (user decision
     // 2026-07-23: the block-promotion drowned relevant Hot notes once 010
     // made tiers honest; dedicated cold mining lives in Global Discover).
     results.sort((a, b) => b.score - a.score);

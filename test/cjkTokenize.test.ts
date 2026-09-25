@@ -11,12 +11,12 @@ describe('tokenizeCJK', () => {
     });
 
     it('emits CJK trigrams sliding by one char', () => {
-        // 主公在 → trigram '主公在'
-        // 公在很 → trigram '公在很'
+        // 小明在 → trigram '小明在'
+        // 明在很 → trigram '明在很'
         // 等等。最後不足三字的尾巴：tail = '很好' → still emit one bigram-ish trigram '在很好' from offset 2
-        const out = tokenizeCJK('主公在很好');
-        // expected trigrams from each start position: 主公在, 公在很, 在很好
-        expect(out).toBe('主公在 公在很 在很好');
+        const out = tokenizeCJK('小明在很好');
+        // expected trigrams from each start position: 小明在, 明在很, 在很好
+        expect(out).toBe('小明在 明在很 在很好');
     });
 
     it('mixes CJK trigrams + ASCII words correctly', () => {
@@ -34,10 +34,10 @@ describe('tokenizeCJK', () => {
 
     it('skips punctuation but does not break trigram window', () => {
         // 中文 punctuation 中斷 CJK run，trigram only within each run
-        const out = tokenizeCJK('主公，你好嗎？');
-        // run1 = '主公' (2 chars) -> '主公'
+        const out = tokenizeCJK('小明，你好嗎？');
+        // run1 = '小明' (2 chars) -> '小明'
         // run2 = '你好嗎' (3 chars) -> '你好嗎'
-        expect(out).toBe('主公 你好嗎');
+        expect(out).toBe('小明 你好嗎');
     });
 
     it('handles 4+ char CJK run with sliding trigrams', () => {
@@ -46,7 +46,7 @@ describe('tokenizeCJK', () => {
     });
 
     it('produces deterministic output (same input → same output)', () => {
-        const input = '主公的 vault 有 LLM 筆記';
+        const input = '小明的 vault 有 LLM 筆記';
         expect(tokenizeCJK(input)).toBe(tokenizeCJK(input));
     });
 
@@ -99,23 +99,23 @@ describe('tokenizeCJK', () => {
         it('emits per-length exactly as specified', () => {
             expect(bi('台')).toBe('台');
             expect(bi('台北')).toBe('台北');
-            expect(bi('台北靈')).toBe('台北靈 台北 北靈');
-            expect(bi('台北靈糧')).toBe('台北靈 北靈糧 台北 北靈 靈糧');
-            expect(bi('台北靈糧堂')).toBe('台北靈 北靈糧 靈糧堂 台北 北靈 靈糧 糧堂');
+            expect(bi('台北體')).toBe('台北體 台北 北體');
+            expect(bi('台北體育')).toBe('台北體 北體育 台北 北體 體育');
+            expect(bi('台北體育館')).toBe('台北體 北體育 體育館 台北 北體 體育 育館');
         });
 
         it('bigrams stay within run boundaries', () => {
             // punctuation splits runs — no bigram across 「，」
-            expect(bi('台北，靈糧堂')).toBe('台北 靈糧堂 靈糧 糧堂');
+            expect(bi('台北，體育館')).toBe('台北 體育館 體育 育館');
         });
 
         it('ASCII words never emit bigrams', () => {
-            expect(bi('obsidian 台北靈')).toBe('obsidian 台北靈 台北 北靈');
+            expect(bi('obsidian 台北體')).toBe('obsidian 台北體 台北 北體');
         });
 
         it('default mode is unchanged (no bigrams)', () => {
-            expect(tokenizeCJK('台北靈糧堂')).toBe('台北靈 北靈糧 靈糧堂');
-            expect(tokenizeCJK('台北靈')).toBe('台北靈');
+            expect(tokenizeCJK('台北體育館')).toBe('台北體 北體育 體育館');
+            expect(tokenizeCJK('台北體')).toBe('台北體');
         });
     });
 });

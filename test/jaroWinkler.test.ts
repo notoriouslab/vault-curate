@@ -34,7 +34,7 @@ describe('jaroWinkler', () => {
 
     it('handles CJK prefix match', () => {
         // Both share first two BMP CJK characters
-        const sc = jaroWinkler('主公筆記', '主公的觀察');
+        const sc = jaroWinkler('小明筆記', '小明的觀察');
         expect(sc).toBeGreaterThan(0.6);
     });
 });
@@ -43,8 +43,8 @@ describe('fuzzyTitleSearch', () => {
     const titles = new Map([
         ['a.md', 'Vault Search'],
         ['b.md', 'Vault Curate'],
-        ['c.md', '主公的福音筆記'],
-        ['d.md', '主公的觀察'],
+        ['c.md', '小明的福音筆記'],
+        ['d.md', '小明的觀察'],
         ['e.md', 'unrelated'],
     ]);
 
@@ -54,7 +54,7 @@ describe('fuzzyTitleSearch', () => {
     });
 
     it('matches CJK prefix', () => {
-        const r = fuzzyTitleSearch('主公的', titles, 10, 0.6);
+        const r = fuzzyTitleSearch('小明的', titles, 10, 0.6);
         expect(r.has('c.md')).toBe(true);
         expect(r.has('d.md')).toBe(true);
     });

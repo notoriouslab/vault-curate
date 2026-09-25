@@ -247,7 +247,7 @@ describe('expandCanvas（009 D5 主線）', () => {
     });
 });
 
-describe('匯聚 hub 橙色（主公 2026-07-20 裁決）', () => {
+describe('匯聚 hub 橙色（2026-07-20 使用者裁決）', () => {
     /** c0(center.md) → n1、c0 → b1 已有邊；從 n1 展開命中 b.md → 補邊
      *  n1→b1 → b1 被指 2 次成 hub。 */
     function hubScenario(b1Color?: string) {

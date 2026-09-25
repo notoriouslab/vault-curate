@@ -6,7 +6,7 @@
 // no file event, so a stored tier is inherently stale. The stored
 // `notes.tier` column stays written as an advisory fallback.
 //
-// Heat criterion (主公 2026-07-23, "判定動作"): any user edit — even a
+// Heat criterion (user decision 2026-07-23, "判定動作"): any user edit — even a
 // character typed and deleted — is a deliberate judgment about the note and
 // re-heats it. Merely OPENING a note is exposure, not judgment, and is
 // deliberately excluded (Discover would otherwise whitewash every Cold note

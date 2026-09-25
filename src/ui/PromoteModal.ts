@@ -2,7 +2,7 @@
 // dogfood 2026-07-23) — pairs are GROUPED BY SOURCE NOTE: on a real canvas
 // most purple edges share the graph's center, so repeating "center ↔ X"
 // per row ate the whole width and truncated exactly the half that
-// distinguishes the rows (主公 screenshot). The group header names the
+// distinguishes the rows (user screenshot). The group header names the
 // source once; each row spends its full width on the counterpart note
 // (title line + muted folder line). Cmd/Ctrl+hover on any note name opens
 // the native Page Preview (same hover-link source as Search/Discover,

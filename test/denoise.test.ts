@@ -40,8 +40,8 @@ describe('denoiseForEmbed — R1-R4 正例', () => {
 });
 
 describe('denoiseForEmbed — 反例（不可誤傷）', () => {
-    it('單一中點保留（人名間隔號：趙·雲）', () => {
-        expect(denoiseForEmbed('趙·雲 字子龍')).toContain('趙·雲');
+    it('單一中點保留（人名間隔號：關·羽）', () => {
+        expect(denoiseForEmbed('關·羽 字雲長')).toContain('關·羽');
     });
 
     it('全形間隔號 U+30FB 保留', () => {

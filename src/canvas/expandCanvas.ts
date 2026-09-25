@@ -44,7 +44,7 @@ export const CROWDED_NODE_COUNT = 60;
 /** A node pointed at by this many edges (toNode side) is a convergence
  *  hub: several expansions/chains independently landed on it. */
 export const HUB_DEGREE = 2;
-/** Orange — convergence hub marker (主公 2026-07-20). */
+/** Orange — convergence hub marker (user decision 2026-07-20). */
 export const COLOR_HUB = "2";
 /** Node colors we own and may overwrite with the hub marker. User-set
  *  colors (red/yellow/…) and the center/endpoint green stay untouched. */

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Sanity check: simulate Phase 4 indexer pipeline using WASM bge-base-zh q8
- * over主公 vault. Confirms whether the WASM-default path hits the "under
+ * over the user's vault. Confirms whether the WASM-default path hits the "under
  * 10 minutes for full rebuild" UX bar before we wire WASM into the plugin
  * main path.
  *

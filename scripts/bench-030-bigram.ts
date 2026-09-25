@@ -98,7 +98,7 @@ const load = (tok: (t: string) => string[]): BM25Doc[] =>
 const idxVB = buildBM25Index(load(tokenizeForBM25));
 const idxVA = buildBM25Index(load(tokenizeForBM25Corpus));
 
-const realQueries = ['規劃書', '靈糧堂', '金管會', '智慧詩歌', '搜尋系統', '健檢數據',
+const realQueries = ['規劃書', '金管會', '智慧詩歌', '搜尋系統', '健檢數據',
     '語意搜尋', '監管框架', '提示詞', '晶片災難', '全文搜尋引擎', '發布流程'];
 console.log('── real vault G4 rank stability ──');
 let sum = 0;

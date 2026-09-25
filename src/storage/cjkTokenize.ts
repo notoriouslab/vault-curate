@@ -63,7 +63,7 @@ function isHighSurrogate(ch: string): boolean {
  * 030: `bigrams` is the corpus-side mode — runs of ≥3 additionally emit every
  * step-1 2-gram so that a 2-char query token (which the query side emits
  * as-is for a 2-char run) can reach words embedded inside longer runs
- * (`台北` must find 台北靈糧堂). Query-side tokenization stays bigram-free:
+ * (`台北` must find 台北體育館). Query-side tokenization stays bigram-free:
  * emitting query bigrams for ≥3-char runs would broaden every long query.
  * Runs of exactly 2 already emit themselves, runs of 1 have no 2-gram.
  */

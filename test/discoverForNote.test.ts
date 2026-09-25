@@ -41,7 +41,7 @@ beforeAll(async () => {
 const SETTINGS = { minScore: 0.5, topResults: 10 };
 
 describe('discoverForNoteSqlite (current-note Discover contract)', () => {
-    it('ranks purely by score with hot/cold interleaved — no cold-first block (主公 2026-07-23)', async () => {
+    it('ranks purely by score with hot/cold interleaved — no cold-first block (user decision 2026-07-23)', async () => {
         const out = await discoverForNoteSqlite('anchor.md', store, { ...SETTINGS });
         expect(out.map(r => r.path)).toEqual([
             'hot-close.md', 'cold-mid.md', 'hot-mid.md', 'cold-far.md',

@@ -8,8 +8,8 @@ describe('bm25', () => {
         });
 
         it('produces CJK trigrams for Chinese', () => {
-            const tokens = tokenizeForBM25('主公在很好');
-            expect(tokens).toEqual(['主公在', '公在很', '在很好']);
+            const tokens = tokenizeForBM25('小明在很好');
+            expect(tokens).toEqual(['小明在', '明在很', '在很好']);
         });
 
         it('mixes CJK + ASCII', () => {
@@ -94,7 +94,7 @@ describe('bm25', () => {
 
         it('works for Chinese query via tokenizeForBM25 input', () => {
             const docs: BM25Doc[] = [
-                { id: 'a', tokens: tokenizeForBM25('主公在 Obsidian 寫關於 LLM 的筆記') },
+                { id: 'a', tokens: tokenizeForBM25('小明在 Obsidian 寫關於 LLM 的筆記') },
                 { id: 'b', tokens: tokenizeForBM25('今天天氣很好出去散步') },
             ];
             const q = tokenizeForBM25('LLM 筆記');

@@ -62,7 +62,7 @@ describe('BM25 variant bridging (029)', () => {
     it('臺北 query finds an isolated 台北 run (2-char floor still applies)', () => {
         const idx = index([
             ['iso', '我住在 台北 這座城市'],   // isolated 2-char run — reachable
-            ['long', '台北靈糧堂的聚會紀錄'],   // embedded in a 5-char run — trigram floor
+            ['long', '台北體育館的聚會紀錄'],   // embedded in a 5-char run — trigram floor
         ]);
         const r = hits(idx, '臺北');
         expect(r).toContain('iso');

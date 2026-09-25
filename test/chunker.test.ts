@@ -5,9 +5,9 @@ describe('splitChunks', () => {
     const settings = { chunkSize: 10, chunkOverlap: 3 };
 
     it('returns single chunk with title prefix when body shorter than size', () => {
-        const chunks = splitChunks('hello', '主公筆記', settings);
+        const chunks = splitChunks('hello', '小明筆記', settings);
         expect(chunks).toHaveLength(1);
-        expect(chunks[0]).toEqual({ content: '主公筆記\nhello', chunkIndex: 0 });
+        expect(chunks[0]).toEqual({ content: '小明筆記\nhello', chunkIndex: 0 });
     });
 
     it('splits long body into overlapping windows', () => {
