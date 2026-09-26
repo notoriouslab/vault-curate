@@ -328,6 +328,29 @@ export class SQLiteStore {
         return res[0].values[0][0] as string;
     }
 
+    /** 038 D4: chunks whose text contains `needle` (ASCII case-folded when the
+     *  needle has ASCII letters; SQLite lower() folds ASCII only). instr() is
+     *  a literal match, so % and _ are not wildcards. `headingOnly` keeps only
+     *  chunks with a '#', the prefilter for heading matches. */
+    findChunksContaining(
+        needle: string,
+        opts: { headingOnly?: boolean } = {},
+    ): Array<{ notePath: string; chunkIndex: number; content: string }> {
+        if (needle === '') return [];
+        const match = /[A-Za-z]/.test(needle) ? 'instr(lower(content), lower(?)) > 0' : 'instr(content, ?) > 0';
+        const heading = opts.headingOnly ? " AND instr(content, '#') > 0" : '';
+        const res = this.db.exec(
+            `SELECT note_path, chunk_index, content FROM chunks WHERE ${match}${heading} ORDER BY note_path, chunk_index`,
+            [needle],
+        );
+        if (res.length === 0) return [];
+        return res[0].values.map((row) => ({
+            notePath: row[0] as string,
+            chunkIndex: row[1] as number,
+            content: row[2] as string,
+        }));
+    }
+
     /** 034 D4: chunks stored for one note (to place a chunk within it). */
     countChunksFor(notePath: string): number {
         const res = this.db.exec('SELECT COUNT(*) FROM chunks WHERE note_path = ?', [notePath]);
