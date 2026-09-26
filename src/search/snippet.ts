@@ -45,6 +45,9 @@ export interface SnippetInput {
     weights: { bm25: number; semantic: number };
     k: number;
     chunkCount: number | null;
+    /** 038 D6: the chunk a heading or "quoted" match came from, with the
+     *  phrase folded like BM25 tokens. Optional: absent means no verbatim hit. */
+    verbatim?: { hit: LegHit; token: string } | null;
 }
 
 const ASCII_TOKEN = /^[a-z0-9_-]+$/;
@@ -54,6 +57,14 @@ const WORD_CHAR = /[a-z0-9_-]/;
 const WHITESPACE = /\s/;
 
 export function buildSnippet(input: SnippetInput): SearchSnippet | null {
+    // 038 D6: a verbatim match decided the rank, so show that passage; fall
+    // back to the leg winners if the phrase cannot be highlighted in it.
+    if (input.verbatim) {
+        const v = fromContent(input.verbatim.hit.content, [input.verbatim.token], true, {
+            source: 'bm25', chunkIndex: input.verbatim.hit.chunkIndex, chunkCount: input.chunkCount,
+        });
+        if (v && v.ranges.length > 0) return v;
+    }
     const bm25 = input.bm25Rank ? input.weights.bm25 / (input.k + input.bm25Rank) : 0;
     const semantic = input.semanticRank ? input.weights.semantic / (input.k + input.semanticRank) : 0;
     if (bm25 === 0 && semantic === 0) return null; // title-only match

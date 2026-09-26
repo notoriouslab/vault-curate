@@ -188,3 +188,36 @@ describe('buildSnippet', () => {
         expect(hl(s)).toEqual(['梅花']);
     });
 });
+
+describe('buildSnippet verbatim passage (038 D6)', () => {
+    const headingChunk = { chunkIndex: 1, content: '前面是別的段落。'.repeat(8) + '\n## 建議優先順序\n先做清單，再排時程。' };
+    const bm25Winner = { chunkIndex: 0, content: '建議優先順序很重要，常常要檢查。' };
+    const input = {
+        ...base,
+        queryTokens: tokenizeForBM25('建議優先順序'),
+        bm25Rank: 1, semanticRank: 3,
+        bm25Real: bm25Winner,
+        semantic: { chunkIndex: 2, content: '無關的開頭' },
+    };
+
+    it('shows the chunk the verbatim match came from, highlighting the phrase', () => {
+        const s = buildSnippet({ ...input, verbatim: { hit: headingChunk, token: '建议优先顺序' } })!;
+        expect(s.chunkIndex).toBe(1);
+        expect(hl(s)).toEqual(['建議優先順序']);
+    });
+
+    it('is unchanged without a verbatim passage', () => {
+        const without = buildSnippet(input);
+        expect(buildSnippet({ ...input, verbatim: null })).toEqual(without);
+        expect(without!.chunkIndex).toBe(0);
+    });
+
+    it('falls back when the phrase cannot be highlighted in the verbatim chunk', () => {
+        const s = buildSnippet({ ...input, verbatim: { hit: headingChunk, token: '找不到的字' } });
+        expect(s).toEqual(buildSnippet(input));
+    });
+
+    it('still returns null for a title-only match without a verbatim passage', () => {
+        expect(buildSnippet({ ...base, queryTokens: tokenizeForBM25('週記'), verbatim: null })).toBeNull();
+    });
+});

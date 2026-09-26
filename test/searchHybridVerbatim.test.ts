@@ -45,6 +45,12 @@ describe('verbatim-match boost (038 D2-D4)', () => {
         expect(await first('"約在台北車站前"', provider)).toBe('quote.md');
     });
 
+    it('shows and highlights the heading in the snippet', async () => {
+        const r = (await searchHybrid('建議優先順序', { store, provider }, SETTINGS))[0];
+        const hl = r.snippet!.ranges.map(([a, b]) => r.snippet!.text.slice(a, b));
+        expect(hl).toContain('建議優先順序');
+    });
+
     it('works without the semantic leg (mobile)', async () => {
         expect(await first('建議優先順序', null)).toBe('heading.md');
     });

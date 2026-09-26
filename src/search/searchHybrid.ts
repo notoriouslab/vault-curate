@@ -21,9 +21,9 @@ import { fuzzyTitleSearch } from '../utils/jaroWinkler';
 import { rankMap, RRF_K, rrfFuse, topNFused } from './rrfFuse';
 import { t2sForEmbed } from '../indexer/preproc';
 import { stripChunkPrefix } from '../indexer/tokenChunker';
-import { tokenizeForBM25 } from '../storage/bm25';
+import { normalizeForSearch, tokenizeForBM25 } from '../storage/bm25';
 import { expandQuery } from '../synonyms';
-import { buildSnippet } from './snippet';
+import { buildSnippet, type LegHit } from './snippet';
 import {
     applyVerbatimBoost, containsPhrase, hasHeadingLine, parseVerbatimQuery, titleStartsWith,
 } from './verbatim';
@@ -153,7 +153,7 @@ export async function searchHybrid(
     // Take generously, then apply scope filter, then trim to topResults.
     // 038: an exact title opening, heading or "quoted" phrase lifts its note
     // by one first-place share. Uses the raw query: verbatim means as typed.
-    const boosted = boostVerbatim(fused, q, titles, deps.store);
+    const { boosted, passages } = boostVerbatim(fused, q, titles, deps.store);
     const top = topNFused(boosted, Math.min(MAX_FUSED_TAKE, settings.topResults * 3));
     const out = materialise(top, deps.store, settings, {
         queryTokens: tokenizeForBM25(qx),
@@ -162,6 +162,7 @@ export async function searchHybrid(
         bm25Ranks: rankMap(bm25Scores),
         semanticRanks: rankMap(semanticScores),
         weights,
+        verbatim: passages,
     });
     console.debug(
         `vault-curate: hybrid '${q}' → ${out.length}/${fused.size} results in ${Date.now() - tStart}ms ` +
@@ -179,19 +180,25 @@ function boostVerbatim(
     query: string,
     titles: Map<string, string>,
     store: SQLiteStore,
-): Map<string, number> {
+): { boosted: Map<string, number>; passages: Map<string, { hit: LegHit; token: string }> } {
+    const passages = new Map<string, { hit: LegHit; token: string }>();
     const vq = parseVerbatimQuery(query);
-    if (vq === null) return fused;
+    if (vq === null) return { boosted: fused, passages };
+    // Same folding findHits applies to the text it highlights.
+    const token = normalizeForSearch(vq.phrase).replace(/[A-Z]/g, (ch) => ch.toLowerCase());
     const hits = new Set<string>();
     for (const [path, title] of titles) {
         if (titleStartsWith(title, vq.phrase)) hits.add(path);
     }
     for (const c of store.findChunksContaining(vq.phrase, { headingOnly: !vq.quoted })) {
         const text = stripChunkPrefix(c.content, titles.get(c.notePath) ?? '');
-        if (vq.quoted ? containsPhrase(text, vq.phrase) : hasHeadingLine(text, vq.phrase)) hits.add(c.notePath);
+        if (!(vq.quoted ? containsPhrase(text, vq.phrase) : hasHeadingLine(text, vq.phrase))) continue;
+        hits.add(c.notePath);
+        // Rows come ordered by chunk index, so the first one per note is kept.
+        if (!passages.has(c.notePath)) passages.set(c.notePath, { hit: { chunkIndex: c.chunkIndex, content: text }, token });
     }
     if (hits.size > 0) console.debug(`vault-curate: verbatim boost → ${hits.size} notes`);
-    return applyVerbatimBoost(fused, hits);
+    return { boosted: applyVerbatimBoost(fused, hits), passages };
 }
 
 function runBM25(
@@ -280,6 +287,7 @@ function snippetFor(
         weights: { bm25: snip.weights.bm25, semantic: snip.weights.semantic },
         k: RRF_K,
         chunkCount: store.countChunksFor(path),
+        verbatim: snip.verbatim.get(path) ?? null,
     });
 }
 
@@ -306,6 +314,8 @@ type SnippetContext = {
     bm25Ranks: Map<string, number>;
     semanticRanks: Map<string, number>;
     weights: HybridWeights;
+    /** 038 D6: verbatim-match passage per note. */
+    verbatim: Map<string, { hit: LegHit; token: string }>;
 };
 
 function materialise(
