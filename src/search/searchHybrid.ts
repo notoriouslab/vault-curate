@@ -119,7 +119,10 @@ export async function searchHybrid(
     const tBm25 = Date.now();
     const tSemantic = Date.now();
     const tFuzzy = Date.now();
-    const bm25P = runBM25(deps.store, qx, candidatePool).then((m) => {
+    // 038: the BM25 leg's candidate chunks are also where verbatim matches are
+    // looked for (a literal match always ranks there), so no extra full scan.
+    const bm25Chunks: Array<{ notePath: string; chunkIndex: number }> = [];
+    const bm25P = runBM25(deps.store, qx, candidatePool, bm25Chunks).then((m) => {
         console.debug(`vault-curate: BM25 ${m.size} hits (${Date.now() - tBm25}ms)`);
         return m;
     });
@@ -153,7 +156,7 @@ export async function searchHybrid(
     // Take generously, then apply scope filter, then trim to topResults.
     // 038: an exact title opening, heading or "quoted" phrase lifts its note
     // by one first-place share. Uses the raw query: verbatim means as typed.
-    const { boosted, passages } = boostVerbatim(fused, q, titles, deps.store);
+    const { boosted, passages } = boostVerbatim(fused, q, titles, bm25Chunks, deps.store);
     const top = topNFused(boosted, Math.min(MAX_FUSED_TAKE, settings.topResults * 3));
     const out = materialise(top, deps.store, settings, {
         queryTokens: tokenizeForBM25(qx),
@@ -179,6 +182,7 @@ function boostVerbatim(
     fused: Map<string, number>,
     query: string,
     titles: Map<string, string>,
+    candidates: Array<{ notePath: string; chunkIndex: number }>,
     store: SQLiteStore,
 ): { boosted: Map<string, number>; passages: Map<string, { hit: LegHit; token: string }> } {
     const passages = new Map<string, { hit: LegHit; token: string }>();
@@ -190,12 +194,16 @@ function boostVerbatim(
     for (const [path, title] of titles) {
         if (titleStartsWith(title, vq.phrase)) hits.add(path);
     }
-    for (const c of store.findChunksContaining(vq.phrase, { headingOnly: !vq.quoted })) {
-        const text = stripChunkPrefix(c.content, titles.get(c.notePath) ?? '');
+    // Candidates arrive in BM25 score order; keep each note's earliest matching chunk.
+    const ordered = [...candidates].sort((a, b) => a.notePath.localeCompare(b.notePath) || a.chunkIndex - b.chunkIndex);
+    for (const c of ordered) {
+        if (c.chunkIndex < 0 || passages.has(c.notePath)) continue; // -1 = description virtual doc
+        const content = store.getChunkContent(c.notePath, c.chunkIndex);
+        if (content === null) continue;
+        const text = stripChunkPrefix(content, titles.get(c.notePath) ?? '');
         if (!(vq.quoted ? containsPhrase(text, vq.phrase) : hasHeadingLine(text, vq.phrase))) continue;
         hits.add(c.notePath);
-        // Rows come ordered by chunk index, so the first one per note is kept.
-        if (!passages.has(c.notePath)) passages.set(c.notePath, { hit: { chunkIndex: c.chunkIndex, content: text }, token });
+        passages.set(c.notePath, { hit: { chunkIndex: c.chunkIndex, content: text }, token });
     }
     if (hits.size > 0) console.debug(`vault-curate: verbatim boost → ${hits.size} notes`);
     return { boosted: applyVerbatimBoost(fused, hits), passages };
@@ -205,12 +213,14 @@ function runBM25(
     store: SQLiteStore,
     query: string,
     limit: number,
+    chunks: Array<{ notePath: string; chunkIndex: number }>,
 ): Promise<Map<string, Bm25Best>> {
     // We pull more chunk hits than we need so max-pooling per note has room
     // to cover notes whose top chunk isn't the absolute best globally.
     const hits = store.searchBM25(query, limit * 2);
     const out = new Map<string, Bm25Best>();
     for (const h of hits) {
+        chunks.push({ notePath: h.notePath, chunkIndex: h.chunkIndex });
         let cur = out.get(h.notePath);
         if (cur === undefined) {
             cur = { score: h.bm25Score, chunkIndex: h.chunkIndex, bestReal: null };
