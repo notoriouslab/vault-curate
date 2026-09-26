@@ -18,12 +18,15 @@ import type { SQLiteStore } from '../storage/SQLiteStore';
 import { blobToVec } from '../storage/vecCodec';
 import type { SearchResult } from '../types';
 import { fuzzyTitleSearch } from '../utils/jaroWinkler';
-import { rankMap, rrfFuse, topNFused } from './rrfFuse';
+import { rankMap, RRF_K, rrfFuse, topNFused } from './rrfFuse';
 import { t2sForEmbed } from '../indexer/preproc';
 import { stripChunkPrefix } from '../indexer/tokenChunker';
 import { tokenizeForBM25 } from '../storage/bm25';
 import { expandQuery } from '../synonyms';
 import { buildSnippet } from './snippet';
+import {
+    applyVerbatimBoost, containsPhrase, hasHeadingLine, parseVerbatimQuery, titleStartsWith,
+} from './verbatim';
 
 /** 034 D3: a leg's best chunk per note, kept alongside its score. */
 type LegBest = { score: number; chunkIndex: number };
@@ -133,7 +136,8 @@ export async function searchHybrid(
             settings.onDegrade?.("semantic");
             return new Map<string, LegBest>();
         });
-    const fuzzyP = Promise.resolve(fuzzyTitleSearch(q, deps.store.getAllTitles(), candidatePool)).then((m) => {
+    const titles = deps.store.getAllTitles();
+    const fuzzyP = Promise.resolve(fuzzyTitleSearch(q, titles, candidatePool)).then((m) => {
         console.debug(`vault-curate: fuzzy ${m.size} hits (${Date.now() - tFuzzy}ms)`);
         return m;
     });
@@ -147,7 +151,10 @@ export async function searchHybrid(
     );
 
     // Take generously, then apply scope filter, then trim to topResults.
-    const top = topNFused(fused, Math.min(MAX_FUSED_TAKE, settings.topResults * 3));
+    // 038: an exact title opening, heading or "quoted" phrase lifts its note
+    // by one first-place share. Uses the raw query: verbatim means as typed.
+    const boosted = boostVerbatim(fused, q, titles, deps.store);
+    const top = topNFused(boosted, Math.min(MAX_FUSED_TAKE, settings.topResults * 3));
     const out = materialise(top, deps.store, settings, {
         queryTokens: tokenizeForBM25(qx),
         bm25: bm25Map,
@@ -165,6 +172,26 @@ export async function searchHybrid(
         console.debug(`vault-curate: top — ${preview}`);
     }
     return out;
+}
+
+function boostVerbatim(
+    fused: Map<string, number>,
+    query: string,
+    titles: Map<string, string>,
+    store: SQLiteStore,
+): Map<string, number> {
+    const vq = parseVerbatimQuery(query);
+    if (vq === null) return fused;
+    const hits = new Set<string>();
+    for (const [path, title] of titles) {
+        if (titleStartsWith(title, vq.phrase)) hits.add(path);
+    }
+    for (const c of store.findChunksContaining(vq.phrase, { headingOnly: !vq.quoted })) {
+        const text = stripChunkPrefix(c.content, titles.get(c.notePath) ?? '');
+        if (vq.quoted ? containsPhrase(text, vq.phrase) : hasHeadingLine(text, vq.phrase)) hits.add(c.notePath);
+    }
+    if (hits.size > 0) console.debug(`vault-curate: verbatim boost → ${hits.size} notes`);
+    return applyVerbatimBoost(fused, hits);
 }
 
 function runBM25(
@@ -251,7 +278,7 @@ function snippetFor(
         bm25Desc: b && !b.bestReal && description ? { content: description } : null,
         semantic: s ? read(s.chunkIndex) : null,
         weights: { bm25: snip.weights.bm25, semantic: snip.weights.semantic },
-        k: 60,
+        k: RRF_K,
         chunkCount: store.countChunksFor(path),
     });
 }

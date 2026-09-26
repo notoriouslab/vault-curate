@@ -41,7 +41,8 @@ beforeAll(async () => {
 });
 
 const SETTINGS = { topResults: 10, searchScope: 'all' as const };
-const QUERIES = ['登山裝備', '夕陽', '頭燈 雨衣'];
+// 038: '登山裝備' matches a title opening; it has its own case below.
+const QUERIES = ['夕陽', '頭燈 雨衣'];
 
 // Recorded by running this fixture against the pre-034 searchHybrid (before
 // the leg maps carried winning chunks). Snippets must not move any result.
@@ -53,6 +54,15 @@ describe('searchHybrid with snippets (034 D3)', () => {
             const r = await searchHybrid(q, { store, provider }, SETTINGS);
             expect(r.map((x) => [x.path, x.score])).toEqual(BASELINE[q]);
         }
+    });
+
+    it('keeps the pre-034 ranking; 038 adds exactly one first-place share to a title-opening match', async () => {
+        // "登山裝備" opens the title "登山裝備清單", so 038 D3 lifts title.md by
+        // 1/(k+1); every other result and the order stay at the pre-034 baseline.
+        const r = await searchHybrid('登山裝備', { store, provider }, SETTINGS);
+        const expected = BASELINE['登山裝備'].map(([p, s]) => [p, p === 'title.md' ? s + 1 / 61 : s]);
+        expect(r.map((x) => x.path)).toEqual(expected.map(([p]) => p));
+        r.forEach((x, i) => expect(x.score).toBeCloseTo(expected[i][1] as number, 12));
     });
 
     it('shows the deep chunk that matched, not the note head', async () => {
