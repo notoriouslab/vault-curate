@@ -11,6 +11,10 @@
  * that's the whole reason RRF wins over linear combination on BM25 + cosine.
  */
 
+/** Standard RRF constant (see header); shared with the snippet leg choice
+ *  and the 038 verbatim boost so all three stay on the same scale. */
+export const RRF_K = 60;
+
 /** 1-based rank of each doc within one retriever: sorted by score descending,
  *  ties kept in insertion order (Array.prototype.sort is stable). rrfFuse and
  *  the snippet leg choice (034 D3) both rank through this, so they agree. */
@@ -25,7 +29,7 @@ export function rankMap(results: Map<string, number>): Map<string, number> {
 export function rrfFuse(
     results: Map<string, number>[],
     weights: number[],
-    k: number = 60,
+    k: number = RRF_K,
 ): Map<string, number> {
     if (results.length !== weights.length) {
         throw new Error(
