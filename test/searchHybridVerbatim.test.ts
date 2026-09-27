@@ -3,7 +3,7 @@
  * it puts that note first, even when another note wins on keyword volume
  * and meaning. Written red-first against 1.11.0 behaviour.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { readFileSync } from 'fs';
 import { SQLiteStore, type PersistAdapter } from '../src/storage/SQLiteStore';
 import { searchHybrid } from '../src/search/searchHybrid';
@@ -31,6 +31,16 @@ beforeAll(async () => {
     note('volume.md', '想法', '建議優先順序很重要。建議優先順序要常檢查。建議優先順序會變。', NEAR);
     note('quote.md', '週記', '我們約在台北車站前集合。', FAR);
     note('crowd.md', '交通', '台北車站很大。台北車站人多。車站前有公車。台北車站前面也有計程車。', NEAR);
+    // Several chunks: chunk 0 wins BM25 on volume; chunks 1 and 2 both carry the
+    // heading, and chunk 2 outranks chunk 1 in BM25, so only the index order picks 1.
+    store.upsertNote({ path: 'multi.md', mtime: 1, title: '計畫書', description: null, tier: 'hot', bodyVec: FAR, bodyDim: 2, indexedAt: 1, descVec: null });
+    store.upsertChunks('multi.md', [
+        { notePath: 'multi.md', chunkIndex: 0, content: '計畫書\n行程安排先確認。行程安排再調整。行程安排要記錄。', vec: FAR },
+        { notePath: 'multi.md', chunkIndex: 1, content: '計畫書\n## 行程安排\n第一天出發。', vec: FAR },
+        { notePath: 'multi.md', chunkIndex: 2, content: '計畫書\n## 行程安排\n行程安排第二天回程，行程安排結束。', vec: FAR },
+    ]);
+    // The phrase sits only in the title (not at its start); the body lacks it.
+    note('titled.md', '去北投泡湯的週末', '整天都在山上走路。', FAR);
 });
 
 const first = async (q: string, p: EmbeddingProvider | null) =>
@@ -49,6 +59,26 @@ describe('verbatim-match boost (038 D2-D4)', () => {
         const r = (await searchHybrid('建議優先順序', { store, provider }, SETTINGS))[0];
         const hl = r.snippet!.ranges.map(([a, b]) => r.snippet!.text.slice(a, b));
         expect(hl).toContain('建議優先順序');
+    });
+
+    it('shows the earliest chunk that carries the heading, not the BM25 winner', async () => {
+        const r = (await searchHybrid('行程安排', { store, provider }, SETTINGS)).find(x => x.path === 'multi.md')!;
+        expect(r.snippet!.chunkIndex).toBe(1);
+    });
+
+    it('matches the query as typed, not its synonym expansion', async () => {
+        const res = await searchHybrid('建議優先順序', { store, provider }, { ...SETTINGS, synonyms: { 建議優先順序: ['注意事項'] } });
+        expect(res[0].path).toBe('heading.md');
+        const expanded = await searchHybrid('注意事項', { store, provider }, { ...SETTINGS, synonyms: { 注意事項: ['建議優先順序'] } });
+        expect(expanded[0]?.path === 'heading.md' && expanded[0].score > 1 / 61).not.toBe(true);
+    });
+
+    it('does not count a quoted phrase that only appears in the title', async () => {
+        const debug = vi.spyOn(console, 'debug').mockImplementation(() => {});
+        await searchHybrid('"北投泡湯"', { store, provider: null }, SETTINGS);
+        const boosted = debug.mock.calls.some(c => String(c[0]).includes('verbatim boost'));
+        debug.mockRestore();
+        expect(boosted).toBe(false);
     });
 
     it('works without the semantic leg (mobile)', async () => {

@@ -194,13 +194,14 @@ function boostVerbatim(
     for (const [path, title] of titles) {
         if (titleStartsWith(title, vq.phrase)) hits.add(path);
     }
-    // Candidates arrive in BM25 score order; keep each note's earliest matching chunk.
-    const ordered = [...candidates].sort((a, b) => a.notePath.localeCompare(b.notePath) || a.chunkIndex - b.chunkIndex);
-    for (const c of ordered) {
-        if (c.chunkIndex < 0 || passages.has(c.notePath)) continue; // -1 = description virtual doc
-        const content = store.getChunkContent(c.notePath, c.chunkIndex);
-        if (content === null) continue;
-        const text = stripChunkPrefix(content, titles.get(c.notePath) ?? '');
+    // Candidates arrive in BM25 score order; keep each note's earliest matching
+    // chunk. -1 is the description virtual doc, which has no chunk row.
+    const ordered = candidates
+        .filter((c) => c.chunkIndex >= 0)
+        .sort((a, b) => a.notePath.localeCompare(b.notePath) || a.chunkIndex - b.chunkIndex);
+    for (const c of store.getChunkContents(ordered)) {
+        if (passages.has(c.notePath)) continue;
+        const text = stripChunkPrefix(c.content, titles.get(c.notePath) ?? '');
         if (!(vq.quoted ? containsPhrase(text, vq.phrase) : hasHeadingLine(text, vq.phrase))) continue;
         hits.add(c.notePath);
         passages.set(c.notePath, { hit: { chunkIndex: c.chunkIndex, content: text }, token });

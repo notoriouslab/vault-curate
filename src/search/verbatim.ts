@@ -24,7 +24,7 @@ export function parseVerbatimQuery(q: string): { phrase: string; quoted: boolean
     const s = q.trim();
     const quoted = s.length >= 2 && s.startsWith('"') && s.endsWith('"');
     const phrase = quoted ? s.slice(1, -1) : s;
-    if ([...phrase].length < 2) return null;
+    if ([...phrase.trim()].length < 2) return null; // blank or near-blank quotes match everywhere
     return { phrase, quoted };
 }
 

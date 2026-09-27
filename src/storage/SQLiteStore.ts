@@ -328,6 +328,24 @@ export class SQLiteStore {
         return res[0].values[0][0] as string;
     }
 
+    /** 038: many chunks' text through one prepared statement (a per-chunk
+     *  exec() recompiles the SQL each time). Missing chunks are left out. */
+    getChunkContents(keys: Array<{ notePath: string; chunkIndex: number }>): Array<{ notePath: string; chunkIndex: number; content: string }> {
+        const out: Array<{ notePath: string; chunkIndex: number; content: string }> = [];
+        if (keys.length === 0) return out;
+        const stmt = this.db.prepare('SELECT content FROM chunks WHERE note_path = ? AND chunk_index = ?');
+        try {
+            for (const k of keys) {
+                stmt.bind([k.notePath, k.chunkIndex]);
+                if (stmt.step()) out.push({ ...k, content: stmt.get()[0] as string });
+                stmt.reset();
+            }
+        } finally {
+            stmt.free();
+        }
+        return out;
+    }
+
     /** 034 D4: chunks stored for one note (to place a chunk within it). */
     countChunksFor(notePath: string): number {
         const res = this.db.exec('SELECT COUNT(*) FROM chunks WHERE note_path = ?', [notePath]);

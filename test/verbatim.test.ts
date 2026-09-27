@@ -14,6 +14,8 @@ describe('parseVerbatimQuery', () => {
         expect(parseVerbatimQuery('😀')).toBeNull();
         expect(parseVerbatimQuery('""')).toBeNull();
         expect(parseVerbatimQuery('"台"')).toBeNull();
+        expect(parseVerbatimQuery('"  "')).toBeNull();
+        expect(parseVerbatimQuery('" 台 "')).toBeNull();
     });
 
     it('reads a plain query as-is and a double-quoted one as a phrase', () => {
