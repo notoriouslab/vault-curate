@@ -50,10 +50,10 @@ export interface SnippetInput {
     verbatim?: { hit: LegHit; token: string } | null;
 }
 
-const ASCII_TOKEN = /^[a-z0-9_-]+$/;
+export const ASCII_TOKEN = /^[a-z0-9_-]+$/;
 // Same class as cjkTokenize's ASCII_WORD_RE: an ASCII token only counts as a
 // whole word, so "ai" does not light up inside "maintain".
-const WORD_CHAR = /[a-z0-9_-]/;
+export const WORD_CHAR = /[a-z0-9_-]/;
 const WHITESPACE = /\s/;
 
 export function buildSnippet(input: SnippetInput): SearchSnippet | null {

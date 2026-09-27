@@ -8,11 +8,10 @@
  * compared as typed (no Traditional/Simplified folding, no synonyms).
  */
 import { RRF_K } from './rrfFuse';
+import { ASCII_TOKEN, WORD_CHAR } from './snippet';
 
 /** A date-style title prefix, e.g. "20260329-" or "2026-09-18 ". */
 export const DATE_PREFIX_RE = /^(\d{8}[-_ ]?|\d{4}-\d{2}-\d{2}\s*)/;
-const ASCII_WORD = /^[a-z0-9_-]+$/;
-const WORD_CHAR = /[a-z0-9_-]/;
 const CODE_FENCE = /```[\s\S]*?```/g;
 
 export function foldAscii(s: string): string {
@@ -47,7 +46,7 @@ export function hasHeadingLine(content: string, phrase: string): boolean {
 export function containsPhrase(content: string, phrase: string): boolean {
     const c = foldAscii(content);
     const p = foldAscii(phrase);
-    if (!ASCII_WORD.test(p)) return c.includes(p);
+    if (!ASCII_TOKEN.test(p)) return c.includes(p);
     for (let i = c.indexOf(p); i >= 0; i = c.indexOf(p, i + 1)) {
         const end = i + p.length;
         if ((i === 0 || !WORD_CHAR.test(c[i - 1])) && (end === c.length || !WORD_CHAR.test(c[end]))) return true;
