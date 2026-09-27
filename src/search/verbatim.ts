@@ -23,13 +23,15 @@ export function foldAscii(s: string): string {
 export function parseVerbatimQuery(q: string): { phrase: string; quoted: boolean } | null {
     const s = q.trim();
     const quoted = s.length >= 2 && s.startsWith('"') && s.endsWith('"');
-    const phrase = quoted ? s.slice(1, -1) : s;
-    if ([...phrase.trim()].length < 2) return null; // blank or near-blank quotes match everywhere
+    // Spaces just inside the quotes are typing slack, not part of the phrase.
+    const phrase = quoted ? s.slice(1, -1).trim() : s;
+    if ([...phrase].length < 2) return null; // blank or near-blank quotes match everywhere
     return { phrase, quoted };
 }
 
 export function titleStartsWith(title: string, phrase: string): boolean {
-    const t = foldAscii(title);
+    // Titles can carry stray leading spaces (frontmatter titles are stored as written).
+    const t = foldAscii(title).trim();
     const p = foldAscii(phrase);
     return t.startsWith(p) || t.replace(DATE_PREFIX_RE, '').startsWith(p);
 }

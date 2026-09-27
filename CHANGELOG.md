@@ -3,7 +3,7 @@
 ## 1.12.0 — 2026-09-27
 
 ### Changed
-- **Search puts the note you typed verbatim first.** Type a note's heading exactly, the start of its title, or a sentence from it wrapped in double quotes (`"like this"`), and that note now ranks first instead of being outranked by notes that merely use similar words or mean something similar. The search result's snippet shows the passage with that heading or sentence, highlighted. Other searches rank as before, on desktop and on mobile.
+- **Search moves the note you typed verbatim up to the top.** Type a note's heading exactly, the start of its title, or a sentence from it wrapped in double quotes (`"like this"`), and that note now moves up to the top of the results instead of being outranked by notes that merely use similar words or mean something similar. When several notes match the same way (for example, many titles start with the same words), they are ordered among themselves as before. For a heading or a quoted sentence, the snippet shows that passage with it highlighted. Other searches rank as before, on desktop and on mobile.
 
 ## 1.11.0 — 2026-09-25
 

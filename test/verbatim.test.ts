@@ -22,6 +22,7 @@ describe('parseVerbatimQuery', () => {
         expect(parseVerbatimQuery('台北')).toEqual({ phrase: '台北', quoted: false });
         expect(parseVerbatimQuery('  會議  ')).toEqual({ phrase: '會議', quoted: false });
         expect(parseVerbatimQuery('"台北車站"')).toEqual({ phrase: '台北車站', quoted: true });
+        expect(parseVerbatimQuery('" 台北車站 "')).toEqual({ phrase: '台北車站', quoted: true });
     });
 
     it('does not treat full-width brackets as quotes', () => {
@@ -41,6 +42,7 @@ describe('titleStartsWith', () => {
         expect(titleStartsWith('2026-09-18 會議紀錄', '會議')).toBe(true);
         expect(titleStartsWith('LLM Guide', 'llm')).toBe(true);
         expect(titleStartsWith('會議紀錄', '紀錄')).toBe(false);
+        expect(titleStartsWith(' 會議紀錄', '會議')).toBe(true);
     });
 });
 
