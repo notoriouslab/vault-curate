@@ -56,7 +56,7 @@ describe('layoutRadial', () => {
 
     it('K=12: radius grows via chord formula and no adjacent bounding boxes overlap', () => {
         const { radius, positions } = layoutRadial(12);
-        expect(radius).toBe(1044); // ceil(540 / (2 * sin(PI/12)))
+        expect(radius).toBe(1218); // ceil(630 / (2 * sin(PI/12)))  (037: was 540 → 1044)
         const W = 400;
         const H = 360;
         for (let i = 0; i < 12; i++) {
@@ -66,6 +66,22 @@ describe('layoutRadial', () => {
             const dy = Math.abs((a.y + H / 2) - (b.y + H / 2));
             const overlaps = dx < W && dy < H;
             expect(overlaps, `adjacent pair ${i}/${(i + 1) % 12} overlaps (dx=${dx}, dy=${dy})`).toBe(false);
+        }
+    });
+    it('037: group frames (pad 30) never overlap each other or the centre frame, k = 1…12', () => {
+        const P = 30;
+        type Box = { x: number; y: number; w: number; h: number };
+        const overlap = (a: Box, b: Box) =>
+            !(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y);
+        const centre: Box = { x: -240 - P, y: -210 - P, w: 480 + 2 * P, h: 420 + 2 * P };
+        for (let k = 1; k <= 12; k++) {
+            const frames = layoutRadial(k).positions.map((p) => ({ x: p.x - P, y: p.y - P, w: 400 + 2 * P, h: 360 + 2 * P }));
+            for (let i = 0; i < k; i++) {
+                expect(overlap(frames[i], centre), `k=${k} frame ${i} overlaps centre`).toBe(false);
+                for (let j = i + 1; j < k; j++) {
+                    expect(overlap(frames[i], frames[j]), `k=${k} frames ${i}/${j} overlap`).toBe(false);
+                }
+            }
         }
     });
 });

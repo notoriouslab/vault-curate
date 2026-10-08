@@ -50,6 +50,19 @@ export interface CanvasTextNode {
     color?: string;
 }
 
+/** JSON Canvas 1.0 group node (037): a labelled frame. Obsidian keeps the
+ *  label visible when zoomed out, unlike file-node contents. */
+export interface CanvasGroupNode {
+    id: string;
+    type: "group";
+    label?: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    color?: string;
+}
+
 export interface CanvasEdge {
     id: string;
     fromNode: string;
@@ -63,7 +76,7 @@ export interface CanvasEdge {
 }
 
 export interface CanvasJson {
-    nodes: (CanvasFileNode | CanvasTextNode)[];
+    nodes: (CanvasFileNode | CanvasTextNode | CanvasGroupNode)[];
     edges: CanvasEdge[];
 }
 
@@ -72,9 +85,11 @@ export const NODE_H = 360;
 const CENTER_W = 480;
 const CENTER_H = 420;
 export const MIN_RADIUS = 760;
-// Minimum center-to-center distance at which two 400×360 boxes cannot
-// overlap in any relative direction: 400 / cos(atan(360/400)) ≈ 538.1.
-export const CHORD_MIN = 540;
+// Minimum center-to-center distance at which two neighbours cannot overlap
+// in any relative direction. 037: each card sits in a group frame padded by
+// 30 (460×420), whose diagonal is 622.9; frames must not overlap or dragging
+// one group would carry its neighbour along.
+export const CHORD_MIN = 630;
 
 export const COLOR_CENTER = "4"; // green — anchor
 export const COLOR_COLD = "5"; // cyan — possibly-forgotten old note

@@ -4,7 +4,7 @@
 // Appends a clicked node's semantic neighborhood to an EXISTING canvas.
 // Placement is slot-based (2026-07-20 dogfood amendment): candidate slots
 // live on rings around the clicked node (radius from 006's MIN_RADIUS,
-// +200 per ring, slots spaced ≥ CHORD_MIN of arc); each new node takes
+// +200 per ring, slots spaced ≥ EXPAND_SLOT_CHORD of arc); each new node takes
 // the innermost free slot scanning clockwise from 12 o'clock, avoiding
 // existing nodes AND the nodes placed before it — an all-or-nothing ring
 // collapses into "照放" on any crowded canvas, per-node slots don't.
@@ -20,7 +20,6 @@ import {
     classifyEdge,
     djb2Hex,
     sideForAngle,
-    CHORD_MIN,
     MIN_RADIUS,
     NODE_W,
     NODE_H,
@@ -36,6 +35,10 @@ import { pairKey } from "../utils/pairKey";
 import { formatScore } from "../utils/formatScore";
 
 const COLLISION_MARGIN = 100;
+/** Arc between expansion slots. Kept at the 1.12 value when 037 widened the
+ *  radial layout's CHORD_MIN to 630: here group frames (pad 30) stay apart
+ *  through COLLISION_MARGIN, which keeps new cards ≥ 100 from every box. */
+const EXPAND_SLOT_CHORD = 540;
 const RADIUS_STEP = 200;
 const MAX_RINGS = 8;
 /** Post-expansion node count above which the caller warns the graph is
@@ -90,12 +93,12 @@ function slotAt(cx: number, cy: number, radius: number, angleDeg: number): Slot 
 }
 
 /** Innermost free slot: rings inside-out, angles clockwise from 12
- *  o'clock, slots spaced ≥ CHORD_MIN of arc so same-ring neighbours can
+ *  o'clock, slots spaced ≥ EXPAND_SLOT_CHORD of arc so same-ring neighbours can
  *  never overlap. Returns null when every slot on every ring is taken. */
 function findFreeSlot(cx: number, cy: number, obstacles: Box[]): Slot | null {
     for (let ring = 0; ring < MAX_RINGS; ring++) {
         const radius = MIN_RADIUS + ring * RADIUS_STEP;
-        const slots = Math.max(4, Math.floor((2 * Math.PI * radius) / CHORD_MIN));
+        const slots = Math.max(4, Math.floor((2 * Math.PI * radius) / EXPAND_SLOT_CHORD));
         for (let i = 0; i < slots; i++) {
             const slot = slotAt(cx, cy, radius, -90 + i * (360 / slots));
             const box = { x: slot.x, y: slot.y, w: NODE_W, h: NODE_H };
@@ -105,7 +108,7 @@ function findFreeSlot(cx: number, cy: number, obstacles: Box[]): Slot | null {
     return null;
 }
 
-function uniqueId(candidate: string, taken: Set<string>): string {
+export function uniqueId(candidate: string, taken: Set<string>): string {
     let id = candidate;
     for (let n = 2; taken.has(id); n++) id = `${candidate}-${n}`;
     taken.add(id);
