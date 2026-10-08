@@ -70,7 +70,9 @@ const openStore = async (bytes: Uint8Array | null = null, readOnly = false) => {
     return { store, state };
 };
 
-describe('SQLiteStore.compact (028)', () => {
+// 039 D5: generous timeout; these sql.js runs take ~100-200ms but stalled
+// past the 5s default under heavy machine load.
+describe('SQLiteStore.compact (028)', { timeout: 20000 }, () => {
     it('reclaims a mass-deletion freelist: page_count shrinks, data survives', async () => {
         const { store } = await openStore();
         fill(store, 400);

@@ -175,7 +175,9 @@ describe('buildKnnGraph（009 D1）', () => {
     // 會膨脹到 1.1-2.6s（實測），1s 門檻抓的是機器負載不是回歸。
     // 真正要擋的複雜度回歸（如 O(n²k) 變 O(n³)）在 1k 節點下是數十秒起跳，
     // 3s 仍然擋得住。
-    it('效能：1k 節點建圖 + 尋路 < 3s', () => {
+    // 039 D5: guards against algorithmic blowups (tens of x), not machine
+    // load; ~260ms in the full suite, so 15s still catches a regression.
+    it('效能：1k 節點建圖 + 尋路 < 15s', () => {
         const notes = Array.from({ length: 1000 }, (_, i) => {
             const vec = new Float32Array(64);
             for (let d = 0; d < 64; d++) vec[d] = Math.sin(i * 37.1 + d * 5.3);
@@ -188,8 +190,8 @@ describe('buildKnnGraph（009 D1）', () => {
         const t0 = performance.now();
         const graph = buildKnnGraph(notes, 10);
         widestPath(graph, 'n0', 'n999');
-        expect(performance.now() - t0).toBeLessThan(3000);
-    });
+        expect(performance.now() - t0).toBeLessThan(15000);
+    }, 20000);
 });
 
 describe('edgeSimPercentile（009 D4 判定門檻）', () => {
