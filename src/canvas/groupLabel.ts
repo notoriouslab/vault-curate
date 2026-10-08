@@ -10,9 +10,10 @@ export const LABEL_MAX_WIDTH = 20;
 const ELLIPSIS = "…";
 const SEPARATOR = " · ";
 
-// CJK punctuation, ideographs, Hangul, compatibility ideographs and
-// full-width forms count 2; supplementary-plane Han via the Script property.
-const WIDE_RE = /[　-〿㐀-鿿ꀀ-퟿豈-﫿＀-￯]|\p{Script=Han}/u;
+// CJK punctuation, kana, bopomofo, ideographs, Hangul, compatibility
+// ideographs and full-width forms count 2; supplementary-plane Han via the
+// Script property.
+const WIDE_RE = /[\u3000-\u303F\u3040-\u30FF\u3100-\u312F\u3400-\u9FFF\uA000-\uD7FF\uF900-\uFAFF\uFF00-\uFFEF]|\p{Script=Han}/u;
 
 export function labelWidth(s: string): number {
     let w = 0;

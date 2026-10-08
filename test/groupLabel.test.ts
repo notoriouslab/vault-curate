@@ -17,6 +17,8 @@ describe('labelWidth（037 D3）', () => {
         expect(labelWidth('讀書，神學')).toBe(10);
         expect(labelWidth('…')).toBe(1);
         expect(labelWidth(' · ')).toBe(3);
+        expect(labelWidth('カタカナ')).toBe(8); // kana and bopomofo are wide too (G3 #3)
+        expect(labelWidth('ㄅㄆ')).toBe(4);
     });
 });
 
