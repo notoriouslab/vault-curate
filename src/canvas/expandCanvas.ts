@@ -64,13 +64,23 @@ export interface ExpandResult {
      *  plain node-dedupe would silently drop. Nodes reached by several
      *  expansions accumulate edges and read as hubs. */
     linkedExisting: number;
+    /** File nodes only (037): group frames and text nodes are not cards. */
     totalNodes: number;
+    /** 037: ids of the file nodes this call added, in placement order. */
+    addedNodeIds: string[];
+    /** 037: the subset parked beyond the outer ring because every slot was
+     *  taken. Parking ignores obstacles, so these get no group frame. */
+    parkedNodeIds: string[];
     /** True when even the widest ring (5 retries) still collided — the
      *  ring was placed anyway and the caller should notify. */
     collisionUnresolved: boolean;
 }
 
 interface Box { x: number; y: number; w: number; h: number }
+
+function countFileNodes(nodes: CanvasJson["nodes"]): number {
+    return nodes.filter((n) => n.type === "file").length;
+}
 
 function overlaps(a: Box, b: Box, margin: number): boolean {
     return !(
@@ -159,7 +169,8 @@ export function expandCanvas(
     if (fresh.length === 0 && toLink.length === 0) {
         return {
             canvas, added: 0, linkedExisting: 0,
-            totalNodes: canvas.nodes.length, collisionUnresolved: false,
+            totalNodes: countFileNodes(canvas.nodes), collisionUnresolved: false,
+            addedNodeIds: [], parkedNodeIds: [],
         };
     }
 
@@ -176,9 +187,11 @@ export function expandCanvas(
     }));
 
     const placed: Slot[] = [];
+    const parked: boolean[] = [];
     let collisionUnresolved = false;
     for (let i = 0; i < fresh.length; i++) {
         let slot = findFreeSlot(cx, cy, obstacles);
+        parked.push(!slot);
         if (!slot) {
             // Every slot taken: park beyond the outermost ring and say so.
             // The parking spiral keeps stepping outward every 12 nodes —
@@ -287,7 +300,9 @@ export function expandCanvas(
         },
         added: fresh.length,
         linkedExisting: toLink.length,
-        totalNodes: canvas.nodes.length + newNodes.length,
+        totalNodes: countFileNodes(canvas.nodes) + newNodes.length,
         collisionUnresolved,
+        addedNodeIds: newNodes.map((n) => n.id),
+        parkedNodeIds: newNodes.filter((_, i) => parked[i]).map((n) => n.id),
     };
 }

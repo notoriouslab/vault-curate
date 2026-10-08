@@ -296,3 +296,45 @@ describe('匯聚 hub 橙色（2026-07-20 使用者裁決）', () => {
         for (const n of r.canvas.nodes) expect(n.color === '2').toBe(false);
     });
 });
+
+describe('expandCanvas 回報新增與停車節點（037）', () => {
+    it('一般展開：addedNodeIds 為新檔案節點、parkedNodeIds 為空', () => {
+        const r = expandCanvas(baseCanvas(), 'center.md', [nb('a.md'), nb('b.md')], NO_LINKS);
+        const fresh = r.canvas.nodes.slice(2).map((n) => n.id);
+        expect(r.addedNodeIds).toEqual(fresh);
+        expect(r.parkedNodeIds).toEqual([]);
+    });
+
+    it('全部槽位被占：停車節點列入 parkedNodeIds', () => {
+        const canvas: CanvasJson = {
+            nodes: [
+                fileNode('c0', 'center.md', -240, -210, 480, 420),
+                fileNode('wall', 'wall.md', -6000, -6000, 12000, 12000),
+            ],
+            edges: [],
+        };
+        const r = expandCanvas(canvas, 'center.md', [nb('a.md'), nb('b.md')], NO_LINKS);
+        expect(r.parkedNodeIds).toHaveLength(2);
+        expect(r.parkedNodeIds).toEqual(r.addedNodeIds);
+    });
+
+    it('沒有新節點時兩欄皆空', () => {
+        const r = expandCanvas(baseCanvas(), 'center.md', [nb('old-neighbor.md')], NO_LINKS);
+        expect(r.addedNodeIds).toEqual([]);
+        expect(r.parkedNodeIds).toEqual([]);
+    });
+
+    it('totalNodes 只算檔案節點（群組框與文字節點不計）', () => {
+        const canvas = baseCanvas();
+        canvas.nodes.unshift(
+            { id: 'g-c0', type: 'group', label: '神學', x: -270, y: -240, width: 540, height: 480 },
+            { id: 'g-n1', type: 'group', label: '讀書', x: -230, y: -970, width: 460, height: 420 },
+        );
+        canvas.nodes.push({ id: 'note', type: 'text', text: '便條', x: 3000, y: 3000, width: 200, height: 100 });
+        canvas.nodes.push(fileNode('n2', 'other.md', -3000, 3000));
+        const early = expandCanvas(canvas, 'center.md', [nb('old-neighbor.md')], NO_LINKS);
+        expect(early.totalNodes).toBe(3);
+        const grown = expandCanvas(canvas, 'center.md', [nb('a.md')], NO_LINKS);
+        expect(grown.totalNodes).toBe(4);
+    });
+});
