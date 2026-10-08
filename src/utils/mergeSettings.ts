@@ -32,5 +32,8 @@ export function mergeSettings(rawSettings: unknown, defaults: VaultSearchSetting
     // the custom name is kept as typed (sanitised only when used).
     merged.aiOutputLanguage = normalizeAiOutputLanguage(merged.aiOutputLanguage);
     if (typeof merged.aiOutputLanguageCustom !== "string") merged.aiOutputLanguageCustom = "";
+    // 039: same treatment for the model download source and its URL.
+    if (merged.modelDownloadSource !== "custom") merged.modelDownloadSource = "huggingface";
+    if (typeof merged.modelDownloadUrl !== "string") merged.modelDownloadUrl = "";
     return merged;
 }

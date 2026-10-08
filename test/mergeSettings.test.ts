@@ -77,4 +77,16 @@ describe('mergeSettings', () => {
         expect(merged.aiOutputLanguage).toBe('custom');
         expect(merged.aiOutputLanguageCustom).toBe('  Fran\nçais ');
     });
+
+    it('defaults the model download fields for pre-039 data.json and repairs hand edits (039)', () => {
+        const fresh = mergeSettings({}, DEFAULT_SETTINGS);
+        expect(fresh.modelDownloadSource).toBe('huggingface');
+        expect(fresh.modelDownloadUrl).toBe('');
+        const edited = mergeSettings({ modelDownloadSource: 'hf-mirror', modelDownloadUrl: 123 }, DEFAULT_SETTINGS);
+        expect(edited.modelDownloadSource).toBe('huggingface');
+        expect(edited.modelDownloadUrl).toBe('');
+        const custom = mergeSettings({ modelDownloadSource: 'custom', modelDownloadUrl: 'https://m.test' }, DEFAULT_SETTINGS);
+        expect(custom.modelDownloadSource).toBe('custom');
+        expect(custom.modelDownloadUrl).toBe('https://m.test');
+    });
 });

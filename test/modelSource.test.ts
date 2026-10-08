@@ -31,18 +31,24 @@ describe('modelHostLabel（039 D4）', () => {
 
 describe('classifyInitError（039 D4）', () => {
     it('network-level fetch failures are "unreachable"', () => {
-        expect(classifyInitError('Failed to fetch', 'huggingface.co')).toBe('unreachable');
-        expect(classifyInitError('NetworkError when attempting to fetch resource.', 'x')).toBe('unreachable');
+        expect(classifyInitError('Failed to fetch', undefined)).toBe('unreachable');
+        expect(classifyInitError('NetworkError when attempting to fetch resource.', 'http://x.test')).toBe('unreachable');
     });
 
     it('HTTP errors naming the host are "http"', () => {
         expect(classifyInitError(
             'Could not locate file: "https://mirror.test/Xenova/m/resolve/main/config.json".',
-            'mirror.test',
+            'https://mirror.test/',
+        )).toBe('http');
+        expect(classifyInitError(
+            'Forbidden access to file: "https://huggingface.co/Xenova/m/resolve/main/config.json".',
+            undefined,
         )).toBe('http');
     });
 
     it('anything else (e.g. ORT backend errors) is not a download error', () => {
-        expect(classifyInitError('no available backend found', 'huggingface.co')).toBeNull();
+        expect(classifyInitError('no available backend found', undefined)).toBeNull();
+        // A short custom host must not match unrelated text (G3 F2).
+        expect(classifyInitError('no available backend found', 'http://a/')).toBeNull();
     });
 });

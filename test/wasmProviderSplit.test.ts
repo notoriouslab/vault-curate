@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { WasmEmbeddingProvider } from '../src/embedding/WasmEmbeddingProvider';
+import { createProvider } from '../src/embedding/ProviderRegistry';
 import { TOKEN_CHUNK_POLICY } from '../src/indexer/tokenChunker';
 
 /** Minimal stand-in for a dedicated Worker: records posts, lets the test reply. */
@@ -80,7 +81,11 @@ describe('WasmEmbeddingProvider model download source (039)', () => {
     beforeEach(() => {
         workers.length = 0;
         vi.stubGlobal('Worker', TrackedWorker);
-        vi.stubGlobal('URL', { ...URL, createObjectURL: () => 'blob:fake', revokeObjectURL: () => {} });
+        // Keep the real URL class: modelHostLabel parses hosts with `new URL`.
+        vi.stubGlobal('URL', class extends URL {
+            static createObjectURL = () => 'blob:fake';
+            static revokeObjectURL = () => {};
+        });
     });
     afterEach(() => {
         vi.unstubAllGlobals();
@@ -120,8 +125,40 @@ describe('WasmEmbeddingProvider model download source (039)', () => {
         const p = make(() => undefined);
         const warm = p.warmup();
         workers[0].reply({ type: 'init-error', message: 'Failed to fetch' });
-        await expect(warm).rejects.toThrow(/huggingface\.co[\s\S]*Failed to fetch/);
-        await expect(warm).rejects.not.toThrow(/^Worker init failed/);
+        await expect(warm).rejects.toThrow(
+            'Couldn\'t download the built-in model (can\'t reach huggingface.co). Switch the download source in settings, or use Ollama. (Failed to fetch)',
+        );
+    });
+
+    it('words an HTTP error from the host as a failed download (G3 F5)', async () => {
+        const p = make(() => undefined);
+        const warm = p.warmup();
+        workers[0].reply({
+            type: 'init-error',
+            message: 'Could not locate file: "https://huggingface.co/Xenova/test/resolve/main/config.json".',
+        });
+        await expect(warm).rejects.toThrow(
+            'Couldn\'t download the built-in model from huggingface.co. Check the download source in settings, or use Ollama. '
+            + '(Could not locate file: "https://huggingface.co/Xenova/test/resolve/main/config.json".)',
+        );
+    });
+
+    it('a throwing host getter falls back to the default and leaves no hung init (G3 F1)', async () => {
+        const p = make(() => { throw new TypeError('bad setting'); });
+        const warm = p.warmup();
+        expect(workers).toHaveLength(1);
+        expect('remoteUrl' in lastOf(workers[0], 'init')).toBe(false);
+        workers[0].reply({ type: 'ready', dimension: 4 });
+        await expect(warm).resolves.toBeUndefined();
+    });
+
+    it('createProvider hands getModelHost to the WASM provider (G3 F3)', async () => {
+        const p = createProvider(
+            { providerType: 'wasm', wasmModelId: 'Xenova/test', wasmDtype: 'q8' },
+            { workerSource: 'worker-src', ortWasmBinary: new ArrayBuffer(1), getModelHost: () => 'http://127.0.0.1:8765' },
+        );
+        void p.warmup();
+        expect(lastOf(workers[0], 'init').remoteUrl).toBe('http://127.0.0.1:8765');
     });
 
     it('keeps the generic wording for non-download init errors', async () => {

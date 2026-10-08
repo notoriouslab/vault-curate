@@ -181,6 +181,15 @@ export class WasmEmbeddingProvider implements EmbeddingProvider {
     // ─── Internals ────────────────────────────────────────────────────────────
 
     private bootWorker(): void {
+        // Read the host before creating the worker: a throwing getter must not
+        // leave a worker running with an init promise that never settles.
+        let host: string | undefined;
+        try {
+            host = this.getModelHost?.();
+        } catch {
+            host = undefined;
+        }
+        this.bootHost = host;
         const blob = new Blob([this.workerSource], { type: 'application/javascript' });
         this.workerUrl = URL.createObjectURL(blob);
         const worker = new Worker(this.workerUrl);
@@ -196,8 +205,6 @@ export class WasmEmbeddingProvider implements EmbeddingProvider {
         // reuse `this.ortWasmBinary` for the next provider after a settings
         // change (transferring would detach the buffer on the main side).
         const ortClone = this.ortWasmBinary.slice(0);
-        const host = this.getModelHost?.();
-        this.bootHost = host;
         worker.postMessage({
             type: 'init',
             modelId: this.cfg.modelId,
@@ -256,7 +263,7 @@ export class WasmEmbeddingProvider implements EmbeddingProvider {
 
 function describeInitError(message: string, host: string | undefined): string {
     const label = modelHostLabel(host);
-    const kind = classifyInitError(message, label);
+    const kind = classifyInitError(message, host);
     if (kind === 'unreachable') return t.modelDownloadUnreachable(label, message);
     if (kind === 'http') return t.modelDownloadHttpFailed(label, message);
     return `Worker init failed: ${message}`;
