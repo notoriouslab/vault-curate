@@ -41,6 +41,7 @@ export function createProvider(
                 },
                 context.workerSource,
                 context.ortWasmBinary,
+                context.getModelHost,
             );
         }
         case 'ollama': {

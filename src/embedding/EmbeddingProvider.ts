@@ -66,6 +66,9 @@ export type ProviderContext = {
     /** Plain `fetch` replacement for Ollama/OpenAI providers. Default = global fetch.
      *  We allow injection so the Obsidian plugin can pass `requestUrl` wrapper. */
     httpFetch?: HttpFetch;
+    /** For WASM (039): model download host, read each time the worker boots.
+     *  Undefined keeps the transformers default (huggingface.co). */
+    getModelHost?: () => string | undefined;
 };
 
 export type HttpFetch = (req: HttpRequest) => Promise<HttpResponse>;

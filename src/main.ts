@@ -12,6 +12,7 @@ import {
     type EmbeddingSettings,
     type HttpFetch,
 } from "./embedding";
+import { resolveModelHost } from "./embedding/modelSource";
 import {
     VaultSearchData,
     VaultSearchSettings,
@@ -1461,7 +1462,14 @@ export default class VaultSearchPlugin extends Plugin {
                     wasmModelId: "Xenova/bge-small-zh-v1.5",
                     wasmDtype: "q8",
                 },
-                { workerSource, ortWasmBinary: this.ortWasmBinary },
+                {
+                    workerSource,
+                    ortWasmBinary: this.ortWasmBinary,
+                    getModelHost: () => resolveModelHost(
+                        this.settings.modelDownloadSource,
+                        this.settings.modelDownloadUrl,
+                    ),
+                },
             );
         }
 

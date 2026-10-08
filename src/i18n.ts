@@ -139,6 +139,8 @@ export interface Locale {
     modelGroupLlm: string;
     modelNotInstalled: string;
     noticeIndexFailed: (msg: string) => string;
+    modelDownloadUnreachable: (host: string, msg: string) => string;
+    modelDownloadHttpFailed: (host: string, msg: string) => string;
     modelNotInstalledHintOllama: (name: string) => string;
     modelNotListedHint: string;
     modelListUnavailable: string;
@@ -440,6 +442,10 @@ const en: Locale = {
     modelGroupLlm: "LLM models",
     modelNotInstalled: "not installed",
     noticeIndexFailed: (msg: string) => `Vault Curate: indexing failed. ${msg}`,
+    modelDownloadUnreachable: (host: string, msg: string) =>
+        `Couldn't download the built-in model (can't reach ${host}). Switch the download source in settings, or use Ollama. (${msg})`,
+    modelDownloadHttpFailed: (host: string, msg: string) =>
+        `Couldn't download the built-in model from ${host}. Check the download source in settings, or use Ollama. (${msg})`,
     modelNotInstalledHintOllama: (name: string) =>
         `This model is not on the server. Install it with: ollama pull ${name}`,
     modelNotListedHint: "This model is not in the server's model list.",
@@ -765,6 +771,10 @@ const zhTW: Locale = {
     modelGroupLlm: "LLM 模型",
     modelNotInstalled: "未安裝",
     noticeIndexFailed: (msg: string) => `Vault Curate：索引失敗。${msg}`,
+    modelDownloadUnreachable: (host: string, msg: string) =>
+        `無法下載內建模型（連不到 ${host}）。可在設定改用其他下載來源，或改用 Ollama。（${msg}）`,
+    modelDownloadHttpFailed: (host: string, msg: string) =>
+        `從 ${host} 下載內建模型失敗。請確認下載來源設定，或改用 Ollama。（${msg}）`,
     modelNotInstalledHintOllama: (name: string) =>
         `伺服器上沒有這個模型。安裝：ollama pull ${name}`,
     modelNotListedHint: "伺服器的模型清單裡沒有這個模型。",
@@ -1094,6 +1104,10 @@ const zhCN: Locale = {
     modelGroupLlm: "LLM 模型",
     modelNotInstalled: "未安装",
     noticeIndexFailed: (msg: string) => `Vault Curate：索引失败。${msg}`,
+    modelDownloadUnreachable: (host: string, msg: string) =>
+        `无法下载内置模型（连不到 ${host}）。可在设置中改用其他下载来源，或改用 Ollama。（${msg}）`,
+    modelDownloadHttpFailed: (host: string, msg: string) =>
+        `从 ${host} 下载内置模型失败。请确认下载来源设置，或改用 Ollama。（${msg}）`,
     modelNotInstalledHintOllama: (name: string) =>
         `服务器上没有这个模型。安装：ollama pull ${name}`,
     modelNotListedHint: "服务器的模型列表里没有这个模型。",

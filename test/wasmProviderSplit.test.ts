@@ -71,3 +71,63 @@ describe('WasmEmbeddingProvider split protocol', () => {
         await expect(p.splitForEmbed('body', 'Title')).rejects.toThrow('not warmed up');
     });
 });
+
+describe('WasmEmbeddingProvider model download source (039)', () => {
+    const workers: FakeWorker[] = [];
+    class TrackedWorker extends FakeWorker {
+        constructor() { super(); workers.push(this); }
+    }
+    beforeEach(() => {
+        workers.length = 0;
+        vi.stubGlobal('Worker', TrackedWorker);
+        vi.stubGlobal('URL', { ...URL, createObjectURL: () => 'blob:fake', revokeObjectURL: () => {} });
+    });
+    afterEach(() => {
+        vi.unstubAllGlobals();
+        FakeWorker.last = null;
+    });
+
+    const make = (getHost?: () => string | undefined) =>
+        new WasmEmbeddingProvider({ modelId: 'Xenova/test', dtype: 'q8' }, 'worker-src', new ArrayBuffer(1), getHost);
+
+    it('sends remoteUrl only when a host is configured', async () => {
+        const withHost = make(() => 'http://127.0.0.1:8765');
+        void withHost.warmup();
+        expect(lastOf(workers[0], 'init').remoteUrl).toBe('http://127.0.0.1:8765');
+
+        const noHost = make(() => undefined);
+        void noHost.warmup();
+        expect('remoteUrl' in lastOf(workers[1], 'init')).toBe(false);
+
+        const noGetter = make();
+        void noGetter.warmup();
+        expect('remoteUrl' in lastOf(workers[2], 'init')).toBe(false);
+    });
+
+    it('reads the host again on the next warmup after a failed download', async () => {
+        let host = 'http://a.test';
+        const p = make(() => host);
+        const first = p.warmup();
+        workers[0].reply({ type: 'init-error', message: 'Failed to fetch' });
+        await expect(first).rejects.toThrow();
+        host = 'http://b.test';
+        void p.warmup();
+        expect(workers).toHaveLength(2);
+        expect(lastOf(workers[1], 'init').remoteUrl).toBe('http://b.test');
+    });
+
+    it('words a fetch failure as an unreachable download naming the host', async () => {
+        const p = make(() => undefined);
+        const warm = p.warmup();
+        workers[0].reply({ type: 'init-error', message: 'Failed to fetch' });
+        await expect(warm).rejects.toThrow(/huggingface\.co[\s\S]*Failed to fetch/);
+        await expect(warm).rejects.not.toThrow(/^Worker init failed/);
+    });
+
+    it('keeps the generic wording for non-download init errors', async () => {
+        const p = make(() => undefined);
+        const warm = p.warmup();
+        workers[0].reply({ type: 'init-error', message: 'no available backend found' });
+        await expect(warm).rejects.toThrow(/^Worker init failed: no available backend found$/);
+    });
+});

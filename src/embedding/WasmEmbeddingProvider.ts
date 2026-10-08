@@ -13,6 +13,8 @@ import type {
 } from './EmbeddingProvider';
 import type { Chunk } from '../indexer/chunker';
 import { TOKEN_CHUNK_POLICY } from '../indexer/tokenChunker';
+import { classifyInitError, modelHostLabel } from './modelSource';
+import { t } from '../i18n';
 
 export type WasmProviderConfig = {
     modelId: string;     // e.g. 'Xenova/bge-base-zh'
@@ -48,11 +50,16 @@ export class WasmEmbeddingProvider implements EmbeddingProvider {
     private readonly pending = new Map<number, PendingEmbed>();
     private readonly pendingSplit = new Map<number, PendingSplit>();
     private warmedUp = false;
+    /** Host the current worker was told to download from (039 D4 notice). */
+    private bootHost: string | undefined;
 
     constructor(
         private readonly cfg: WasmProviderConfig,
         private readonly workerSource: string,
         private readonly ortWasmBinary: ArrayBuffer,
+        /** 039 D3: read on every worker boot, so a source changed after a
+         *  failed download applies on the next warmup without a reload. */
+        private readonly getModelHost?: () => string | undefined,
     ) {
         this.displayName = `Built-in (${shortModelName(cfg.modelId)}, ${cfg.dtype})`;
         if (!workerSource) {
@@ -189,11 +196,14 @@ export class WasmEmbeddingProvider implements EmbeddingProvider {
         // reuse `this.ortWasmBinary` for the next provider after a settings
         // change (transferring would detach the buffer on the main side).
         const ortClone = this.ortWasmBinary.slice(0);
+        const host = this.getModelHost?.();
+        this.bootHost = host;
         worker.postMessage({
             type: 'init',
             modelId: this.cfg.modelId,
             dtype: this.cfg.dtype,
             ortWasmBinary: ortClone,
+            ...(host !== undefined ? { remoteUrl: host } : {}),
         }, [ortClone]);
     }
 
@@ -214,7 +224,7 @@ export class WasmEmbeddingProvider implements EmbeddingProvider {
             this.warmedUp = true;
             this.initResolve?.();
         } else if (m.type === 'init-error') {
-            this.failInit(new Error(`Worker init failed: ${m.message}`));
+            this.failInit(new Error(describeInitError(m.message, this.bootHost)));
         } else if (m.type === 'progress') {
             this.onProgress?.(m.loaded, m.total, m.phase);
         } else if (m.type === 'result') {
@@ -242,6 +252,14 @@ export class WasmEmbeddingProvider implements EmbeddingProvider {
         this.initReject?.(err);
         this.dispose();
     }
+}
+
+function describeInitError(message: string, host: string | undefined): string {
+    const label = modelHostLabel(host);
+    const kind = classifyInitError(message, label);
+    if (kind === 'unreachable') return t.modelDownloadUnreachable(label, message);
+    if (kind === 'http') return t.modelDownloadHttpFailed(label, message);
+    return `Worker init failed: ${message}`;
 }
 
 function shortModelName(modelId: string): string {

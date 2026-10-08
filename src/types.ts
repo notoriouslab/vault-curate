@@ -3,6 +3,7 @@
 // ============================================================
 
 import type { AiOutputLanguage } from "./utils/aiOutputLanguage";
+import type { ModelDownloadSource } from "./embedding/modelSource";
 
 export type ApiFormat = "ollama" | "openai";
 export type EmbeddingProviderType = "wasm" | "ollama" | "openai-compatible";
@@ -15,6 +16,11 @@ export interface VaultSearchSettings {
      *  Phase 8 will expose this in the Settings UI.
      */
     embeddingProvider: EmbeddingProviderType;
+    /** 039: where the built-in model is downloaded from. Desktop only;
+     *  changing it never requires a rebuild (model id is unchanged). */
+    modelDownloadSource: ModelDownloadSource;
+    /** 039: mirror URL, used only when modelDownloadSource is "custom". */
+    modelDownloadUrl: string;
     /** Maximum characters embedded per note. Anything beyond this is dropped
      *  before chunking, capping the worst-case per-note indexing cost. */
     maxIndexableChars: number;
@@ -84,6 +90,8 @@ export interface VaultSearchSettings {
 
 export const DEFAULT_SETTINGS: VaultSearchSettings = {
     embeddingProvider: "wasm",
+    modelDownloadSource: "huggingface",
+    modelDownloadUrl: "",
     maxIndexableChars: 60000,
     ollamaUrl: "http://localhost:11434",
     ollamaModel: "qwen3-embedding:0.6b",
