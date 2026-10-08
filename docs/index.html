@@ -192,7 +192,8 @@ service, and that choice is yours.</p>
     one ranking</li>
   <li><strong>Shows the links you never drew</strong>: an editable Obsidian Canvas
     of the notes closest to the one you're reading, with unlinked pairs marked in
-    purple</li>
+    purple. Each card carries a label from its tags, so you can still tell them
+    apart with the whole canvas zoomed out</li>
   <li><strong>One click turns a suggestion into a real link</strong>: tick the
     pairs you agree with and they become proper wikilinks in both notes</li>
   <li><strong>Chains between two notes</strong>: pick any two and get the
@@ -302,6 +303,13 @@ automatically.</p>
   of roughly 5,000 chunks indexes in about a minute and a half on a machine with
   WebGPU; without WebGPU it still works, just more slowly. Later edits are picked
   up incrementally, so there is no need to rebuild.</p>
+</details>
+<details>
+  <summary>The model won't download. What can I do?</summary>
+  <p>Your network may not reach Hugging Face, where the built-in model comes from.
+  In settings, set the model download source to Custom and enter a mirror that
+  can serve Hugging Face files, then click Rebuild. You can also switch to a local
+  Ollama instead.</p>
 </details>
 <details>
   <summary>Something is wrong. Where do I report it?</summary>
