@@ -19,6 +19,8 @@ import {
     apiKeyRow,
     embeddingModelRow,
     excludePatternsRow,
+    modelDownloadSourceRow,
+    modelDownloadUrlRow,
     ollamaUrlRow,
     providerRow,
 } from "./rowsQuickSetup";
@@ -57,10 +59,11 @@ import { t } from "../i18n";
 export function buildDesktopDefinitions(ctx: SettingsContext): SettingDefinitionItem[] {
     const external: Predicate = () => ctx.plugin.settings.embeddingProvider !== "wasm";
     const curation: Predicate = () => ctx.plugin.settings.enableAICuration;
+    const builtin: Predicate = () => ctx.plugin.settings.embeddingProvider === "wasm";
     const builtinNote: SettingDefinitionEmpty = {
         name: t.embeddingProviderBuiltin,
         desc: t.builtinModelNote,
-        visible: () => ctx.plugin.settings.embeddingProvider === "wasm",
+        visible: builtin,
     };
     return [
         {
@@ -71,6 +74,8 @@ export function buildDesktopDefinitions(ctx: SettingsContext): SettingDefinition
             items: [
                 providerRow(ctx),
                 builtinNote,
+                modelDownloadSourceRow(ctx, builtin),
+                modelDownloadUrlRow(ctx, () => builtin() && ctx.plugin.settings.modelDownloadSource === "custom"),
                 ollamaUrlRow(ctx, external),
                 apiKeyRow(ctx, external),
                 embeddingModelRow(ctx, external),

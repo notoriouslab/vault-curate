@@ -64,6 +64,8 @@ describe("setting definitions", () => {
         expect(names).toEqual([
             t.embeddingProvider,
             t.embeddingProviderBuiltin,
+            t.modelDownloadSource,
+            t.modelDownloadUrl,
             t.ollamaUrl,
             t.apiKeyLabel,
             t.embeddingModel,
@@ -92,7 +94,7 @@ describe("setting definitions", () => {
             t.updateIndex,
             t.indexStats,
         ]);
-        expect(names.length).toBe(29); // 034: "Max embed characters" row retired; 036: +2 AI output language rows
+        expect(names.length).toBe(31); // 034: "Max embed characters" row retired; 036: +2 AI output language rows; 039: +2 model download rows
     });
 
     it("uses no control definitions", () => {
@@ -168,6 +170,26 @@ describe("setting definitions", () => {
         expect(visibleOf({ enableAICuration: true, aiOutputLanguage: "auto" })).toBe(false);
         expect(visibleOf({ enableAICuration: true, aiOutputLanguage: "custom" })).toBe(true);
         expect(visibleOf({ enableAICuration: false, aiOutputLanguage: "custom" })).toBe(false);
+    });
+
+    it("shows the download source for the built-in model and the URL only for custom (039)", () => {
+        const visibleOf = (name: string, overrides: Record<string, unknown>) => {
+            const { ctx } = makeCtx(overrides);
+            const row = flatten(buildDesktopDefinitions(ctx)).find(i => i.name === name)!;
+            return (row.visible as () => boolean)();
+        };
+        expect(visibleOf(t.modelDownloadSource, { embeddingProvider: "wasm" })).toBe(true);
+        expect(visibleOf(t.modelDownloadSource, { embeddingProvider: "ollama" })).toBe(false);
+        expect(visibleOf(t.modelDownloadUrl, { embeddingProvider: "wasm", modelDownloadSource: "custom" })).toBe(true);
+        expect(visibleOf(t.modelDownloadUrl, { embeddingProvider: "wasm", modelDownloadSource: "huggingface" })).toBe(false);
+        expect(visibleOf(t.modelDownloadUrl, { embeddingProvider: "ollama", modelDownloadSource: "custom" })).toBe(false);
+    });
+
+    it("keeps the download source rows off the mobile list (039)", () => {
+        const { ctx } = makeCtx();
+        const names = flatten(buildMobileDefinitions(ctx)).map(i => i.name);
+        expect(names).not.toContain(t.modelDownloadSource);
+        expect(names).not.toContain(t.modelDownloadUrl);
     });
 
     it("keeps the AI output language rows off the mobile list (036)", () => {

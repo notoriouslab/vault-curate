@@ -2,12 +2,13 @@
 // and exclude patterns. Split out of definitions.ts; the bodies are unchanged.
 
 import { Platform } from "obsidian";
-import type { SettingDefinitionRender } from "obsidian";
+import type { Setting, SettingDefinitionRender } from "obsidian";
 import type { SettingsContext } from "./types";
 import type { EmbeddingProviderType } from "../types";
 import { clearRemoteWarning, renderModelDropdown, updateRemoteWarning } from "./rowHelpers";
 import type { Predicate } from "./rowHelpers";
 import { t } from "../i18n";
+import { resolveModelHost } from "../embedding/modelSource";
 
 export function providerRow(ctx: SettingsContext): SettingDefinitionRender {
     return {
@@ -62,6 +63,59 @@ export function providerRow(ctx: SettingsContext): SettingDefinitionRender {
                     void ctx.plugin.rebuildIndex();
                 });
             });
+        },
+    };
+}
+
+/** 039 D1: where the built-in model is downloaded from. Takes effect on the
+ *  next worker boot (e.g. the next rebuild); the index is untouched. */
+export function modelDownloadSourceRow(ctx: SettingsContext, visible: Predicate): SettingDefinitionRender {
+    return {
+        name: t.modelDownloadSource,
+        desc: t.modelDownloadSourceDesc,
+        visible,
+        render: (setting) => {
+            setting.addDropdown(drop => {
+                drop.addOption("huggingface", t.modelDownloadSourceHf);
+                drop.addOption("custom", t.modelDownloadSourceCustom);
+                drop.setValue(ctx.plugin.settings.modelDownloadSource === "custom" ? "custom" : "huggingface");
+                drop.onChange(async (val) => {
+                    ctx.plugin.settings.modelDownloadSource = val === "custom" ? "custom" : "huggingface";
+                    await ctx.plugin.saveSettings();
+                    // Only the custom-URL row's visibility depends on this.
+                    ctx.refreshPredicates();
+                });
+            });
+        },
+    };
+}
+
+/** 039 D2: an unusable URL falls back to Hugging Face; say so under the row. */
+function updateModelUrlWarning(setting: Setting, url: string) {
+    clearRemoteWarning(setting);
+    if (url.trim() !== "" && resolveModelHost("custom", url) === undefined) {
+        setting.settingEl.createDiv({ cls: "vault-curate-remote-warn" }).setText(t.modelDownloadUrlInvalid);
+    }
+}
+
+export function modelDownloadUrlRow(ctx: SettingsContext, visible: Predicate): SettingDefinitionRender {
+    return {
+        name: t.modelDownloadUrl,
+        desc: t.modelDownloadUrlDesc,
+        visible,
+        render: (setting) => {
+            setting.addText(text => {
+                text.setPlaceholder("https://hf-mirror.com");
+                text.setValue(ctx.plugin.settings.modelDownloadUrl);
+                // Save only: a re-render would steal focus mid-typing.
+                text.onChange(async (val) => {
+                    ctx.plugin.settings.modelDownloadUrl = val.trim();
+                    await ctx.plugin.saveSettings();
+                    updateModelUrlWarning(setting, val);
+                });
+            });
+            updateModelUrlWarning(setting, ctx.plugin.settings.modelDownloadUrl);
+            return () => clearRemoteWarning(setting);
         },
     };
 }

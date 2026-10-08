@@ -139,6 +139,13 @@ export interface Locale {
     modelGroupLlm: string;
     modelNotInstalled: string;
     noticeIndexFailed: (msg: string) => string;
+    modelDownloadSource: string;
+    modelDownloadSourceDesc: string;
+    modelDownloadSourceHf: string;
+    modelDownloadSourceCustom: string;
+    modelDownloadUrl: string;
+    modelDownloadUrlDesc: string;
+    modelDownloadUrlInvalid: string;
     modelDownloadUnreachable: (host: string, msg: string) => string;
     modelDownloadHttpFailed: (host: string, msg: string) => string;
     modelNotInstalledHintOllama: (name: string) => string;
@@ -442,6 +449,13 @@ const en: Locale = {
     modelGroupLlm: "LLM models",
     modelNotInstalled: "not installed",
     noticeIndexFailed: (msg: string) => `Vault Curate: indexing failed. ${msg}`,
+    modelDownloadSource: "Model download source",
+    modelDownloadSourceDesc: "Where the built-in model is downloaded from. Switching downloads the model once more; the index stays as is.",
+    modelDownloadSourceHf: "Hugging Face (default)",
+    modelDownloadSourceCustom: "Custom",
+    modelDownloadUrl: "Custom download URL",
+    modelDownloadUrlDesc: "A Hugging Face-compatible mirror, e.g. https://hf-mirror.com (third-party; only works in some regions). The server must allow cross-origin (CORS) requests.",
+    modelDownloadUrlInvalid: "Invalid URL. Still downloading from Hugging Face.",
     modelDownloadUnreachable: (host: string, msg: string) =>
         `Couldn't download the built-in model (can't reach ${host}). Switch the download source in settings, or use Ollama. (${msg})`,
     modelDownloadHttpFailed: (host: string, msg: string) =>
@@ -771,6 +785,13 @@ const zhTW: Locale = {
     modelGroupLlm: "LLM 模型",
     modelNotInstalled: "未安裝",
     noticeIndexFailed: (msg: string) => `Vault Curate：索引失敗。${msg}`,
+    modelDownloadSource: "模型下載來源",
+    modelDownloadSourceDesc: "內建模型從哪裡下載。切換後會重新下載一次模型，索引不需重建。",
+    modelDownloadSourceHf: "Hugging Face（預設）",
+    modelDownloadSourceCustom: "自訂",
+    modelDownloadUrl: "自訂下載網址",
+    modelDownloadUrlDesc: "與 Hugging Face 相容的鏡像，例如 https://hf-mirror.com（第三方，僅部分地區可用）。伺服器須允許跨來源（CORS）請求。",
+    modelDownloadUrlInvalid: "網址無效，目前仍從 Hugging Face 下載。",
     modelDownloadUnreachable: (host: string, msg: string) =>
         `無法下載內建模型（連不到 ${host}）。可在設定改用其他下載來源，或改用 Ollama。（${msg}）`,
     modelDownloadHttpFailed: (host: string, msg: string) =>
@@ -1104,6 +1125,13 @@ const zhCN: Locale = {
     modelGroupLlm: "LLM 模型",
     modelNotInstalled: "未安装",
     noticeIndexFailed: (msg: string) => `Vault Curate：索引失败。${msg}`,
+    modelDownloadSource: "模型下载来源",
+    modelDownloadSourceDesc: "内置模型从哪里下载。切换后会重新下载一次模型，索引不需重建。",
+    modelDownloadSourceHf: "Hugging Face（默认）",
+    modelDownloadSourceCustom: "自定义",
+    modelDownloadUrl: "自定义下载网址",
+    modelDownloadUrlDesc: "与 Hugging Face 兼容的镜像，例如 https://hf-mirror.com（第三方，仅部分地区可用）。服务器须允许跨来源（CORS）请求。",
+    modelDownloadUrlInvalid: "网址无效，目前仍从 Hugging Face 下载。",
     modelDownloadUnreachable: (host: string, msg: string) =>
         `无法下载内置模型（连不到 ${host}）。可在设置中改用其他下载来源，或改用 Ollama。（${msg}）`,
     modelDownloadHttpFailed: (host: string, msg: string) =>
