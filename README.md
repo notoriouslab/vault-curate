@@ -88,6 +88,7 @@ Search finds a single note; this layer shows how notes relate, including the lin
 - **Gray edges** (with direction arrows) = notes you've already wikilinked
 - **Cyan nodes** = Cold notes
 - **Green edges** = relevance to a search query. They appear on the results canvases exported from the Search tab, never between two notes
+- **Labels you can read zoomed out**: every card sits in a frame labeled with the note's most distinctive tags (or, for a note without tags, the start of its description), so cards titled by date or number still tell you what they are when the whole canvas is on screen. To move a card with its label, drag the label; dragging the card alone leaves the frame where it was
 
 Entry points: the command palette, right-click **VC: Generate relation graph**, or the **Graph** button on the Discover sidebar. Each run writes a fresh timestamped `.canvas` into the folder set under Advanced → Relation graph folder (default `Vault Curate Canvases`), so your edited graphs are never overwritten.
 
@@ -227,7 +228,7 @@ obsidian commands filter=vault-curate   # list all ids
 
 | Section | Settings | Default |
 |---|---|---|
-| **Quick setup** | Embedding provider (Built-in / Ollama / OpenAI-compatible); excluded folders | Built-in; empty |
+| **Quick setup** | Embedding provider (Built-in / Ollama / OpenAI-compatible); model download source (Built-in only: Hugging Face / Custom mirror); excluded folders | Built-in; Hugging Face; empty |
 | **AI Curation** | Enable toggle; LLM provider; LLM model; AI output language | off; Ollama; qwen3:1.7b; follow interface |
 | **Advanced** | top results, min score, relation graph folder, related section heading, bidirectional promotion, hidden suggestions (count + manage/restore), Hot window (days), default search scope, chunk size + overlap (Ollama / OpenAI-compatible only), synonym list, auto-index toggle, rebuild + update buttons, index stats | see panel |
 
@@ -235,6 +236,7 @@ Changing the embedding provider or model triggers a confirmation modal: the inde
 
 ### Troubleshooting
 
+- **The built-in model won't download ("can't reach huggingface.co", or `Failed to fetch`).** Your network may block Hugging Face. In Settings, set **Model download source** to **Custom** and enter a Hugging Face-compatible mirror (the server must allow cross-origin requests), then click Rebuild. No restart or re-index needed. Or switch the Embedding provider to Ollama.
 - **Clicking a result inside a table doesn't scroll to it in editing view.** Obsidian's own search has the same limitation (a table is drawn as one block while editing). Switch the note to reading view and the click lands on the row.
 - **A full rebuild right after a major OS update can be much slower than usual**: the OS itself is busy in the background (rebuilding Spotlight, re-syncing iCloud) and competes for the same resources. It passes on its own; nothing in the plugin needs fixing.
 

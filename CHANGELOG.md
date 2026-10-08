@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.13.0 — 2026-10-08
+
+### Added
+- **Canvas cards keep a readable label when you zoom out.** Relation graphs, semantic paths and exported search results now put each card in a frame labeled with the note's most distinctive tags: the ones rarest on that canvas, then rarest in your vault. A note without tags uses the start of its description instead. Zoomed all the way out, Obsidian shows only file names and these labels, so notes titled by date or number no longer look alike. Cards added by "Expand in this graph" get a label too; canvases you made earlier are left as they are. To move a card with its label, drag the label.
+- **Choose where the built-in model is downloaded from (#16).** Settings → Model download source: Hugging Face (default) or a custom mirror URL, for networks that can't reach Hugging Face. Change it and click Rebuild; no restart and no re-index needed. When the download fails, the notice now says which host couldn't be reached and suggests switching the source or using Ollama, instead of only "Worker init failed: Failed to fetch".
+
+### Changed
+- **Relation graphs with many neighbors are spaced a little wider** so the new label frames never overlap.
 ## 1.12.0 — 2026-09-27
 
 ### Changed
