@@ -1,4 +1,4 @@
-import { FileView, Menu, normalizePath, Notice, Platform, Plugin, TFile, TFolder, requestUrl } from "obsidian";
+import { FileView, Menu, getAllTags, normalizePath, Notice, Platform, Plugin, TFile, TFolder, requestUrl } from "obsidian";
 import workerSource from "@inline/worker";
 import { SQLiteStore, type PersistAdapter } from "./storage/SQLiteStore";
 import { DENOISE_VERSION } from "./indexer/denoise";
@@ -37,6 +37,8 @@ import {
 } from "./canvas/graphCanvas";
 import { buildPathCanvas, pathCanvasFileName } from "./canvas/pathCanvas";
 import { expandCanvas, CROWDED_NODE_COUNT, type ExpandResult } from "./canvas/expandCanvas";
+import { addGroupNodes } from "./canvas/groupNodes";
+import { countTags, pickGroupLabel } from "./canvas/groupLabel";
 import {
     widestPath,
     DEFAULT_KNN_K,
@@ -868,14 +870,47 @@ export default class VaultSearchPlugin extends Plugin {
         return { folder, existingNames };
     }
 
+    /** Shared exit for relation graphs, semantic paths and results canvases:
+     *  037 frames every card with its group label here, once. */
     private async writeAndOpenCanvas(folder: string, name: string, canvas: CanvasJson): Promise<string> {
         const path = folder === "/" ? name : `${folder}/${name}`;
+        const framed = addGroupNodes(canvas, this.groupLabeler(canvas, this.vaultTagCounts()));
         const created = await this.app.vault.create(
             path,
-            JSON.stringify(canvas, null, "\t"),
+            JSON.stringify(framed, null, "\t"),
         );
         await this.app.workspace.getLeaf(true).openFile(created);
         return path;
+    }
+
+    private tagsOf(path: string): string[] | null {
+        const file = this.app.vault.getAbstractFileByPath(path);
+        if (!(file instanceof TFile)) return null;
+        const cache = this.app.metadataCache.getFileCache(file);
+        return cache ? getAllTags(cache) : null;
+    }
+
+    /** 037: notes per tag across the vault (the tie-breaker after the canvas). */
+    private vaultTagCounts(): Map<string, number> {
+        return countTags(this.app.vault.getMarkdownFiles().map((f) => this.tagsOf(f.path)));
+    }
+
+    /** 037: label function for one canvas. Tag rarity on the canvas is counted
+     *  over its distinct notes; a missing file or cache means "no tags". */
+    private groupLabeler(canvas: CanvasJson, vaultCounts: Map<string, number>): (path: string) => string | null {
+        const paths = new Set<string>();
+        for (const n of canvas.nodes) if (n.type === "file") paths.add(n.file);
+        const canvasCounts = countTags([...paths].map((p) => this.tagsOf(p)));
+        return (path) => {
+            const file = this.app.vault.getAbstractFileByPath(path);
+            if (!(file instanceof TFile)) return null;
+            const cache = this.app.metadataCache.getFileCache(file);
+            return pickGroupLabel(
+                { tags: cache ? getAllTags(cache) : null, description: cache?.frontmatter?.description },
+                canvasCounts,
+                vaultCounts,
+            );
+        };
     }
 
     // ── Semantic Path (009) ────────────────────────────
@@ -1067,6 +1102,9 @@ export default class VaultSearchPlugin extends Plugin {
         }
 
         let outcome: ExpandResult | null = null;
+        // 037: vault-wide tag counts are read before the synchronous process
+        // callback; only the canvas-level counts are computed inside it.
+        const vaultCounts = this.vaultTagCounts();
         try {
             await this.app.vault.process(canvasFile, (data) => {
                 const parsed = JSON.parse(data) as CanvasJson;
@@ -1078,7 +1116,14 @@ export default class VaultSearchPlugin extends Plugin {
                 );
                 outcome = result;
                 if (result.added === 0 && result.linkedExisting === 0) return data;
-                return JSON.stringify(result.canvas, null, "\t");
+                // Frame only the cards this expansion placed in a slot; parked
+                // cards and everything already on the canvas stay as they are.
+                const parked = new Set(result.parkedNodeIds);
+                const frameIds = new Set(result.addedNodeIds.filter((id) => !parked.has(id)));
+                const framed = frameIds.size > 0
+                    ? addGroupNodes(result.canvas, this.groupLabeler(result.canvas, vaultCounts), frameIds)
+                    : result.canvas;
+                return JSON.stringify(framed, null, "\t");
             });
         } catch (e) {
             console.error("vault-curate: expand failed", e);
