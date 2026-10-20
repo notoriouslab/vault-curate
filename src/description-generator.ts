@@ -8,40 +8,33 @@
 // 007 UPDATE: descriptions are load-bearing again — they get their own
 // embedding and blend into the note ranking vector (007 D4/D5). Output
 // quality therefore matters: sampling runs through denoiseForEmbed first
-// (symbol noise wastes the LLM's context budget) and takes head+tail
-// (template-heavy notes put the personal content at the end; head-only
-// sampling made the LLM describe the template — 007 D6).
+// (symbol noise wastes the LLM's context budget).
+//
+// 040 UPDATE: head 1200 + tail 800 left most of a long note unread and the
+// model guessed the rest; the LLM now reads six evenly spread segments within
+// a token budget, with URLs stripped (src/utils/llmSample.ts, 040 D1).
 
 import { Notice, TFile } from "obsidian";
 import type VaultSearchPlugin from "./main";
 import { checkLLMReachable, requestLlmJson, stripFrontmatter } from "./utils";
 import { resolveLlmUrl } from "./utils/resolveLlmUrl";
-import { DESCRIPTION_LENGTH_CAP, safeSlice, safeTail, stripDangerousInvisibles } from "./utils/sanitize";
+import { DESCRIPTION_LENGTH_CAP, safeSlice, stripDangerousInvisibles } from "./utils/sanitize";
 import { parseGeneratedDescription } from "./utils/parseGeneratedDescription";
 import { denoiseForEmbed } from "./indexer/denoise";
 import { locales, t } from "./i18n";
 import { resolvePromptSet } from "./utils/aiOutputLanguage";
-
-// LLM sampling budget (007 D6): total stays 2000 chars, split head 1200 +
-// tail 800 when the (denoised) body is longer — see sampleForLlm().
-const BODY_CAP = 2000;
-const HEAD_CAP = 1200;
-const TAIL_CAP = 800;
+import { sampleSpread, stripUrlsForLlm } from "./utils/llmSample";
 
 // Re-exported for moc-generator.ts, which sanitizes its own LLM output.
 export { stripDangerousInvisibles };
 
 
 /**
- * LLM input sampling (007 D6): denoise first (symbols waste context budget),
- * then head 1200 + tail 800 when longer than 2000 — template-heavy notes
- * keep their personal content near the end, and head-only sampling used to
- * make the LLM describe the template instead of the person/topic.
+ * LLM input sampling: denoise first (symbols waste context budget), drop
+ * URLs, then six evenly spread segments within the token budget (040 D1).
  */
 export function sampleForLlm(rawBody: string): string {
-    const clean = denoiseForEmbed(rawBody);
-    if (clean.length <= BODY_CAP) return clean;
-    return `${safeSlice(clean, HEAD_CAP)}\n…\n${safeTail(clean, TAIL_CAP)}`;
+    return sampleSpread(stripUrlsForLlm(denoiseForEmbed(rawBody)));
 }
 
 export class DescriptionGenerator {

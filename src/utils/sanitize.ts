@@ -57,14 +57,3 @@ export function safeSlice(text: string, max: number): string {
     if (code >= 0xd800 && code <= 0xdbff) cut--;
     return text.slice(0, cut);
 }
-
-/** Tail counterpart of safeSlice: last `max` code units, surrogate-safe. */
-export function safeTail(text: string, max: number): string {
-    if (max <= 0) return "";
-    if (text.length <= max) return text;
-    let start = text.length - max;
-    // If we landed on a low surrogate, skip forward one code unit.
-    const code = text.charCodeAt(start);
-    if (code >= 0xdc00 && code <= 0xdfff) start++;
-    return text.slice(start);
-}
