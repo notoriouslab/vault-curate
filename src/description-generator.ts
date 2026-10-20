@@ -25,6 +25,12 @@ import { locales, t } from "./i18n";
 import { resolvePromptSet } from "./utils/aiOutputLanguage";
 import { sampleSpread, stripUrlsForLlm } from "./utils/llmSample";
 
+// A spread sample is ~2-3.5k tokens: Ollama gets a 4096 context so its own
+// default cannot silently cut the prompt, and big local models get 120 s
+// (a 27B model took up to 123 s in the 040 pilot). 040 D2/D7.
+const DESCRIPTION_NUM_CTX = 4096;
+const DESCRIPTION_TIMEOUT_MS = 120_000;
+
 // Re-exported for moc-generator.ts, which sanitizes its own LLM output.
 export { stripDangerousInvisibles };
 
@@ -261,6 +267,7 @@ export class DescriptionGenerator {
             },
             resolvePromptSet(this.plugin.settings, t, locales).description(title, content),
             (raw) => this.parseGeneratedJSON(raw),
+            { timeoutMs: DESCRIPTION_TIMEOUT_MS, numCtx: DESCRIPTION_NUM_CTX },
         );
     }
 

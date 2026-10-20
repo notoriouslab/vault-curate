@@ -250,6 +250,33 @@ export async function embedTexts(
 const LLM_TIMEOUT_MS = 60000;
 
 /**
+ * Request body for requestLlmJson. `numCtx` sets Ollama's context window:
+ * without it Ollama uses its own default and silently cuts a longer prompt
+ * (040 D2). OpenAI-compatible servers have no equivalent field.
+ */
+export function buildLlmRequestBody(
+    settings: { llmModel: string; apiFormat: ApiFormat },
+    prompt: string,
+    opts: { numCtx?: number } = {},
+): string {
+    if (settings.apiFormat === "openai") {
+        return JSON.stringify({
+            model: settings.llmModel,
+            messages: [{ role: "user", content: prompt }],
+            response_format: { type: "json_object" },
+        });
+    }
+    return JSON.stringify({
+        model: settings.llmModel,
+        messages: [{ role: "user", content: prompt }],
+        stream: false,
+        format: "json",
+        think: false,
+        ...(opts.numCtx ? { options: { num_ctx: opts.numCtx } } : {}),
+    });
+}
+
+/**
  * Unified LLM JSON request with Ollama and OpenAI-compatible support.
  * The caller supplies a `parse` function that converts the raw content
  * string to T — it may throw on invalid payloads.
@@ -263,7 +290,7 @@ export async function requestLlmJson<T>(
     },
     prompt: string,
     parse: (raw: string) => T,
-    opts: { timeoutMs?: number } = {},
+    opts: { timeoutMs?: number; numCtx?: number } = {},
 ): Promise<T> {
     validateServerUrl(settings.ollamaUrl);
     const isOpenAI = settings.apiFormat === "openai";
@@ -271,19 +298,7 @@ export async function requestLlmJson<T>(
         ? `${settings.ollamaUrl}/v1/chat/completions`
         : `${settings.ollamaUrl}/api/chat`;
 
-    const body = isOpenAI
-        ? JSON.stringify({
-            model: settings.llmModel,
-            messages: [{ role: "user", content: prompt }],
-            response_format: { type: "json_object" },
-        })
-        : JSON.stringify({
-            model: settings.llmModel,
-            messages: [{ role: "user", content: prompt }],
-            stream: false,
-            format: "json",
-            think: false,
-        });
+    const body = buildLlmRequestBody(settings, prompt, { numCtx: opts.numCtx });
 
     const resp = await withTimeout(
         requestUrl({
