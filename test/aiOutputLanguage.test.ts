@@ -28,11 +28,11 @@ const GOLDEN: Record<"en" | "zh-TW" | "zh-CN", { desc: string; moc: string }> = 
         moc: "You are organizing a knowledge vault. Below are notes that have been grouped together because they discuss related topics. Based on the common theme, produce:\n\n- title: a concise heading (3-8 words or English characters)\n- intro: 1-2 sentences (40-80 characters) describing what ties these notes together\n\nNotes:\nN\n\nRespond with valid JSON only, in English:\n{\"title\": \"...\", \"intro\": \"...\"}",
     },
     "zh-TW": {
-        desc: "任務：為筆記產生 description 和 tags。\n\n規則：\n1. description 必須使用繁體中文，寫 2-3 句，共約 60-120 字，禁止用英文或簡體中文\n2. description 必須描述具體內容，禁止重複標題\n3. 只描述筆記的內容主題，禁止描述筆記的格式或結構（如表格、統計、圖表、欄位）\n4. tags 必須使用繁體中文，3-5 個，不要 # 前綴，不能有空格\n5. description 至少寫兩句完整句子，以筆記討論的具體人、事、物當句子開頭\n6. 涵蓋整篇筆記從頭到尾的主要重點\n7. 只回覆 JSON，不要解釋\n\n{\"description\": \"...\", \"tags\": [\"...\", \"...\", \"...\"]}\n\n筆記標題：T\n\n筆記內容：\nC",
+        desc: "任務：為筆記產生 description 和 tags。\n\n規則：\n1. description 必須使用繁體中文，寫 2-3 句，共約 60-120 字，禁止用英文或簡體中文\n2. description 必須描述具體內容，禁止重複標題\n3. 只描述筆記的內容主題，禁止描述筆記的格式或結構（如表格、統計、圖表、欄位）\n4. tags 必須使用繁體中文，3-5 個，不要 # 前綴，不能有空格\n5. description 至少寫兩句完整句子，以筆記討論的具體人、事、物當句子開頭\n6. 只回覆 JSON，不要解釋\n\n{\"description\": \"...\", \"tags\": [\"...\", \"...\", \"...\"]}\n\n筆記標題：T\n\n筆記內容：\nC",
         moc: "你正在整理一個知識庫。以下筆記因為討論相關主題而被分為一群。根據共同主題，產出：\n\n- title：精煉標題（3-8 個繁體中文字）\n- intro：1-2 句介紹（40-80 字），描述這群筆記的共通主題\n\n筆記：\nN\n\n只回覆有效的 JSON（使用繁體中文）：\n{\"title\": \"...\", \"intro\": \"...\"}",
     },
     "zh-CN": {
-        desc: "任务：为笔记生成 description 和 tags。\n\n规则：\n1. description 必须使用简体中文，写 2-3 句，共约 60-120 字，禁止使用英文或繁体中文\n2. description 必须描述具体内容，禁止重复标题\n3. 只描述笔记的内容主题，禁止描述笔记的格式或结构（如表格、统计、图表、字段）\n4. tags 必须使用简体中文，3-5 个，不要 # 前缀，不能有空格\n5. description 至少写两句完整句子，以笔记讨论的具体人、事、物当句子开头\n6. 涵盖整篇笔记从头到尾的主要重点\n7. 只回复 JSON，不要解释\n\n{\"description\": \"...\", \"tags\": [\"...\", \"...\", \"...\"]}\n\n笔记标题：T\n\n笔记内容：\nC",
+        desc: "任务：为笔记生成 description 和 tags。\n\n规则：\n1. description 必须使用简体中文，写 2-3 句，共约 60-120 字，禁止使用英文或繁体中文\n2. description 必须描述具体内容，禁止重复标题\n3. 只描述笔记的内容主题，禁止描述笔记的格式或结构（如表格、统计、图表、字段）\n4. tags 必须使用简体中文，3-5 个，不要 # 前缀，不能有空格\n5. description 至少写两句完整句子，以笔记讨论的具体人、事、物当句子开头\n6. 只回复 JSON，不要解释\n\n{\"description\": \"...\", \"tags\": [\"...\", \"...\", \"...\"]}\n\n笔记标题：T\n\n笔记内容：\nC",
         moc: "你正在整理一个知识库。以下笔记因为讨论相关主题而被分为一组。根据共同主题，产出：\n\n- title：精炼标题（3-8 个简体中文字）\n- intro：1-2 句介绍（40-80 字），描述这组笔记的共同主题\n\n笔记：\nN\n\n只回复有效的 JSON（使用简体中文）：\n{\"title\": \"...\", \"intro\": \"...\"}",
     },
 };
@@ -52,13 +52,11 @@ describe("prompts match the golden copy", () => {
 });
 
 describe("description rules (036 D10, 040 D4)", () => {
-    it("zh-TW / zh-CN keep rule 5, add whole-note coverage and move JSON to rule 7; en and custom match", () => {
+    it("zh-TW / zh-CN keep rule 5 and JSON as rule 6 (040 T7 fallback); en and custom get opening and coverage rules", () => {
         expect(locales["zh-TW"].llmPrompt(title, content)).toContain("5. description 至少寫兩句完整句子");
-        expect(locales["zh-TW"].llmPrompt(title, content)).toContain("\n6. 涵蓋整篇筆記從頭到尾的主要重點");
-        expect(locales["zh-TW"].llmPrompt(title, content)).toContain("\n7. 只回覆 JSON，不要解釋");
+        expect(locales["zh-TW"].llmPrompt(title, content)).toContain("\n6. 只回覆 JSON，不要解釋");
         expect(locales["zh-CN"].llmPrompt(title, content)).toContain("5. description 至少写两句完整句子");
-        expect(locales["zh-CN"].llmPrompt(title, content)).toContain("\n6. 涵盖整篇笔记从头到尾的主要重点");
-        expect(locales["zh-CN"].llmPrompt(title, content)).toContain("\n7. 只回复 JSON，不要解释");
+        expect(locales["zh-CN"].llmPrompt(title, content)).toContain("\n6. 只回复 JSON，不要解释");
         // 040 D4: en and custom also get the opening and coverage rules; how
         // qwen3:1.7b handles them in English is gated by the 040 T7 pilot.
         const custom = resolvePromptSet(
