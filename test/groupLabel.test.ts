@@ -42,6 +42,13 @@ describe('stripDescriptionBoilerplate（037 D4）', () => {
         expect(stripDescriptionBoilerplate('This note describes the meeting format')).toBe('the meeting format');
     });
 
+    it('strips the wider English openers seen with gemma3:4b (040 D5)', () => {
+        expect(stripDescriptionBoilerplate('This note details the creation of TrailPaint.')).toBe('the creation of TrailPaint.');
+        expect(stripDescriptionBoilerplate('The note explores X.')).toBe('X.');
+        expect(stripDescriptionBoilerplate('This entry documents Y.')).toBe('Y.');
+        expect(stripDescriptionBoilerplate('The notebook explores Z.')).toBe('The notebook explores Z.');
+    });
+
     it('returns "" when only the opener is left', () => {
         expect(stripDescriptionBoilerplate('This article explores  ')).toBe('');
     });

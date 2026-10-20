@@ -31,7 +31,8 @@ export function truncateLabel(s: string): string {
 }
 
 const ZH_OPENER_RE = /^(?:本文|本篇(?:文章|筆記|笔记)?|本筆記|本笔记|這篇(?:文章|筆記)?|这篇(?:文章|笔记)?|此(?:文|篇|筆記|笔记))(?:主要|詳細|详细)?(?:紀錄|記錄|记录|探討|探讨|說明|说明|介紹|介绍|討論|讨论|整理|分析|描述|闡述|阐述|概述|總結|总结|分享)了?[：:，,、]?\s*/u;
-const EN_OPENER_RE = /^This (?:note|article|post|document) (?:describes|discusses|explores|records|covers|explains|summarizes|introduces)(?:\s+|$)/iu;
+// 040 D5: widened after gemma3:4b opened 24 of 36 English descriptions this way.
+const EN_OPENER_RE = /^(?:This|The) (?:note|article|post|document|entry|essay) (?:describes|discusses|explores|records|covers|explains|summarizes|introduces|details|outlines|examines|presents|highlights|documents)(?:\s+|$)/iu;
 
 export function stripDescriptionBoilerplate(desc: string): string {
     const folded = desc.replace(/\s+/g, " ").trim();
