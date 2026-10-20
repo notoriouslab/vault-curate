@@ -26,17 +26,19 @@ export function sanitizeCustomLanguage(raw: unknown): string {
 }
 
 // The two custom templates are en's prompts with only the language lines
-// changed (036 D3); en's own prompts stay untouched so "auto"/"en" users
-// send exactly what they sent before.
+// changed (036 D3). 040 D4 gave en the same opening and whole-note coverage
+// rules as zh, so the custom description template follows en.
 export function customDescriptionPrompt(language: string, title: string, content: string): string {
     return `Task: Generate a description and tags for this note.
 
 Rules:
-1. Description in ${language}, 50-100 words or equivalent length
-2. Description must describe specific content, never repeat the title
-3. Describe only the note's subject matter — never its format or structure (tables, statistics, charts, sections)
-4. Tags in ${language}, 3-5 tags, no # prefix, no spaces
-5. Reply only in JSON
+1. Description in ${language}, 2-3 complete sentences, 40-70 words or equivalent length
+2. The first word of the description is the specific subject the note discusses: a person, project, product, event or idea
+3. Cover the main points of the whole note, from beginning to end
+4. Description must describe specific content, never repeat the title
+5. Describe only the note's subject matter — never its format or structure (tables, statistics, charts, sections)
+6. Tags in ${language}, 3-5 tags, no # prefix, no spaces
+7. Reply only in JSON
 
 {"description": "...", "tags": ["...", "...", "..."]}
 

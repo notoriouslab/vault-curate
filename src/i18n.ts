@@ -351,7 +351,7 @@ const en: Locale = {
     synonymsLabel: "Synonyms",
     synonymsDesc: "One per line: keyword = synonym1, synonym2",
     llmModel: "LLM model",
-    llmModelDesc: "Model used by AI curation (description / MOC naming). Recommended: qwen3:1.7b for Ollama; gpt-4o-mini for OpenAI-compatible.",
+    llmModelDesc: "Model used by AI curation (description / MOC naming). Models of 4B or larger write more complete descriptions, e.g. gemma3:4b for Ollama; gpt-4o-mini for OpenAI-compatible.",
     aiOutputLanguage: "AI output language",
     aiOutputLanguageDesc: "Language for AI-written descriptions, tags and MOC group names. Only affects what is generated from now on; existing descriptions and tags are not rewritten. Fixed MOC labels (such as Miscellaneous) follow the interface language.",
     aiOutputLanguageAuto: "Follow interface language",
@@ -643,11 +643,13 @@ Respond with valid JSON only, in ${languageLabel}:
     llmPrompt: (title, content) => `Task: Generate a description and tags for this note.
 
 Rules:
-1. Description in English, 50-100 words
-2. Description must describe specific content, never repeat the title
-3. Describe only the note's subject matter — never its format or structure (tables, statistics, charts, sections)
-4. Tags in English, 3-5 tags, no # prefix, no spaces
-5. Reply only in JSON
+1. Description in English, 2-3 complete sentences, 40-70 words in total
+2. The first word of the description is the specific subject the note discusses: a person, project, product, event or idea
+3. Cover the main points of the whole note, from beginning to end
+4. Description must describe specific content, never repeat the title
+5. Describe only the note's subject matter — never its format or structure (tables, statistics, charts, sections)
+6. Tags in English, 3-5 tags, no # prefix, no spaces
+7. Reply only in JSON
 
 {"description": "...", "tags": ["...", "...", "..."]}
 
@@ -687,7 +689,7 @@ const zhTW: Locale = {
     synonymsLabel: "同義詞",
     synonymsDesc: "每行一組：關鍵字 = 同義詞1, 同義詞2",
     llmModel: "LLM 模型",
-    llmModelDesc: "AI 整理（description / MOC 群組命名）使用的 LLM 模型。Ollama 推薦：qwen3:1.7b；OpenAI-compatible 可用 gpt-4o-mini 等。",
+    llmModelDesc: "AI 整理（description / MOC 群組命名）使用的 LLM 模型。4B 以上的模型描述較完整，Ollama 例如 gemma3:4b；OpenAI-compatible 可用 gpt-4o-mini 等。",
     aiOutputLanguage: "AI 輸出語言",
     aiOutputLanguageDesc: "AI 產生的描述、標籤與 MOC 群組名稱使用的語言。只影響之後產生的內容，既有的描述和標籤不會改寫。MOC 的固定標籤（如「其他」）仍跟介面語言。",
     aiOutputLanguageAuto: "跟隨介面語言",
@@ -979,12 +981,13 @@ ${notesBlock}
     llmPrompt: (title, content) => `任務：為筆記產生 description 和 tags。
 
 規則：
-1. description 必須使用繁體中文，50-100 字，禁止用英文或簡體中文
+1. description 必須使用繁體中文，寫 2-3 句，共約 60-120 字，禁止用英文或簡體中文
 2. description 必須描述具體內容，禁止重複標題
 3. 只描述筆記的內容主題，禁止描述筆記的格式或結構（如表格、統計、圖表、欄位）
 4. tags 必須使用繁體中文，3-5 個，不要 # 前綴，不能有空格
 5. description 至少寫兩句完整句子，以筆記討論的具體人、事、物當句子開頭
-6. 只回覆 JSON，不要解釋
+6. 涵蓋整篇筆記從頭到尾的主要重點
+7. 只回覆 JSON，不要解釋
 
 {"description": "...", "tags": ["...", "...", "..."]}
 
@@ -1027,7 +1030,7 @@ const zhCN: Locale = {
     synonymsLabel: "同义词",
     synonymsDesc: "每行一组：关键词 = 同义词1, 同义词2",
     llmModel: "LLM 模型",
-    llmModelDesc: "AI 整理（description / MOC 分组命名）使用的 LLM 模型。Ollama 推荐：qwen3:1.7b；OpenAI-compatible 可用 gpt-4o-mini 等。",
+    llmModelDesc: "AI 整理（description / MOC 分组命名）使用的 LLM 模型。4B 以上的模型描述较完整，Ollama 例如 gemma3:4b；OpenAI-compatible 可用 gpt-4o-mini 等。",
     aiOutputLanguage: "AI 输出语言",
     aiOutputLanguageDesc: "AI 生成的描述、标签与 MOC 分组名称使用的语言。只影响之后生成的内容，已有的描述和标签不会改写。MOC 的固定标签（如「其他」）仍跟界面语言。",
     aiOutputLanguageAuto: "跟随界面语言",
@@ -1319,12 +1322,13 @@ ${notesBlock}
     llmPrompt: (title, content) => `任务：为笔记生成 description 和 tags。
 
 规则：
-1. description 必须使用简体中文，50-100 字，禁止使用英文或繁体中文
+1. description 必须使用简体中文，写 2-3 句，共约 60-120 字，禁止使用英文或繁体中文
 2. description 必须描述具体内容，禁止重复标题
 3. 只描述笔记的内容主题，禁止描述笔记的格式或结构（如表格、统计、图表、字段）
 4. tags 必须使用简体中文，3-5 个，不要 # 前缀，不能有空格
 5. description 至少写两句完整句子，以笔记讨论的具体人、事、物当句子开头
-6. 只回复 JSON，不要解释
+6. 涵盖整篇笔记从头到尾的主要重点
+7. 只回复 JSON，不要解释
 
 {"description": "...", "tags": ["...", "...", "..."]}
 
