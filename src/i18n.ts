@@ -126,6 +126,7 @@ export interface Locale {
     descBatchDone: (ok: number, failed: number) => string;
     descLlmFailed: (name: string) => string;
     descNoEligible: string;
+    descRepairedTruncated: (n: number) => string;
     descOpenSidebarFirst: string;
     apiKeyLabel: string;
     apiKeyDesc: string;
@@ -353,7 +354,7 @@ const en: Locale = {
     llmModel: "LLM model",
     llmModelDesc: "Model used by AI curation (description / MOC naming). Models of 4B or larger write more complete descriptions, e.g. gemma3:4b for Ollama; gpt-4o-mini for OpenAI-compatible.",
     aiOutputLanguage: "AI output language",
-    aiOutputLanguageDesc: "Language for AI-written descriptions, tags and MOC group names. Only affects what is generated from now on; existing descriptions and tags are not rewritten. Fixed MOC labels (such as Miscellaneous) follow the interface language.",
+    aiOutputLanguageDesc: "Language for AI-written descriptions, tags and MOC group names. Only affects what is generated from now on; existing descriptions and tags are not rewritten (except descriptions an earlier version cut off, which batch generation repairs). Fixed MOC labels (such as Miscellaneous) follow the interface language.",
     aiOutputLanguageAuto: "Follow interface language",
     aiOutputLanguageCustomOption: "Custom…",
     aiOutputLanguageCustomName: "Custom language",
@@ -436,6 +437,7 @@ const en: Locale = {
         : `Done — ${ok} notes`,
     descLlmFailed: (name) => `LLM failed for ${name}`,
     descNoEligible: "No notes without a description in the current selection.",
+    descRepairedTruncated: (n) => `Repaired ${n} descriptions that an earlier version cut off mid-sentence.`,
     descOpenSidebarFirst: "Open the Vault Curate panel and run a search first.",
     apiKeyLabel: "API key",
     apiKeyDesc: "Optional — for servers that require authentication. Sent to both the embedding server and the AI curation server.",
@@ -691,7 +693,7 @@ const zhTW: Locale = {
     llmModel: "LLM 模型",
     llmModelDesc: "AI 整理（description / MOC 群組命名）使用的 LLM 模型。4B 以上的模型描述較完整，Ollama 例如 gemma3:4b；OpenAI-compatible 可用 gpt-4o-mini 等。",
     aiOutputLanguage: "AI 輸出語言",
-    aiOutputLanguageDesc: "AI 產生的描述、標籤與 MOC 群組名稱使用的語言。只影響之後產生的內容，既有的描述和標籤不會改寫。MOC 的固定標籤（如「其他」）仍跟介面語言。",
+    aiOutputLanguageDesc: "AI 產生的描述、標籤與 MOC 群組名稱使用的語言。只影響之後產生的內容，既有的描述和標籤不會改寫（被舊版截斷的描述，批次生成時會修補）。MOC 的固定標籤（如「其他」）仍跟介面語言。",
     aiOutputLanguageAuto: "跟隨介面語言",
     aiOutputLanguageCustomOption: "自訂…",
     aiOutputLanguageCustomName: "自訂語言",
@@ -774,6 +776,7 @@ const zhTW: Locale = {
         : `完成 — ${ok} 篇`,
     descLlmFailed: (name) => `LLM 對 ${name} 生成失敗`,
     descNoEligible: "目前結果中沒有缺少 description 的筆記。",
+    descRepairedTruncated: (n) => `已修補 ${n} 篇被舊版截斷的描述。`,
     descOpenSidebarFirst: "請先開啟 Vault Curate 面板並執行搜尋。",
     apiKeyLabel: "API key",
     apiKeyDesc: "選填 — 用於需要認證的伺服器。會同時送到 Embedding 伺服器與 AI 整理伺服器。",
@@ -1032,7 +1035,7 @@ const zhCN: Locale = {
     llmModel: "LLM 模型",
     llmModelDesc: "AI 整理（description / MOC 分组命名）使用的 LLM 模型。4B 以上的模型描述较完整，Ollama 例如 gemma3:4b；OpenAI-compatible 可用 gpt-4o-mini 等。",
     aiOutputLanguage: "AI 输出语言",
-    aiOutputLanguageDesc: "AI 生成的描述、标签与 MOC 分组名称使用的语言。只影响之后生成的内容，已有的描述和标签不会改写。MOC 的固定标签（如「其他」）仍跟界面语言。",
+    aiOutputLanguageDesc: "AI 生成的描述、标签与 MOC 分组名称使用的语言。只影响之后生成的内容，已有的描述和标签不会改写（被旧版截断的描述，批量生成时会修补）。MOC 的固定标签（如「其他」）仍跟界面语言。",
     aiOutputLanguageAuto: "跟随界面语言",
     aiOutputLanguageCustomOption: "自定义…",
     aiOutputLanguageCustomName: "自定义语言",
@@ -1115,6 +1118,7 @@ const zhCN: Locale = {
         : `完成 — ${ok} 篇`,
     descLlmFailed: (name) => `${name} 的 description 生成失败`,
     descNoEligible: "当前结果中没有缺少 description 的笔记。",
+    descRepairedTruncated: (n) => `已修补 ${n} 篇被旧版截断的描述。`,
     descOpenSidebarFirst: "请先打开 Vault Curate 面板并执行搜索。",
     apiKeyLabel: "API key",
     apiKeyDesc: "选填 — 用于需要认证的服务器。会同时发送到 Embedding 服务器与 AI 整理服务器。",

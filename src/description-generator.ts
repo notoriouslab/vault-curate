@@ -86,16 +86,19 @@ export class DescriptionGenerator {
         return this.runOne(file);
     }
 
-    /** Generate + write description for many notes (sequential). */
-    async generateForFiles(files: TFile[]): Promise<void> {
-        if (files.length === 0) return;
+    /** Generate + write description for many notes (sequential). Returns
+     *  the counts and which paths succeeded, so the caller can tell how many
+     *  legacy-truncated descriptions were actually repaired (040 D6). */
+    async generateForFiles(files: TFile[]): Promise<{ ok: number; failed: number; okPaths: Set<string> }> {
+        const okPaths = new Set<string>();
+        if (files.length === 0) return { ok: 0, failed: 0, okPaths };
         if (!this.hasLlmConfigured()) {
             new Notice(t.descNoLlmConfigured);
-            return;
+            return { ok: 0, failed: 0, okPaths };
         }
         if (!(await this.llmReachable())) {
             new Notice(t.ollamaNotReady);
-            return;
+            return { ok: 0, failed: 0, okPaths };
         }
 
         const progress = new Notice(t.descGenerating(0, files.length), 0);
@@ -103,13 +106,16 @@ export class DescriptionGenerator {
         let failed = 0;
         for (let i = 0; i < files.length; i++) {
             const success = await this.runOne(files[i], /*silent=*/true);
-            if (success) ok++;
-            else failed++;
+            if (success) {
+                ok++;
+                okPaths.add(files[i].path);
+            } else failed++;
             progress.setMessage(t.descGenerating(i + 1, files.length));
             await new Promise(r => window.setTimeout(r, 0));
         }
         progress.hide();
         new Notice(t.descBatchDone(ok, failed), 8000);
+        return { ok, failed, okPaths };
     }
 
     /** Core path: build prompt → call LLM → merge frontmatter. */

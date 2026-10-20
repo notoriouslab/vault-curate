@@ -72,3 +72,34 @@ describe('trimDescription (040 D3)', () => {
         expect(parseGeneratedDescription('x'.repeat(5000)).description.length).toBeLessThanOrEqual(1000);
     });
 });
+
+describe('isLegacyTruncatedDescription (040 D6)', () => {
+    const word = (n: number) => 'a'.repeat(n);
+
+    it('flags 500 or 499 code units ending mid-word', () => {
+        expect(isLegacyTruncatedDescription(word(500))).toBe(true);
+        expect(isLegacyTruncatedDescription(word(499))).toBe(true);
+    });
+
+    it('does not flag a description ending at a sentence end, closer or ellipsis', () => {
+        expect(isLegacyTruncatedDescription(word(499) + '.')).toBe(false);
+        expect(isLegacyTruncatedDescription(word(498) + '。」')).toBe(false);
+        expect(isLegacyTruncatedDescription(word(498) + '.”')).toBe(false);
+        expect(isLegacyTruncatedDescription(word(499) + '…')).toBe(false);
+    });
+
+    it('ignores other lengths and non-strings', () => {
+        expect(isLegacyTruncatedDescription(word(498))).toBe(false);
+        expect(isLegacyTruncatedDescription(word(501))).toBe(false);
+        expect(isLegacyTruncatedDescription(500)).toBe(false);
+        expect(isLegacyTruncatedDescription(undefined)).toBe(false);
+    });
+
+    it('accepted residual: a new 500-char description ending in a letter is flagged again', () => {
+        // Width <= 500 is written as is, so trimDescription keeps it and the
+        // next batch regenerates it (040 D6, second-round W6).
+        const desc = word(500);
+        expect(trimDescription(desc)).toBe(desc);
+        expect(isLegacyTruncatedDescription(desc)).toBe(true);
+    });
+});

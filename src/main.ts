@@ -63,6 +63,7 @@ import { relatedKwRank, kwRankForQuery } from "./search/relatedKwRank";
 import { parseTags } from "./search/relatedFusion";
 import { buildProfile, profileCentroid, type ProfileCandidate } from "./search/globalProfile";
 import { DescriptionGenerator } from "./description-generator";
+import { isLegacyTruncatedDescription } from "./utils/sanitize";
 import { OnboardingModal, applyOnboardingChoice } from "./ui/OnboardingModal";
 import { loadWasmAsset } from "./runtime/wasmAssets";
 import { t } from "./i18n";
@@ -671,10 +672,13 @@ export default class VaultSearchPlugin extends Plugin {
      * Phase 6: batch-generate descriptions for the current search/Discover
      * results panel. Skips notes that already have a description; opens a
      * Notice if nothing is eligible so the user isn't left wondering.
+     * 040 D6: descriptions an earlier version cut off mid-sentence are
+     * regenerated too, with their own Notice counting the repairs.
      */
     async generateDescriptionsForResults(view: SearchView): Promise<void> {
         const results = view.getCurrentResults();
         const targets: TFile[] = [];
+        const legacyPaths = new Set<string>();
         let skippedNonString = 0;
         for (const r of results) {
             const file = this.app.vault.getAbstractFileByPath(r.path);
@@ -686,7 +690,11 @@ export default class VaultSearchPlugin extends Plugin {
                 targets.push(file);
             } else if (typeof desc === "string") {
                 if (desc.trim().length === 0) targets.push(file);
-                // non-empty string description → skip (already curated)
+                else if (isLegacyTruncatedDescription(desc)) {
+                    targets.push(file);
+                    legacyPaths.add(file.path);
+                }
+                // other non-empty string description → skip (already curated)
             } else {
                 // Number, array, object — non-standard. Skip to avoid
                 // overwriting structured data the user might be relying on.
@@ -700,7 +708,9 @@ export default class VaultSearchPlugin extends Plugin {
             new Notice(t.descNoEligible);
             return;
         }
-        await this.descGenerator.generateForFiles(targets);
+        const result = await this.descGenerator.generateForFiles(targets);
+        const repaired = [...legacyPaths].filter(p => result.okPaths.has(p)).length;
+        if (repaired > 0) new Notice(t.descRepairedTruncated(repaired), 8000);
     }
 
     // ── Find Similar (Phase 8: SQLite-backed) ────────────
