@@ -41,6 +41,6 @@ describe('parseGeneratedDescription', () => {
 
     it('caps the fallback description length', () => {
         const long = 'x'.repeat(5000); // not JSON
-        expect(parseGeneratedDescription(long).description.length).toBeLessThanOrEqual(500);
+        expect(parseGeneratedDescription(long).description.length).toBeLessThanOrEqual(1000);
     });
 });

@@ -3,7 +3,13 @@
 // imports obsidian, which vitest can't resolve, so anything that needs a
 // test lives here instead.
 
-export const DESCRIPTION_LENGTH_CAP = 500;
+import { displayWidth } from "./textWidth";
+
+// Hard cap applied while parsing an LLM reply (guards a runaway reply); the
+// stored length is set by trimDescription below (040 D3).
+export const DESCRIPTION_LENGTH_CAP = 1000;
+// Display width (CJK counts 2): about 500 English chars or 250 Chinese chars.
+export const DESCRIPTION_WIDTH_CAP = 500;
 export const TAG_LENGTH_CAP = 64;
 
 /**
@@ -56,4 +62,64 @@ export function safeSlice(text: string, max: number): string {
     const code = text.charCodeAt(cut - 1);
     if (code >= 0xd800 && code <= 0xdbff) cut--;
     return text.slice(0, cut);
+}
+
+// Sentence ends for trimDescription (040 D3). A full-width stop needs nothing
+// after it (Chinese runs straight into the next sentence); a half-width stop
+// must be followed by whitespace or the end, so "1.5" is not an end. Closing
+// quotes and brackets right after the stop stay with the sentence. Escaped so
+// this file stays plain ASCII.
+const FULL_STOPS = "\u3002\uFF01\uFF1F";
+const FULL_CLOSERS = "\u300D\u300F\uFF09\"'\u201D\u2019";
+const HALF_STOPS = ".!?";
+const HALF_CLOSERS = ")\"'\u300D\u300F\uFF09\u201D\u2019";
+const ELLIPSIS = "\u2026";
+const SENTENCE_END_RE = new RegExp(
+    "[" + FULL_STOPS + "][" + FULL_CLOSERS + "]*"
+    + "|[" + HALF_STOPS.replace(/[.?]/g, "\\$&") + "][" + HALF_CLOSERS.replace(/[)]/g, "\\$&") + "]*(?=\\s|$)",
+    "gu",
+);
+// A description ending in one of these was not cut mid-sentence (040 D6).
+// Must match every sentence end and closer above, plus the trim ellipsis.
+const SAFE_ENDINGS = new Set([...FULL_STOPS, ...HALF_STOPS, ...FULL_CLOSERS, ...HALF_CLOSERS, ELLIPSIS]);
+
+/**
+ * Fit a description into DESCRIPTION_WIDTH_CAP by cutting after the last
+ * sentence end that fits; with no sentence end, cut at the cap and add an
+ * ellipsis. Sentence ends are searched in the whole text, not the cut prefix,
+ * so "1.5" cut to "1." is never taken for an end. Known limit: abbreviations
+ * such as "e.g." or "Dr." count as sentence ends.
+ */
+export function trimDescription(desc: string, cap: number = DESCRIPTION_WIDTH_CAP): string {
+    if (displayWidth(desc) <= cap) return desc;
+    let best = -1;
+    SENTENCE_END_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = SENTENCE_END_RE.exec(desc)) !== null) {
+        const end = m.index + m[0].length;
+        if (displayWidth(desc.slice(0, end)) > cap) break;
+        best = end;
+    }
+    if (best > 0) return desc.slice(0, best).trimEnd();
+    let out = "";
+    let w = 0;
+    for (const ch of desc) {
+        const cw = displayWidth(ch);
+        if (w + cw > cap - 1) break;
+        out += ch;
+        w += cw;
+    }
+    return out.trimEnd() + ELLIPSIS;
+}
+
+/**
+ * True for a description an earlier version cut at 500 UTF-16 units
+ * mid-sentence (499 when the cut backed off a surrogate pair), so batch
+ * generation can repair it (040 D6).
+ */
+export function isLegacyTruncatedDescription(desc: unknown): boolean {
+    if (typeof desc !== "string") return false;
+    if (desc.length !== 500 && desc.length !== 499) return false;
+    const last = Array.from(desc.trimEnd()).pop();
+    return last !== undefined && !SAFE_ENDINGS.has(last);
 }

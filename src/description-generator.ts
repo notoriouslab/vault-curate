@@ -18,7 +18,7 @@ import { Notice, TFile } from "obsidian";
 import type VaultSearchPlugin from "./main";
 import { checkLLMReachable, requestLlmJson, stripFrontmatter } from "./utils";
 import { resolveLlmUrl } from "./utils/resolveLlmUrl";
-import { DESCRIPTION_LENGTH_CAP, safeSlice, stripDangerousInvisibles } from "./utils/sanitize";
+import { stripDangerousInvisibles, trimDescription } from "./utils/sanitize";
 import { parseGeneratedDescription } from "./utils/parseGeneratedDescription";
 import { denoiseForEmbed } from "./indexer/denoise";
 import { locales, t } from "./i18n";
@@ -181,7 +181,7 @@ export class DescriptionGenerator {
             }
 
             const mergedTags = this.mergeTags(existingTags, result.tags);
-            const finalDescription = safeSlice(description, DESCRIPTION_LENGTH_CAP);
+            const finalDescription = trimDescription(description);
 
             try {
                 await this.plugin.app.fileManager.processFrontMatter(file, (raw) => {
