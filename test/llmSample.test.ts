@@ -32,6 +32,8 @@ describe('stripUrlsForLlm (040 D1)', () => {
         // Only real media types, and the URI stops at non-ASCII like bare URLs.
         expect(stripUrlsForLlm('load data:sales/q3,q4 and compare')).toBe('load data:sales/q3,q4 and compare');
         expect(stripUrlsForLlm('圖片data:image/png;base64,iVBOR後面的中文')).toBe('圖片後面的中文');
+        // Base64 holds K and k; a case-folding regex once stopped there.
+        expect(stripUrlsForLlm('a DATA:image/png;base64,KkSsK+/= b')).toBe('a  b');
     });
 
     it('drops images and bare URLs, keeps link text', () => {

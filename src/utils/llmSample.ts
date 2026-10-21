@@ -42,7 +42,8 @@ export function stripUrlsForLlm(text: string): string {
         .replace(/\[([^\]]*)\]\((?:https?:|obsidian:)[^)]*\)/g, "$1")
         .replace(/<https?:[^>]*>/g, "")
         .replace(/https?:\/\/[\x21-\x7E]+/g, "")
-        .replace(/data:(?:image|text|application|audio|video|font)\/[a-z0-9.+-]+(?:;[a-z0-9=.+-]+)*,[\x21-\x7E]*?(?=[\s)"'>]|[^\x00-\x7E]|$)/gi, "")
+        // No i flag: with u it folds K onto the Kelvin sign, which \P{ASCII} matches.
+        .replace(/[Dd][Aa][Tt][Aa]:(?:image|text|application|audio|video|font)\/[A-Za-z0-9.+-]+(?:;[A-Za-z0-9=.+-]+)*,[\x21-\x7E]*?(?=[\s)"'>]|\P{ASCII}|$)/gu, "")
         .replace(/\[\s*\]/g, "")
         .replace(/[ \t]+\n/g, "\n")
         .replace(/\n{3,}/g, "\n\n");
