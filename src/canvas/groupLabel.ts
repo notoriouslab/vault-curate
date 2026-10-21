@@ -30,9 +30,18 @@ export function truncateLabel(s: string): string {
     return out + ELLIPSIS;
 }
 
-const ZH_OPENER_RE = /^(?:本文|本篇(?:文章|筆記|笔记)?|本筆記|本笔记|這篇(?:文章|筆記)?|这篇(?:文章|笔记)?|此(?:文|篇|筆記|笔记))(?:主要|詳細|详细)?(?:紀錄|記錄|记录|探討|探讨|說明|说明|介紹|介绍|討論|讨论|整理|分析|描述|闡述|阐述|概述|總結|总结|分享)了?[：:，,、]?\s*/u;
+// 040 T9: widened after 717 gemma3:4b descriptions kept 245 stock openers
+// ("這份筆記探討了…", "筆記記錄了…"); 17 left, none stripped wrongly. A bare
+// 筆記 counts only when the verb takes 了, so "筆記整理術…" stays.
+const ZH_OPENER_VERBS = "紀錄|記錄|记录|記載|记载|探討|探讨|說明|说明|介紹|介绍|討論|讨论|整理|分析|描述|闡述|阐述|概述|總結|总结|分享"
+    + "|談論|谈论|談|谈|講述|讲述|回顧|回顾|反思|呈現|呈现|提出|聚焦|描繪|描绘|揭示|關注|关注|旨在|表達|表达|提供|報導|报导|詳述|详述|總覽|总览|關乎|关乎|針對|针对";
+const ZH_OPENER_RE = new RegExp(
+    "^(?:(?:本文|本篇(?:文章|筆記|笔记)?|本筆記|本笔记|(?:這|这)(?:篇|份|則|则)(?:文章|筆記|笔记)?|此(?:文|篇|筆記|笔记))(?:內容|内容)?(?:主要|詳細|详细|深入|簡要|简要)?(?:" + ZH_OPENER_VERBS + ")了?"
+    + "|(?:筆記|笔记)(?:內容|内容)?(?:主要|詳細|详细|深入|簡要|简要)?(?:" + ZH_OPENER_VERBS + ")了)[：:，,、]?\\s*",
+    "u",
+);
 // 040 D5: widened after gemma3:4b opened 24 of 36 English descriptions this way.
-const EN_OPENER_RE = /^(?:This|The) (?:note|article|post|document|entry|essay) (?:describes|discusses|explores|records|covers|explains|summarizes|introduces|details|outlines|examines|presents|highlights|documents)(?:\s+|$)/iu;
+const EN_OPENER_RE = /^(?:This|The) (?:note|article|post|document|entry|essay) (?:describes|discusses|explores|records|covers|explains|summarizes|introduces|details|outlines|examines|presents|highlights|documents|reflects|analyzes|shares|recounts|reviews|chronicles)(?:\s+|$)/iu;
 
 export function stripDescriptionBoilerplate(desc: string): string {
     const folded = desc.replace(/\s+/g, " ").trim();

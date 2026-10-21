@@ -49,6 +49,22 @@ describe('stripDescriptionBoilerplate（037 D4）', () => {
         expect(stripDescriptionBoilerplate('The notebook explores Z.')).toBe('The notebook explores Z.');
     });
 
+    it('strips the wider Chinese openers gemma3:4b writes (040 T9)', () => {
+        expect(stripDescriptionBoilerplate('這份筆記探討了台北車站改建')).toBe('台北車站改建');
+        expect(stripDescriptionBoilerplate('這則筆記記錄了導演的訪談')).toBe('導演的訪談');
+        expect(stripDescriptionBoilerplate('筆記探討了多數暴力這個概念')).toBe('多數暴力這個概念');
+        expect(stripDescriptionBoilerplate('笔记讨论了会议流程')).toBe('会议流程');
+        expect(stripDescriptionBoilerplate('這篇筆記關注台灣勞工')).toBe('台灣勞工');
+        expect(stripDescriptionBoilerplate('This note reflects a disgruntled voter.')).toBe('a disgruntled voter.');
+    });
+
+    it('keeps a description whose subject is notes themselves', () => {
+        // A bare 筆記 only counts as an opener when the verb takes 了.
+        expect(stripDescriptionBoilerplate('筆記整理術是一種把想法拆小的方法')).toBe('筆記整理術是一種把想法拆小的方法');
+        expect(stripDescriptionBoilerplate('筆記分享平台的比較')).toBe('筆記分享平台的比較');
+        expect(stripDescriptionBoilerplate('筆記軟體 Obsidian 的外掛生態')).toBe('筆記軟體 Obsidian 的外掛生態');
+    });
+
     it('returns "" when only the opener is left', () => {
         expect(stripDescriptionBoilerplate('This article explores  ')).toBe('');
     });
