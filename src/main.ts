@@ -679,6 +679,7 @@ export default class VaultSearchPlugin extends Plugin {
         const results = view.getCurrentResults();
         const targets: TFile[] = [];
         const legacyPaths = new Set<string>();
+        const expected = new Map<string, string>();
         let skippedNonString = 0;
         for (const r of results) {
             const file = this.app.vault.getAbstractFileByPath(r.path);
@@ -688,10 +689,14 @@ export default class VaultSearchPlugin extends Plugin {
             const desc = fm?.description;
             if (desc === undefined || desc === null) {
                 targets.push(file);
+                expected.set(file.path, "");
             } else if (typeof desc === "string") {
-                if (desc.trim().length === 0) targets.push(file);
-                else if (isLegacyTruncatedDescription(desc)) {
+                if (desc.trim().length === 0) {
                     targets.push(file);
+                    expected.set(file.path, desc);
+                } else if (isLegacyTruncatedDescription(desc)) {
+                    targets.push(file);
+                    expected.set(file.path, desc);
                     legacyPaths.add(file.path);
                 }
                 // other non-empty string description → skip (already curated)
@@ -708,7 +713,7 @@ export default class VaultSearchPlugin extends Plugin {
             new Notice(t.descNoEligible);
             return;
         }
-        const result = await this.descGenerator.generateForFiles(targets);
+        const result = await this.descGenerator.generateForFiles(targets, expected);
         const repaired = [...legacyPaths].filter(p => result.okPaths.has(p)).length;
         if (repaired > 0) new Notice(t.descRepairedTruncated(repaired), 8000);
     }

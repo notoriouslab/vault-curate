@@ -88,8 +88,14 @@ export class DescriptionGenerator {
 
     /** Generate + write description for many notes (sequential). Returns
      *  the counts and which paths succeeded, so the caller can tell how many
-     *  legacy-truncated descriptions were actually repaired (040 D6). */
-    async generateForFiles(files: TFile[]): Promise<{ ok: number; failed: number; okPaths: Set<string> }> {
+     *  legacy-truncated descriptions were actually repaired (040 D6).
+     *  `expected` maps a path to the description the batch picked it with
+     *  ("" for none); a note whose description changed meanwhile is skipped
+     *  so a hand edit made during a long batch is never overwritten. */
+    async generateForFiles(
+        files: TFile[],
+        expected?: ReadonlyMap<string, string>,
+    ): Promise<{ ok: number; failed: number; okPaths: Set<string> }> {
         const okPaths = new Set<string>();
         if (files.length === 0) return { ok: 0, failed: 0, okPaths };
         if (!this.hasLlmConfigured()) {
@@ -105,7 +111,7 @@ export class DescriptionGenerator {
         let ok = 0;
         let failed = 0;
         for (let i = 0; i < files.length; i++) {
-            const success = await this.runOne(files[i], /*silent=*/true);
+            const success = await this.runOne(files[i], /*silent=*/true, expected?.get(files[i].path));
             if (success) {
                 ok++;
                 okPaths.add(files[i].path);
@@ -119,7 +125,7 @@ export class DescriptionGenerator {
     }
 
     /** Core path: build prompt → call LLM → merge frontmatter. */
-    private async runOne(file: TFile, silent = false): Promise<boolean> {
+    private async runOne(file: TFile, silent = false, expectedDesc?: string): Promise<boolean> {
         // Per-file in-flight guard — second invocation while LLM is running
         // returns immediately so the user can't accidentally fire two writes.
         // The Set entry is added INSIDE the try block (after the has-check)
@@ -195,9 +201,17 @@ export class DescriptionGenerator {
             const mergedTags = this.mergeTags(existingTags, result.tags);
             const finalDescription = trimDescription(description);
 
+            let changedMeanwhile = false;
             try {
                 await this.plugin.app.fileManager.processFrontMatter(file, (raw) => {
                     const fm = raw as Record<string, unknown>;
+                    if (expectedDesc !== undefined) {
+                        const current = fm.description === undefined || fm.description === null ? "" : fm.description;
+                        if (current !== expectedDesc) {
+                            changedMeanwhile = true;
+                            return;
+                        }
+                    }
                     fm.description = finalDescription;
                     // If tags came back as a non-array, non-string shape
                     // (number, object, etc.), don't overwrite — keep what's
@@ -210,6 +224,7 @@ export class DescriptionGenerator {
                 if (!silent) new Notice(t.descLlmFailed(file.basename));
                 return false;
             }
+            if (changedMeanwhile) return false;
 
             // 010 D6: this write is the plugin's doing, not a user judgment
             // action — record it so the mtime bump doesn't re-heat the note.

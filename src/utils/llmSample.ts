@@ -11,13 +11,18 @@ export const LLM_INPUT_TOKEN_BUDGET = 3000;
 export const LLM_INPUT_SEGMENTS = 6;
 export const SAMPLE_SEP = "\n…\n";
 
-// Conservative per-code-point weights. gemma3 measured ~0.27 tokens per ASCII
-// char, 0.75-0.8 per Chinese char and ~1.0 for mixed technical text; 0.6 for
-// CJK under-counted and overflowed num_ctx (empty replies). Every non-ASCII
-// BMP char counts 1.0 so Cyrillic, Thai etc. are not under-counted either.
+// Conservative per-code-point weights. gemma3 measured ~0.27 tokens per
+// letter of English prose, 0.75-0.8 per Chinese char, and close to 1 per char
+// for digits, punctuation and code symbols (a numeric table at 0.3 ran past
+// num_ctx 4096 and came back empty, 040 review). 0.6 for CJK under-counted
+// too. Every non-ASCII BMP char counts 1.0 so Cyrillic, Thai etc. are safe.
 function weight(cp: number): number {
-    if (cp < 0x80) return 0.3;
+    if (cp < 0x80) return isWordOrSpace(cp) ? 0.3 : 1;
     return cp > 0xffff ? 2 : 1;
+}
+
+function isWordOrSpace(cp: number): boolean {
+    return (cp >= 0x41 && cp <= 0x5a) || (cp >= 0x61 && cp <= 0x7a) || cp === 0x20 || cp === 0x0a || cp === 0x09;
 }
 
 export function estimateTokens(text: string): number {

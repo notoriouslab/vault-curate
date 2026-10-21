@@ -58,6 +58,12 @@ describe('stripDescriptionBoilerplate（037 D4）', () => {
         expect(stripDescriptionBoilerplate('This note reflects a disgruntled voter.')).toBe('a disgruntled voter.');
     });
 
+    it('does not cut into a word that starts with 談 (040 review)', () => {
+        expect(stripDescriptionBoilerplate('本篇談判技巧的整理')).toBe('本篇談判技巧的整理');
+        expect(stripDescriptionBoilerplate('本文談到台灣的選舉')).toBe('台灣的選舉');
+        expect(stripDescriptionBoilerplate('此文旨在說明部署流程')).toBe('部署流程');
+    });
+
     it('keeps a description whose subject is notes themselves', () => {
         // A bare 筆記 only counts as an opener when the verb takes 了.
         expect(stripDescriptionBoilerplate('筆記整理術是一種把想法拆小的方法')).toBe('筆記整理術是一種把想法拆小的方法');

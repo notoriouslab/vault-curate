@@ -9,13 +9,13 @@ function makeFile(path: string): TFile {
     return f;
 }
 
-function makeGenerator(llmModel = 'gemma3:4b') {
+function makeGenerator(llmModel = 'gemma3:4b', fmOnDisk: Record<string, unknown> = {}) {
     const plugin = {
         settings: { ollamaUrl: 'http://localhost:11434', llmUrl: '', llmModel, apiFormat: 'ollama', apiKey: '' },
         app: {
             vault: { cachedRead: async () => 'body text' },
             metadataCache: { getFileCache: () => null },
-            fileManager: { processFrontMatter: async (_f: TFile, fn: (fm: Record<string, unknown>) => void) => fn({}) },
+            fileManager: { processFrontMatter: async (_f: TFile, fn: (fm: Record<string, unknown>) => void) => fn(fmOnDisk) },
         },
         recordSelfWrite: () => {},
     };
@@ -57,5 +57,36 @@ describe('generateForFiles result (040 D6)', () => {
         expect(res.ok).toBe(1);
         expect(res.failed).toBe(1);
         expect([...res.okPaths]).toEqual(['good.md']);
+    });
+});
+
+describe('batch write guard (040 review)', () => {
+    const okLlm = async () => ({ description: 'Alpha covers the plan. It ends well.' });
+
+    it('skips a note whose description changed while the batch ran', async () => {
+        const fm: Record<string, unknown> = { description: 'Edited by hand meanwhile.' };
+        const { gen, g } = makeGenerator('gemma3:4b', fm);
+        vi.spyOn(g, 'callLLM').mockImplementation(okLlm);
+        const res = await gen.generateForFiles([makeFile('a.md')], new Map([['a.md', 'old cut text']]));
+        expect(fm.description).toBe('Edited by hand meanwhile.');
+        expect(res.okPaths.size).toBe(0);
+        expect(res.failed).toBe(1);
+    });
+
+    it('writes when the description is still the one the batch picked', async () => {
+        const fm: Record<string, unknown> = { description: 'old cut text' };
+        const { gen, g } = makeGenerator('gemma3:4b', fm);
+        vi.spyOn(g, 'callLLM').mockImplementation(okLlm);
+        const res = await gen.generateForFiles([makeFile('a.md')], new Map([['a.md', 'old cut text']]));
+        expect(fm.description).toBe('Alpha covers the plan. It ends well.');
+        expect([...res.okPaths]).toEqual(['a.md']);
+    });
+
+    it('treats a missing and an empty description as the same pick', async () => {
+        const fm: Record<string, unknown> = {};
+        const { gen, g } = makeGenerator('gemma3:4b', fm);
+        vi.spyOn(g, 'callLLM').mockImplementation(okLlm);
+        await gen.generateForFiles([makeFile('a.md')], new Map([['a.md', '']]));
+        expect(fm.description).toBe('Alpha covers the plan. It ends well.');
     });
 });

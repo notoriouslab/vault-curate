@@ -85,12 +85,18 @@ const SAFE_ENDINGS = new Set([...FULL_STOPS, ...HALF_STOPS, ...FULL_CLOSERS, ...
 
 /**
  * Fit a description into DESCRIPTION_WIDTH_CAP by cutting after the last
- * sentence end that fits; with no sentence end, cut at the cap and add an
- * ellipsis. Sentence ends are searched in the whole text, not the cut prefix,
- * so "1.5" cut to "1." is never taken for an end. Known limit: abbreviations
- * such as "e.g." or "Dr." count as sentence ends.
+ * sentence end that fits; with no sentence end in the second half, cut at the
+ * cap and add an ellipsis (one early "Hi." must not throw the rest away).
+ * Sentence ends are searched in the whole text, not the cut prefix, so "1.5"
+ * cut to "1." is never taken for an end. Known limit: abbreviations such as
+ * "e.g." or "Dr." count as sentence ends. The result is never one that
+ * isLegacyTruncatedDescription flags, or every batch would regenerate it.
  */
 export function trimDescription(desc: string, cap: number = DESCRIPTION_WIDTH_CAP): string {
+    return unlikeLegacyCut(fitWidth(desc, cap));
+}
+
+function fitWidth(desc: string, cap: number): string {
     if (displayWidth(desc) <= cap) return desc;
     let best = -1;
     SENTENCE_END_RE.lastIndex = 0;
@@ -100,7 +106,7 @@ export function trimDescription(desc: string, cap: number = DESCRIPTION_WIDTH_CA
         if (displayWidth(desc.slice(0, end)) > cap) break;
         best = end;
     }
-    if (best > 0) return desc.slice(0, best).trimEnd();
+    if (best > 0 && displayWidth(desc.slice(0, best)) * 2 >= cap) return desc.slice(0, best).trimEnd();
     let out = "";
     let w = 0;
     for (const ch of desc) {
@@ -110,6 +116,15 @@ export function trimDescription(desc: string, cap: number = DESCRIPTION_WIDTH_CA
         w += cw;
     }
     return out.trimEnd() + ELLIPSIS;
+}
+
+// A description of exactly 499/500 code units with no sentence end looks like
+// the old cut (040 D6); swap its last char for an ellipsis (040 review).
+function unlikeLegacyCut(desc: string): string {
+    if (!isLegacyTruncatedDescription(desc)) return desc;
+    const chars = Array.from(desc.trimEnd());
+    chars.pop();
+    return chars.join("") + ELLIPSIS;
 }
 
 /**

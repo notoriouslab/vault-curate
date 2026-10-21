@@ -10,8 +10,12 @@ import { sampleForLlm } from '../src/description-generator';
 const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
 
 describe('estimateTokens (040 D1)', () => {
-    it('weighs ASCII 0.3, other BMP 1.0, astral 2.0', () => {
+    it('weighs letters and spaces 0.3, other ASCII and BMP 1.0, astral 2.0', () => {
         expect(estimateTokens('abc')).toBeCloseTo(0.9);
+        expect(estimateTokens('a b')).toBeCloseTo(0.9);
+        // Digits and symbols tokenize near one per char (040 review).
+        expect(estimateTokens('2025-01-10')).toBe(10);
+        expect(estimateTokens('x[0]')).toBeCloseTo(3.3);
         expect(estimateTokens('中文')).toBe(2);
         expect(estimateTokens('かな')).toBe(2);
         expect(estimateTokens('Привет')).toBe(6);

@@ -68,6 +68,12 @@ describe('trimDescription (040 D3)', () => {
         expect(trimDescription(desc)).toBe(head);
     });
 
+    it('uses the ellipsis cut when the only sentence end is near the start (040 review)', () => {
+        const out = trimDescription('Hi. ' + 'x'.repeat(600));
+        expect(out.startsWith('Hi. xxx')).toBe(true);
+        expect(out.endsWith('…')).toBe(true);
+    });
+
     it('parser still applies a hard cap', () => {
         expect(parseGeneratedDescription('x'.repeat(5000)).description.length).toBeLessThanOrEqual(1000);
     });
@@ -95,11 +101,14 @@ describe('isLegacyTruncatedDescription (040 D6)', () => {
         expect(isLegacyTruncatedDescription(undefined)).toBe(false);
     });
 
-    it('accepted residual: a new 500-char description ending in a letter is flagged again', () => {
-        // Width <= 500 is written as is, so trimDescription keeps it and the
-        // next batch regenerates it (040 D6, second-round W6).
-        const desc = word(500);
-        expect(trimDescription(desc)).toBe(desc);
-        expect(isLegacyTruncatedDescription(desc)).toBe(true);
+    it('never returns a description the next batch would take for a legacy cut (040 review)', () => {
+        // Width <= 500 but 499/500 code units with no sentence end: the last
+        // char becomes an ellipsis, so batches do not regenerate it forever.
+        for (const desc of [word(500), word(499), word(497) + '😀', word(499) + ',']) {
+            const out = trimDescription(desc);
+            expect(isLegacyTruncatedDescription(out)).toBe(false);
+            expect(out.endsWith('…')).toBe(true);
+            expect(displayWidth(out)).toBeLessThanOrEqual(DESCRIPTION_WIDTH_CAP);
+        }
     });
 });
