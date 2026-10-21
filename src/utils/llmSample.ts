@@ -42,7 +42,7 @@ export function stripUrlsForLlm(text: string): string {
         .replace(/\[([^\]]*)\]\((?:https?:|obsidian:)[^)]*\)/g, "$1")
         .replace(/<https?:[^>]*>/g, "")
         .replace(/https?:\/\/[\x21-\x7E]+/g, "")
-        .replace(/data:[a-z]+\/[a-z0-9.+-]+(?:;[a-z0-9=.+-]+)*,[^\s)"'>]*/gi, "")
+        .replace(/data:(?:image|text|application|audio|video|font)\/[a-z0-9.+-]+(?:;[a-z0-9=.+-]+)*,[\x21-\x7E]*?(?=[\s)"'>]|[^\x00-\x7E]|$)/gi, "")
         .replace(/\[\s*\]/g, "")
         .replace(/[ \t]+\n/g, "\n")
         .replace(/\n{3,}/g, "\n\n");

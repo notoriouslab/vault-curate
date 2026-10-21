@@ -117,3 +117,17 @@ describe('batch write guard timing (040 review)', () => {
         expect(write).not.toHaveBeenCalled();
     });
 });
+
+describe('batch write guard backstop (040 review)', () => {
+    it('still keeps the edit when the metadata cache has not caught up yet', async () => {
+        const fm: Record<string, unknown> = { description: 'Edited on disk just now.' };
+        const { gen, g } = makeGenerator('gemma3:4b', fm);
+        // The cache still shows the value the batch picked.
+        g.plugin.app.metadataCache.getFileCache = () => ({ frontmatter: { description: 'old cut text' } });
+        vi.spyOn(g, 'callLLM').mockResolvedValue({ description: 'Alpha covers the plan. It ends well.' });
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const res = await gen.generateForFiles([makeFile('a.md')], new Map([['a.md', 'old cut text']]));
+        expect(fm.description).toBe('Edited on disk just now.');
+        expect(res.skipped).toBe(1);
+    });
+});

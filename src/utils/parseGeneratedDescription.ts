@@ -38,7 +38,11 @@ export function parseGeneratedDescription(raw: string): { description: string; t
     // Plane-14 tag chars in a non-JSON reply land verbatim in the note's
     // frontmatter (1.6.0 red-team §4). safeSlice first keeps the strip
     // bounded regardless of reply length.
-    return tryParse(raw)
-        ?? tryParse(raw.replace(/```json\n?|\n?```/g, "").trim())
-        ?? { description: stripDangerousInvisibles(safeSlice(raw, DESCRIPTION_LENGTH_CAP), " ") };
+    const unfenced = raw.replace(/```json\n?|\n?```/g, "").trim();
+    const parsed = tryParse(raw) ?? tryParse(unfenced);
+    if (parsed) return parsed;
+    // A reply that starts as JSON but does not parse was cut off (num_ctx ran
+    // out mid-reply); writing it would put raw JSON in the note (040 review).
+    if (unfenced.startsWith("{")) return { description: "" };
+    return { description: stripDangerousInvisibles(safeSlice(raw, DESCRIPTION_LENGTH_CAP), " ") };
 }

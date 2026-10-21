@@ -29,6 +29,9 @@ describe('stripUrlsForLlm (040 D1)', () => {
         expect(stripUrlsForLlm('x data:text/plain;charset=utf-8,hello y')).toBe('x  y');
         expect(stripUrlsForLlm('Raw data: 12 rows')).toBe('Raw data: 12 rows');
         expect(stripUrlsForLlm('metadata:title and data:2025')).toBe('metadata:title and data:2025');
+        // Only real media types, and the URI stops at non-ASCII like bare URLs.
+        expect(stripUrlsForLlm('load data:sales/q3,q4 and compare')).toBe('load data:sales/q3,q4 and compare');
+        expect(stripUrlsForLlm('圖片data:image/png;base64,iVBOR後面的中文')).toBe('圖片後面的中文');
     });
 
     it('drops images and bare URLs, keeps link text', () => {

@@ -39,6 +39,12 @@ describe('parseGeneratedDescription', () => {
         expect(r.tags).toBeUndefined();
     });
 
+    it('never writes a cut-off JSON reply as the description (040 review)', () => {
+        // num_ctx ran out mid-reply: the raw JSON must not land in frontmatter.
+        expect(parseGeneratedDescription('{"description": "本筆記探討了 Tox').description).toBe('');
+        expect(parseGeneratedDescription('```json\n{"description": "cut').description).toBe('');
+    });
+
     it('caps the fallback description length', () => {
         const long = 'x'.repeat(5000); // not JSON
         expect(parseGeneratedDescription(long).description.length).toBeLessThanOrEqual(1000);
