@@ -33,7 +33,8 @@ export function estimateTokens(text: string): number {
 
 /** Drop URLs before the text goes to the LLM; imported Blogger notes were
  *  55-72% URL. Bare URLs stop at the first non-ASCII char so Chinese written
- *  right after a link survives. Index text (denoiseForEmbed) is untouched.
+ *  right after a link survives; data: URIs (inline base64 images) go too.
+ *  Index text (denoiseForEmbed) is untouched.
  *  Known limits: "- [ ]" loses its brackets and "(url)," loses "),". */
 export function stripUrlsForLlm(text: string): string {
     return text
@@ -41,6 +42,7 @@ export function stripUrlsForLlm(text: string): string {
         .replace(/\[([^\]]*)\]\((?:https?:|obsidian:)[^)]*\)/g, "$1")
         .replace(/<https?:[^>]*>/g, "")
         .replace(/https?:\/\/[\x21-\x7E]+/g, "")
+        .replace(/data:[a-z]+\/[a-z0-9.+-]+(?:;[a-z0-9=.+-]+)*,[^\s)"'>]*/gi, "")
         .replace(/\[\s*\]/g, "")
         .replace(/[ \t]+\n/g, "\n")
         .replace(/\n{3,}/g, "\n\n");

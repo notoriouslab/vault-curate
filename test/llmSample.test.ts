@@ -24,6 +24,13 @@ describe('estimateTokens (040 D1)', () => {
 });
 
 describe('stripUrlsForLlm (040 D1)', () => {
+    it('drops data URIs but keeps prose that says data: (040 review)', () => {
+        expect(stripUrlsForLlm('a<img src="data:image/png;base64,iVBORw0KGgo+/=">b')).toBe('a<img src="">b');
+        expect(stripUrlsForLlm('x data:text/plain;charset=utf-8,hello y')).toBe('x  y');
+        expect(stripUrlsForLlm('Raw data: 12 rows')).toBe('Raw data: 12 rows');
+        expect(stripUrlsForLlm('metadata:title and data:2025')).toBe('metadata:title and data:2025');
+    });
+
     it('drops images and bare URLs, keeps link text', () => {
         expect(stripUrlsForLlm('![](https://x/y.png)a')).toBe('a');
         expect(stripUrlsForLlm('[文字](https://x)')).toBe('文字');

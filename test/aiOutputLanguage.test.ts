@@ -16,7 +16,8 @@ const title = "會議紀錄";
 const content = "週一討論預算。";
 const nb = "1. A — x";
 
-// Copied verbatim from main's src/i18n.ts (f164c70) with the template
+// Copied verbatim from main's src/i18n.ts (f164c70; description prompts
+// rewritten by hand for 040 D4) with the template
 // arguments substituted by hand, plus the 036 D10 rule 5 inserted by hand
 // into the two Chinese prompts, and the 040 D4 description rules (golden
 // updated on purpose).

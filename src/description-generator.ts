@@ -25,10 +25,12 @@ import { locales, t } from "./i18n";
 import { resolvePromptSet } from "./utils/aiOutputLanguage";
 import { sampleSpread, stripUrlsForLlm } from "./utils/llmSample";
 
-// A spread sample is ~2-3.5k tokens: Ollama gets a 4096 context so its own
-// default cannot silently cut the prompt, and big local models get 120 s
-// (a 27B model took up to 123 s in the 040 pilot). 040 D2/D7.
-const DESCRIPTION_NUM_CTX = 4096;
+// A spread sample is about 1-5.3k tokens: prose stays near 2k, but random
+// IDs, hashes and base64 the estimate cannot see through ran to 5.3k (040
+// review). Ollama gets a 6144 context so its own default cannot silently cut
+// the prompt, and big local models get 120 s (a 27B model took up to 123 s in
+// the 040 pilot). 040 D2/D7.
+const DESCRIPTION_NUM_CTX = 6144;
 const DESCRIPTION_TIMEOUT_MS = 120_000;
 
 // Re-exported for moc-generator.ts, which sanitizes its own LLM output.
@@ -41,6 +43,11 @@ export { stripDangerousInvisibles };
  */
 export function sampleForLlm(rawBody: string): string {
     return sampleSpread(stripUrlsForLlm(denoiseForEmbed(rawBody)));
+}
+
+/** A missing or null description counts as "" (what the batch records). */
+function sameDescription(current: unknown, expected: string): boolean {
+    return (current === undefined || current === null ? "" : current) === expected;
 }
 
 export class DescriptionGenerator {
@@ -83,7 +90,7 @@ export class DescriptionGenerator {
             new Notice(t.ollamaNotReady);
             return false;
         }
-        return this.runOne(file);
+        return (await this.runOne(file)) === "ok";
     }
 
     /** Generate + write description for many notes (sequential). Returns
@@ -95,37 +102,41 @@ export class DescriptionGenerator {
     async generateForFiles(
         files: TFile[],
         expected?: ReadonlyMap<string, string>,
-    ): Promise<{ ok: number; failed: number; okPaths: Set<string> }> {
+    ): Promise<{ ok: number; failed: number; skipped: number; okPaths: Set<string> }> {
         const okPaths = new Set<string>();
-        if (files.length === 0) return { ok: 0, failed: 0, okPaths };
+        if (files.length === 0) return { ok: 0, failed: 0, skipped: 0, okPaths };
         if (!this.hasLlmConfigured()) {
             new Notice(t.descNoLlmConfigured);
-            return { ok: 0, failed: 0, okPaths };
+            return { ok: 0, failed: 0, skipped: 0, okPaths };
         }
         if (!(await this.llmReachable())) {
             new Notice(t.ollamaNotReady);
-            return { ok: 0, failed: 0, okPaths };
+            return { ok: 0, failed: 0, skipped: 0, okPaths };
         }
 
         const progress = new Notice(t.descGenerating(0, files.length), 0);
         let ok = 0;
         let failed = 0;
+        let skipped = 0;
         for (let i = 0; i < files.length; i++) {
-            const success = await this.runOne(files[i], /*silent=*/true, expected?.get(files[i].path));
-            if (success) {
+            const outcome = await this.runOne(files[i], /*silent=*/true, expected?.get(files[i].path));
+            if (outcome === "ok") {
                 ok++;
                 okPaths.add(files[i].path);
-            } else failed++;
+            } else if (outcome === "skipped") skipped++;
+            else failed++;
             progress.setMessage(t.descGenerating(i + 1, files.length));
             await new Promise(r => window.setTimeout(r, 0));
         }
         progress.hide();
         new Notice(t.descBatchDone(ok, failed), 8000);
-        return { ok, failed, okPaths };
+        return { ok, failed, skipped, okPaths };
     }
 
     /** Core path: build prompt → call LLM → merge frontmatter. */
-    private async runOne(file: TFile, silent = false, expectedDesc?: string): Promise<boolean> {
+    /** "skipped": the description changed after the batch picked the note,
+     *  so the user's edit was kept. */
+    private async runOne(file: TFile, silent = false, expectedDesc?: string): Promise<"ok" | "failed" | "skipped"> {
         // Per-file in-flight guard — second invocation while LLM is running
         // returns immediately so the user can't accidentally fire two writes.
         // The Set entry is added INSIDE the try block (after the has-check)
@@ -134,7 +145,7 @@ export class DescriptionGenerator {
         // future retries until plugin reload.
         if (this.inflight.has(file.path)) {
             if (!silent) new Notice(t.descGeneratingOne(file.basename), 3000);
-            return false;
+            return "failed";
         }
 
         // Progress notice declared outside the try so finally can hide it
@@ -150,7 +161,7 @@ export class DescriptionGenerator {
             const llmEndpoint = resolveLlmUrl(this.plugin.settings.llmUrl, this.plugin.settings.ollamaUrl);
             const title = this.extractTitle(file);
             const rawBody = stripFrontmatter(await this.plugin.app.vault.cachedRead(file));
-            // 007 D6: denoise + head/tail sampling (surrogate-safe slices).
+            // 007 D6 / 040 D1: denoise, drop URLs, six spread segments.
             const body = sampleForLlm(rawBody);
             const cache = this.plugin.app.metadataCache.getFileCache(file);
             const existingTagsRaw = cache?.frontmatter?.tags as unknown;
@@ -170,7 +181,7 @@ export class DescriptionGenerator {
             } catch (e) {
                 console.warn(`vault-curate: LLM failed for ${file.path}`, e);
                 if (!silent) new Notice(t.descLlmFailed(file.basename));
-                return false;
+                return "failed";
             }
 
             let description = (result.description ?? "").trim();
@@ -184,30 +195,38 @@ export class DescriptionGenerator {
                         if (retry.tags) result = { description: retryDesc, tags: retry.tags };
                     } else {
                         if (!silent) new Notice(t.descLlmFailed(file.basename));
-                        return false;
+                        return "failed";
                     }
                 } catch (e) {
                     console.warn(`vault-curate: LLM retry failed for ${file.path}`, e);
                     if (!silent) new Notice(t.descLlmFailed(file.basename));
-                    return false;
+                    return "failed";
                 }
             }
 
             if (!description) {
+                console.warn(`vault-curate: LLM returned no description for ${file.path}`);
                 if (!silent) new Notice(t.descLlmFailed(file.basename));
-                return false;
+                return "failed";
             }
 
             const mergedTags = this.mergeTags(existingTags, result.tags);
             const finalDescription = trimDescription(description);
 
+            // Compare before writing too: processFrontMatter re-serializes the
+            // YAML even when the callback changes nothing (040 review).
+            // Re-read the cache here: the LLM call above can take two minutes.
+            const cacheNow = this.plugin.app.metadataCache.getFileCache(file);
+            if (expectedDesc !== undefined && !sameDescription(cacheNow?.frontmatter?.description, expectedDesc)) {
+                console.warn(`vault-curate: description of ${file.path} changed during the batch; kept it`);
+                return "skipped";
+            }
             let changedMeanwhile = false;
             try {
                 await this.plugin.app.fileManager.processFrontMatter(file, (raw) => {
                     const fm = raw as Record<string, unknown>;
                     if (expectedDesc !== undefined) {
-                        const current = fm.description === undefined || fm.description === null ? "" : fm.description;
-                        if (current !== expectedDesc) {
+                        if (!sameDescription(fm.description, expectedDesc)) {
                             changedMeanwhile = true;
                             return;
                         }
@@ -222,9 +241,12 @@ export class DescriptionGenerator {
             } catch (e) {
                 console.warn(`vault-curate: frontmatter merge failed for ${file.path}`, e);
                 if (!silent) new Notice(t.descLlmFailed(file.basename));
-                return false;
+                return "failed";
             }
-            if (changedMeanwhile) return false;
+            if (changedMeanwhile) {
+                console.warn(`vault-curate: description of ${file.path} changed during the batch; kept it`);
+                return "skipped";
+            }
 
             // 010 D6: this write is the plugin's doing, not a user judgment
             // action — record it so the mtime bump doesn't re-heat the note.
@@ -236,7 +258,7 @@ export class DescriptionGenerator {
             this.plugin.recordSelfWrite(file.path, Date.now());
 
             if (!silent) new Notice(t.descGeneratedOne(file.basename));
-            return true;
+            return "ok";
         } finally {
             progress?.hide();
             this.inflight.delete(file.path);

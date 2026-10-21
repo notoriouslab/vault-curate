@@ -9,13 +9,21 @@ function makeFile(path: string): TFile {
     return f;
 }
 
+// fmOnDisk is a.md's frontmatter; every other note gets its own object, and
+// the metadata cache and processFrontMatter see the same one per note.
 function makeGenerator(llmModel = 'gemma3:4b', fmOnDisk: Record<string, unknown> = {}) {
+    const fms = new Map<string, Record<string, unknown>>([['a.md', fmOnDisk]]);
+    const fmOf = (f: TFile) => {
+        if (!fms.has(f.path)) fms.set(f.path, {});
+        return fms.get(f.path)!;
+    };
     const plugin = {
         settings: { ollamaUrl: 'http://localhost:11434', llmUrl: '', llmModel, apiFormat: 'ollama', apiKey: '' },
         app: {
             vault: { cachedRead: async () => 'body text' },
-            metadataCache: { getFileCache: () => null },
-            fileManager: { processFrontMatter: async (_f: TFile, fn: (fm: Record<string, unknown>) => void) => fn(fmOnDisk) },
+            // A snapshot, like Obsidian's cache after each re-parse.
+            metadataCache: { getFileCache: (f: TFile) => ({ frontmatter: { ...fmOf(f) } }) },
+            fileManager: { processFrontMatter: async (f: TFile, fn: (fm: Record<string, unknown>) => void) => fn(fmOf(f)) },
         },
         recordSelfWrite: () => {},
     };
@@ -27,7 +35,7 @@ function makeGenerator(llmModel = 'gemma3:4b', fmOnDisk: Record<string, unknown>
     return { gen, g };
 }
 
-const empty = { ok: 0, failed: 0, okPaths: new Set<string>() };
+const empty = { ok: 0, failed: 0, skipped: 0, okPaths: new Set<string>() };
 
 describe('generateForFiles result (040 D6)', () => {
     it('returns an empty result for an empty list', async () => {
@@ -70,7 +78,8 @@ describe('batch write guard (040 review)', () => {
         const res = await gen.generateForFiles([makeFile('a.md')], new Map([['a.md', 'old cut text']]));
         expect(fm.description).toBe('Edited by hand meanwhile.');
         expect(res.okPaths.size).toBe(0);
-        expect(res.failed).toBe(1);
+        expect(res.failed).toBe(0);
+        expect(res.skipped).toBe(1);
     });
 
     it('writes when the description is still the one the batch picked', async () => {
@@ -88,5 +97,23 @@ describe('batch write guard (040 review)', () => {
         vi.spyOn(g, 'callLLM').mockImplementation(okLlm);
         await gen.generateForFiles([makeFile('a.md')], new Map([['a.md', '']]));
         expect(fm.description).toBe('Alpha covers the plan. It ends well.');
+    });
+});
+
+describe('batch write guard timing (040 review)', () => {
+    it('sees an edit made while the LLM call was running', async () => {
+        const fm: Record<string, unknown> = { description: 'old cut text' };
+        const { gen, g } = makeGenerator('gemma3:4b', fm);
+        vi.spyOn(g, 'callLLM').mockImplementation(async () => {
+            fm.description = 'Edited during the call.';
+            return { description: 'Alpha covers the plan. It ends well.' };
+        });
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const write = vi.spyOn(g.plugin.app.fileManager, 'processFrontMatter');
+        const res = await gen.generateForFiles([makeFile('a.md')], new Map([['a.md', 'old cut text']]));
+        expect(fm.description).toBe('Edited during the call.');
+        expect(res.skipped).toBe(1);
+        // Skipped before processFrontMatter, which would re-serialize the YAML.
+        expect(write).not.toHaveBeenCalled();
     });
 });
