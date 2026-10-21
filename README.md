@@ -122,10 +122,12 @@ Discover works on **notes**, not query strings: it actively surfaces semanticall
 Turn it on under **Settings → AI Curation → Enable AI curation** to unlock three actions, all manually triggered, never running in the background:
 
 - Generate a description + tags into a single note's frontmatter
-- Run description generation across the sidebar's search / discover results in a batch
+- Run description generation across the sidebar's search / discover results in a batch (this also repairs descriptions that older versions cut off mid-sentence)
 - Generate a **topic-grouped MOC**: results are clustered by topic automatically and the AI names each group, producing a table-of-contents note
 
 The LLM provider is configured separately under **Settings → AI Curation** (local Ollama or any OpenAI-compatible endpoint). **AI output language** picks the language the AI writes in, separately from Obsidian's interface language: follow the interface (default), English, 繁體中文, 简体中文, or type any other language name. Handy when your interface is in English but your notes are not.
+
+Descriptions read the whole note, not just its opening, and end at a full sentence. A local model of 4B or larger (for example gemma3:4b) writes fuller descriptions than the default qwen3:1.7b. Small local models occasionally get a detail wrong, so give the descriptions of important notes a quick read.
 
 ### 📱 One vault, every device
 

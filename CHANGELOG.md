@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.14.0 — 2026-10-21
+
+### Changed
+- **Descriptions cover the whole note (#17).** AI curation used to read only the first 1,200 and last 800 characters of a note, so points in the middle of a long note were missed and the model filled the gap by guessing. It now reads six evenly spaced passages from start to end, within a fixed budget, with links and inline images left out. In blind side-by-side reviews of 18 descriptions of long notes, the new ones covered about 30% more of each note's main points. With Ollama, description requests now ask for a 6,144-token context so the server never quietly cuts the note short, and wait up to 120 seconds for large models.
+- **Descriptions end at a full sentence.** English descriptions were cut at 500 characters, usually in the middle of a word. Descriptions now stay within about 500 characters (about 250 Chinese characters) and end at the last complete sentence.
+- **English and Chinese prompts now ask for the same thing:** 2-3 complete sentences that open with what the note is about and cover the whole note.
+- **Canvas labels drop more stock openings** such as "This note details…" or 「這份筆記探討了…」 for notes without tags.
+- **The model hint is more honest.** Settings → AI Curation now suggests models of 4B or larger (for example gemma3:4b) and says that small local models occasionally get a detail wrong, such as who did what or why. Because the new descriptions say more, they also contain a few more of these slips; per point covered the rate stayed about the same, and only a much larger model (27B) made clearly fewer mistakes. The default model is unchanged.
+
+### Fixed
+- **Descriptions cut off by earlier versions can be repaired.** "Generate descriptions for current results" now also rewrites descriptions an earlier version cut off mid-sentence, and a notice says how many were repaired. Other existing descriptions are still left alone, and if you edit a description while a batch is running, your edit is kept.
+- **A reply cut off midway is no longer saved as raw JSON** in a note's description.
+
 ## 1.13.0 — 2026-10-08
 
 ### Added
