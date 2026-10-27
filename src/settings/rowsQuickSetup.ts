@@ -10,6 +10,7 @@ import type { Predicate } from "./rowHelpers";
 import { t } from "../i18n";
 import { resolveModelHost } from "../embedding/modelSource";
 import { keyText } from "../utils/resolveLlmApiKey";
+import { switchProvider } from "./providerSwitch";
 
 export function providerRow(ctx: SettingsContext): SettingDefinitionRender {
     return {
@@ -51,17 +52,13 @@ export function providerRow(ctx: SettingsContext): SettingDefinitionRender {
                         drop.setValue(old);
                         return;
                     }
-                    ctx.plugin.settings.embeddingProvider = newProvider;
-                    await ctx.plugin.saveSettings();
-                    try {
-                        await ctx.plugin.reloadBackends();
-                    } catch {
-                        // reloadBackends already showed a Notice; swallow here
-                        // so the onChange handler doesn't leak unhandled rejection.
-                        return;
-                    }
-                    ctx.refresh();
-                    void ctx.plugin.rebuildIndex();
+                    await switchProvider({
+                        settings: ctx.plugin.settings,
+                        saveSettings: () => ctx.plugin.saveSettings(),
+                        reload: () => ctx.plugin.reloadBackends(),
+                        refresh: () => ctx.refresh(),
+                        rebuild: () => ctx.plugin.rebuildIndex(),
+                    }, newProvider, old);
                 });
             });
         },
