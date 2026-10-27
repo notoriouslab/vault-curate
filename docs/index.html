@@ -266,11 +266,14 @@ automatically.</p>
 </details>
 <details>
   <summary>Does the text of my notes leave my computer?</summary>
-  <p>With the built-in model, no: it runs on your own device. With a local Ollama
-  daemon, also no. The only mode that sends anything out is the
-  OpenAI-compatible option, and only to the endpoint you choose yourself, which
-  can equally be a local server such as LM Studio. There is no telemetry and no
-  usage tracking in any mode.</p>
+  <!-- Mirrors README.md "Privacy & security"; change both together. -->
+  <p>With the built-in model or a local Ollama daemon, note text stays on your
+  device. With the OpenAI-compatible option it goes to the endpoint you point it
+  at, which can be local (LM Studio, llama.cpp, …) or remote (OpenAI etc.), so it
+  may leave your device. The same applies to AI curation (descriptions, MOC
+  naming), which uses an endpoint you set up separately. There is no telemetry
+  and no usage tracking, and nothing is sent to any server unless you configure
+  a remote endpoint.</p>
 </details>
 <details>
   <summary>Will it edit or rewrite my notes?</summary>
