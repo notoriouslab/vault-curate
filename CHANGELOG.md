@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.14.1 — 2026-10-27
+
+### Fixed
+- **OpenAI-compatible server addresses ending in `/v1` work (#19).** An address such as `https://openrouter.ai/api/v1`, or the `http://localhost:11434/v1` that the welcome screen suggests, used to become `…/v1/v1/…`, so the model list showed "Could not load the model list" and descriptions and embeddings failed. The address now works with or without `/v1` at the end.
+- **Model lists follow the server address you type.** After editing the embedding server or AI curation server address in Settings, the model dropdowns kept showing the previous server's models until Settings was closed and reopened. They now reload about half a second after you stop typing, and the AI curation endpoint status re-checks the new address too.
+- **Plugin review warning cleared.** The rule that leaves inline images out of the text sent for descriptions no longer contains a control character. No behaviour change.
+
 ## 1.14.0 — 2026-10-21
 
 ### Changed
