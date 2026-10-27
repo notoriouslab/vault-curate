@@ -8,6 +8,7 @@ import { fetchOllamaModels, formatLocalDateTime, isLoopbackHost } from "../utils
 import type { OllamaModel } from "../utils";
 import type { ApiFormat } from "../types";
 import { resolveLlmUrl } from "../utils/resolveLlmUrl";
+import { keyText, resolveLlmApiKey } from "../utils/resolveLlmApiKey";
 import { fillModelSelect } from "../ui/modelSelect";
 import { t } from "../i18n";
 
@@ -24,7 +25,9 @@ export function clearRemoteWarning(setting: Setting) {
     if (existingHttp) existingHttp.remove();
 }
 
-export function updateRemoteWarning(ctx: SettingsContext, setting: Setting, url: string) {
+/** `key` is the key this row's server receives, read by the caller at call
+ *  time so a key typed later updates the warning. */
+export function updateRemoteWarning(setting: Setting, url: string, key: string) {
     clearRemoteWarning(setting);
     try {
         const parsed = new URL(url);
@@ -33,7 +36,7 @@ export function updateRemoteWarning(ctx: SettingsContext, setting: Setting, url:
             const warn = setting.settingEl.createDiv({ cls: "vault-curate-remote-warn" });
             warn.setText(t.remoteWarning);
         }
-        if (parsed.protocol === "http:" && !isLocal && ctx.plugin.settings.apiKey) {
+        if (parsed.protocol === "http:" && !isLocal && key) {
             const warn = setting.settingEl.createDiv({ cls: "vault-curate-http-warn vault-curate-remote-warn" });
             warn.setText(t.httpApiKeyWarning);
         }
@@ -100,7 +103,7 @@ export function renderModelDropdown(
         const format = isLlm ? settings.apiFormat : embFormat;
 
         void (async () => {
-            const models = await fetchOllamaModels(url, format, settings.apiKey);
+            const models = await fetchOllamaModels(url, format, isLlm ? resolveLlmApiKey(settings) : keyText(settings.apiKey));
             const sel = select;
             if (disposed || gen !== generation || !sel) return;
             fill(sel, models, currentValue, format);

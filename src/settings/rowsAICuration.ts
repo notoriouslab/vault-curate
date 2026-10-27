@@ -9,6 +9,7 @@ import { clearRemoteWarning, renderModelDropdown, SERVER_RELOAD_DELAY_MS, update
 import type { Predicate } from "./rowHelpers";
 import { checkLLMReachable } from "../utils";
 import { resolveLlmUrl } from "../utils/resolveLlmUrl";
+import { resolveLlmApiKey } from "../utils/resolveLlmApiKey";
 import { normalizeAiOutputLanguage } from "../utils/aiOutputLanguage";
 import { t } from "../i18n";
 
@@ -78,9 +79,9 @@ export function llmUrlRow(ctx: SettingsContext, visible: Predicate): SettingDefi
                 });
             });
             const refreshWarning = () => updateRemoteWarning(
-                ctx,
                 setting,
                 resolveLlmUrl(ctx.plugin.settings.llmUrl, ctx.plugin.settings.ollamaUrl),
+                resolveLlmApiKey(ctx.plugin.settings),
             );
             refreshWarning();
             // The http-with-key warning also depends on the key, typed later.
@@ -190,7 +191,7 @@ export function llmEndpointRow(ctx: SettingsContext, visible: Predicate): Settin
                 const status = await checkLLMReachable({
                     ollamaUrl: effectiveUrl,
                     apiFormat: settings.apiFormat,
-                    apiKey: settings.apiKey,
+                    apiKey: resolveLlmApiKey(settings),
                 });
                 // The row may be gone, or the address edited, by the time the probe answers.
                 if (disposed || gen !== generation) return;

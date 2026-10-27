@@ -195,7 +195,7 @@ describe("server address edits reload in place (#19 follow-up)", () => {
         const { setting, cleanup } = render(llmUrlRow(ctx, () => true));
         expect(setting.settingEl.querySelector(".vault-curate-http-warn")).toBeNull();
 
-        plugin.settings.apiKey = "sk-test";
+        plugin.settings.llmApiKey = "sk-test";
         ctx.serverChanged();
         expect(setting.settingEl.querySelector(".vault-curate-http-warn")).not.toBeNull();
         cleanup();

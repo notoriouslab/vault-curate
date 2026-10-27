@@ -12,6 +12,7 @@ import type {
 import { clusterEmbeddings, shouldFallbackToFlat } from "./clustering";
 import { formatLocalDateTime, requestLlmJson, toWikilink } from "./utils";
 import { resolveLlmUrl } from "./utils/resolveLlmUrl";
+import { resolveLlmApiKey } from "./utils/resolveLlmApiKey";
 import { stripDangerousInvisibles } from "./description-generator";
 import { locales, t } from "./i18n";
 import { resolvePromptSet } from "./utils/aiOutputLanguage";
@@ -131,7 +132,7 @@ async function nameCluster(
             ollamaUrl: resolveLlmUrl(settings.llmUrl, settings.ollamaUrl),
             llmModel: settings.llmModel,
             apiFormat: settings.apiFormat,
-            apiKey: settings.apiKey,
+            apiKey: resolveLlmApiKey(settings),
         },
         prompt,
         parseClusterNamingResponse,

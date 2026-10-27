@@ -9,6 +9,7 @@ import { clearRemoteWarning, renderModelDropdown, SERVER_RELOAD_DELAY_MS, update
 import type { Predicate } from "./rowHelpers";
 import { t } from "../i18n";
 import { resolveModelHost } from "../embedding/modelSource";
+import { keyText } from "../utils/resolveLlmApiKey";
 
 export function providerRow(ctx: SettingsContext): SettingDefinitionRender {
     return {
@@ -133,7 +134,7 @@ export function ollamaUrlRow(ctx: SettingsContext, visible?: Predicate): Setting
                 text.onChange(async (val) => {
                     ctx.plugin.settings.ollamaUrl = val.trim();
                     await ctx.plugin.saveSettings();
-                    updateRemoteWarning(ctx, setting, val.trim());
+                    updateRemoteWarning(setting, val.trim(), keyText(ctx.plugin.settings.apiKey));
                     if (Platform.isMobile) ctx.plugin.refreshMobileProvider(); // 015: layer 0↔2 flip
                     // Same as the AI curation server: reload the model lists
                     // (and the probe, when curation falls back to this server).
@@ -141,9 +142,14 @@ export function ollamaUrlRow(ctx: SettingsContext, visible?: Predicate): Setting
                     reloadTimer = window.setTimeout(() => ctx.serverChanged(), SERVER_RELOAD_DELAY_MS);
                 });
             });
-            updateRemoteWarning(ctx, setting, ctx.plugin.settings.ollamaUrl);
+            const refreshWarning = () => updateRemoteWarning(
+                setting,
+                ctx.plugin.settings.ollamaUrl,
+                keyText(ctx.plugin.settings.apiKey),
+            );
+            refreshWarning();
             // The http-with-key warning also depends on the key, typed later.
-            const unsubscribe = ctx.onServerChange(() => updateRemoteWarning(ctx, setting, ctx.plugin.settings.ollamaUrl));
+            const unsubscribe = ctx.onServerChange(refreshWarning);
             return () => {
                 if (reloadTimer !== null) window.clearTimeout(reloadTimer);
                 unsubscribe();

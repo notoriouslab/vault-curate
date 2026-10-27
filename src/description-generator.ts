@@ -18,6 +18,7 @@ import { Notice, TFile } from "obsidian";
 import type VaultSearchPlugin from "./main";
 import { checkLLMReachable, requestLlmJson, stripFrontmatter } from "./utils";
 import { resolveLlmUrl } from "./utils/resolveLlmUrl";
+import { resolveLlmApiKey } from "./utils/resolveLlmApiKey";
 import { stripDangerousInvisibles, trimDescription } from "./utils/sanitize";
 import { parseGeneratedDescription } from "./utils/parseGeneratedDescription";
 import { denoiseForEmbed } from "./indexer/denoise";
@@ -72,11 +73,11 @@ export class DescriptionGenerator {
      * perfectly reachable at /v1/*, so curation refused a working endpoint.
      */
     private async llmReachable(): Promise<boolean> {
-        const { ollamaUrl, llmUrl, apiFormat, apiKey } = this.plugin.settings;
+        const { ollamaUrl, llmUrl, apiFormat } = this.plugin.settings;
         return (await checkLLMReachable({
             ollamaUrl: resolveLlmUrl(llmUrl, ollamaUrl),
             apiFormat,
-            apiKey: apiKey ?? "",
+            apiKey: resolveLlmApiKey(this.plugin.settings),
         })).reachable;
     }
 
@@ -306,7 +307,7 @@ export class DescriptionGenerator {
                 ollamaUrl: url,
                 llmModel: model,
                 apiFormat: this.plugin.settings.apiFormat,
-                apiKey: this.plugin.settings.apiKey,
+                apiKey: resolveLlmApiKey(this.plugin.settings),
             },
             resolvePromptSet(this.plugin.settings, t, locales).description(title, content),
             (raw) => this.parseGeneratedJSON(raw),
