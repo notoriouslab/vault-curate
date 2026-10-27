@@ -27,6 +27,11 @@ export function mergeSettings(rawSettings: unknown, defaults: VaultSearchSetting
         ? rawSettings as Partial<VaultSearchSettings>
         : undefined;
     const merged = Object.assign({}, defaults, saved);
+    // 042 D1: no saved settings means a new install (Onboarding still due);
+    // saved settings without the field predate 042 and were set up already.
+    merged.onboardingDone = saved === undefined
+        ? false
+        : typeof saved.onboardingDone === "boolean" ? saved.onboardingDone : true;
     merged.dismissedPairs = sanitizeRecord(merged.dismissedPairs);
     merged.dismissedNotes = sanitizeRecord(merged.dismissedNotes);
     // 036 D6: a hand-edited value outside the list falls back to "auto";

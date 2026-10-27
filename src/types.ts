@@ -91,6 +91,10 @@ export interface VaultSearchSettings {
     /** Dismissed notes (013 D1): notePath → dismissedAt (ms). Note-level
      *  set for global discover, which has no anchor note. */
     dismissedNotes: Record<string, number>;
+    /** 042 D1: the first-launch Onboarding has been answered (Index now,
+     *  Later, or closed). Lives in data.json so it survives a deleted index
+     *  and travels with synced settings. Hidden setting. */
+    onboardingDone: boolean;
 }
 
 export const DEFAULT_SETTINGS: VaultSearchSettings = {
@@ -128,6 +132,7 @@ export const DEFAULT_SETTINGS: VaultSearchSettings = {
     promoteBidirectional: true,
     dismissedPairs: {},
     dismissedNotes: {},
+    onboardingDone: false,
 };
 
 /** data.json stores settings only — index lives in SQLite (Phase 4+). */

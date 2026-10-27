@@ -162,5 +162,14 @@ describe('041 D3 key migration', () => {
         const again = run({ ...first.merged });
         expect([again.llmApiKey, again.sent]).toEqual(['k', 'k']);
     });
-});
 
+    it('marks Onboarding due only for a new install (042 D1)', () => {
+        for (const raw of [null, undefined, 'x', []]) {
+            expect(mergeSettings(raw, DEFAULT_SETTINGS).onboardingDone).toBe(false);
+        }
+        expect(mergeSettings({}, DEFAULT_SETTINGS).onboardingDone).toBe(true);
+        expect(mergeSettings({ ollamaUrl: 'http://x' }, DEFAULT_SETTINGS).onboardingDone).toBe(true);
+        expect(mergeSettings({ onboardingDone: false }, DEFAULT_SETTINGS).onboardingDone).toBe(false);
+        expect(mergeSettings({ onboardingDone: 'yes' }, DEFAULT_SETTINGS).onboardingDone).toBe(true);
+    });
+});

@@ -58,6 +58,7 @@ import { makeTierResolver, resolveCreated } from "./heat/makeTierResolver";
 import { MobileIndexGate, type MobileGateState } from "./mobile/indexGate";
 import { probeStoreHealth } from "./mobile/probeStoreHealth";
 import { isLoopbackUrl } from "./utils";
+import { shouldShowOnboarding } from "./utils/onboardingGate";
 import { SELF_WRITE_TOLERANCE_MS, type TierResolver } from "./heat/deriveTier";
 import { relatedKwRank, kwRankForQuery } from "./search/relatedKwRank";
 import { parseTags } from "./search/relatedFusion";
@@ -460,11 +461,8 @@ export default class VaultSearchPlugin extends Plugin {
         this.settingTab = new VaultSearchSettingTab(this.app, this);
         this.addSettingTab(this.settingTab);
 
-        // Phase 8 (004 rebrand) first-launch onboarding. The modal pops
-        // when both signals are absent:
-        //   - last_indexed_at  → set by the indexer on first successful rebuild
-        //   - onboarding_dismissed → set when the user clicks Skip / Esc / X
-        // Either signal alone is enough to stop bouncing the modal each launch.
+        // Phase 8 (004 rebrand) first-launch onboarding, shown only while
+        // `onboardingDone` is false and there is no index yet (042 D1).
         // If store init failed, surface a recovery notice rather than going
         // silent.
         this.app.workspace.onLayoutReady(() => {
@@ -485,10 +483,13 @@ export default class VaultSearchPlugin extends Plugin {
                 return;
             }
             const indexed = this.store.getMeta("last_indexed_at");
-            const dismissed = this.store.getMeta("onboarding_dismissed");
-            // 015: onboarding is a desktop flow (its first line writes meta;
-            // mobile is read-only and index-less setup makes no sense there).
-            if (!indexed && !dismissed && !Platform.isMobile) {
+            // 015: onboarding is a desktop flow (mobile is read-only and
+            // index-less setup makes no sense there).
+            if (shouldShowOnboarding({
+                onboardingDone: this.settings.onboardingDone,
+                indexed: !!indexed,
+                mobile: Platform.isMobile,
+            })) {
                 this.showOnboardingModal();
             }
             // 034 D2: chunking-policy state. A provider that failed to build
