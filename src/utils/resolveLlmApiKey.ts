@@ -9,7 +9,7 @@
  *
  * Every AI curation request, probe, model list and warning must resolve
  * the key through this function. Only mergeSettings (the migration) and
- * the settings row that edits it read `llmApiKey` raw — a second fallback
+ * the settings row that edits it read `llmApiKey` raw. A second fallback
  * definition is how the 022 pre-flight drift happened (see resolveLlmUrl).
  */
 
