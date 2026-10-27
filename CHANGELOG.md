@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.15.0 — 2026-10-27
+
+### Changed
+- **The embedding server and the AI curation server each have their own API key (#19).** Until now one API key was sent to both servers, so pointing AI curation at a service such as OpenRouter while embeddings stayed on another server meant one of them always got the wrong key. Settings → AI Curation now has an **AI curation API key** field right under the AI curation server, and that key is sent only to the AI curation server. The **API key** at the top is now only for the embedding server and only shows when embeddings use Ollama or an OpenAI-compatible server. If AI curation uses the same server as embeddings (the AI curation server left empty) and its key is empty, it keeps using the embedding key, as before.
+
+### Upgrading
+- **Nothing stops working.** If your AI curation server is filled in and you had an API key, that key has been copied into the new AI curation API key field, so AI curation keeps sending what it sent before. If the two servers are different services, replace it with the AI curation service's own key.
+- **Changing the embedding key no longer changes the key AI curation sends** once the AI curation server is filled in.
+- **With the built-in embedding model, an API key you typed earlier can still be in use.** If you once used an external embedding server and switched back to built-in, AI curation on the same server still sends that old key, although its field is now hidden. Type a key in AI curation API key to use that one instead.
+- **Synced devices:** update the plugin on every device. If AI curation suddenly answers 401 on one of them, type the key again in AI curation API key.
+
+### Fixed
+- **Model lists send the API key.** Servers that need a key to list their models, such as OpenAI-compatible services, used to show "Could not load the model list" even with the right key filled in.
+- **The warning about sending a key over plain http appears as soon as you type the key**, not only after reopening Settings.
+
 ## 1.14.1 — 2026-10-27
 
 ### Fixed
