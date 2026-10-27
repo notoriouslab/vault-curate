@@ -193,6 +193,7 @@ describe("server address edits reload in place (#19 follow-up)", () => {
 
         cleanup?.();
         expect(ctx.serverChanged).toHaveBeenCalledTimes(1);
+        expect(ctx.warningsChanged).toHaveBeenCalledTimes(2);
     });
 
     it("typing a key redraws the server row's http warning right away", async () => {

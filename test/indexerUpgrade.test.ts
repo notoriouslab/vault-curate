@@ -240,6 +240,22 @@ describe('indexer chunk-policy upgrade', () => {
         expect(h.store.getMeta(META_POLICY)).toBeNull();
     });
 
+    it('(p2) a single-file index stops without meta when the provider is swapped (042)', async () => {
+        const h = await makeHarness(notesWith(2), makeProvider({ tokenPolicy: true }));
+        await h.indexer.rebuild();
+        const a = makeProvider({ tokenPolicy: true });
+        const b = makeProvider({ tokenPolicy: true });
+        b.modelId = 'model-B';
+        const split = a.splitForEmbed!;
+        a.splitForEmbed = async (body, title) => {
+            h.setProvider(b); // closing Settings reloads mid-edit
+            return split(body, title);
+        };
+        h.setProvider(a);
+        await expect(h.indexer.indexSingleFile(h.files.get(noteNames(2)[0])!.file)).resolves.toBeUndefined();
+        expect(h.store.getMeta('embedding_model_id')).toBe('fake-model');
+    });
+
     it('(q) counts attempts for an external provider whose chunk size changed', async () => {
         const h = await makeHarness(notesWith(3), makeProvider({ tokenPolicy: false }));
         await h.indexer.rebuild();

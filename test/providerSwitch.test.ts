@@ -31,6 +31,13 @@ describe("switchProvider (042 D6)", () => {
         await expect(switchProvider(h, "ollama", "wasm")).resolves.toBeUndefined();
     });
 
+    it("never rejects when the first save fails", async () => {
+        const h = host({ saveFailsAfter: 0 });
+        await expect(switchProvider(h, "ollama", "wasm")).resolves.toBeUndefined();
+        expect(h.reload).not.toHaveBeenCalled();
+        expect(h.rebuild).not.toHaveBeenCalled();
+    });
+
     it("a successful switch refreshes and rebuilds", async () => {
         const h = host();
         await switchProvider(h, "ollama", "wasm");

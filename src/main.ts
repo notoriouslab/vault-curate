@@ -1210,7 +1210,8 @@ export default class VaultSearchPlugin extends Plugin {
                 if (type === "delete") {
                     this.indexer.removeNote(file.path);
                 } else {
-                    void this.indexer.indexSingleFile(file);
+                    this.indexer.indexSingleFile(file).catch((err) =>
+                        console.error("vault-curate: auto-index failed", file.path, err));
                 }
             }, 2000)
         );

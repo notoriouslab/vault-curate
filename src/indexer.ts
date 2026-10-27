@@ -521,11 +521,15 @@ export class Indexer {
 
     async indexSingleFile(file: TFile): Promise<void> {
         if (this.store.isDisposed) return;
+        // 042: closing Settings can swap the provider mid-edit (034 D2):
+        // stop rather than stamp the new model's meta over this write.
+        const passProvider = this.provider;
         await this.ensureProviderReady();
-        if (this.store.isDisposed) return;
+        if (this.store.isDisposed || this.provider !== passProvider) return;
         const incomingSet = this.buildIncomingSet();
         const h1Collisions = this.buildH1Collisions(this.getMarkdownFiles());
         await this.indexOne(file, incomingSet, h1Collisions);
+        if (this.store.isDisposed || this.provider !== passProvider) return;
         this.writeIndexMeta();
         // The upsert just invalidated the BM25 index — re-warm it in the
         // background so relatedness fusion stays consistently available
@@ -842,11 +846,14 @@ export class Indexer {
     }
 
     private async ensureProviderReady(): Promise<void> {
-        if (await this.provider.isReady()) return;
-        console.debug(`vault-curate: warming up ${this.provider.displayName}...`);
+        // One provider throughout: a swap mid-warmup must not read the new,
+        // not yet warmed provider's dimension (it throws).
+        const provider = this.provider;
+        if (await provider.isReady()) return;
+        console.debug(`vault-curate: warming up ${provider.displayName}...`);
         const t0 = Date.now();
-        await this.provider.warmup();
-        console.debug(`vault-curate: warmup done in ${Date.now() - t0}ms, dim=${this.provider.dimension}, modelId=${this.provider.modelId}`);
+        await provider.warmup();
+        console.debug(`vault-curate: warmup done in ${Date.now() - t0}ms, dim=${provider.dimension}, modelId=${provider.modelId}`);
     }
 
     /**

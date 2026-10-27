@@ -20,9 +20,9 @@ export async function switchProvider(
     next: EmbeddingProviderType,
     old: EmbeddingProviderType,
 ): Promise<void> {
-    host.settings.embeddingProvider = next;
-    await host.saveSettings();
     try {
+        host.settings.embeddingProvider = next;
+        await host.saveSettings();
         await host.reload();
     } catch {
         try {
