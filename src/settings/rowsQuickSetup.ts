@@ -156,6 +156,7 @@ export function apiKeyRow(ctx: SettingsContext, visible?: Predicate): SettingDef
         desc: t.apiKeyDesc,
         visible,
         render: (setting) => {
+            let reloadTimer: number | null = null;
             setting.addText(text => {
                 text.setPlaceholder(t.apiKeyPlaceholder);
                 text.setValue(ctx.plugin.settings.apiKey);
@@ -164,8 +165,15 @@ export function apiKeyRow(ctx: SettingsContext, visible?: Predicate): SettingDef
                     ctx.plugin.settings.apiKey = val.trim();
                     await ctx.plugin.saveSettings();
                     if (Platform.isMobile) ctx.plugin.refreshMobileProvider(); // 015
+                    // The model lists and the probe send this key: a key typed
+                    // after the address must reload them like the address does.
+                    if (reloadTimer !== null) window.clearTimeout(reloadTimer);
+                    reloadTimer = window.setTimeout(() => ctx.serverChanged(), SERVER_RELOAD_DELAY_MS);
                 });
             });
+            return () => {
+                if (reloadTimer !== null) window.clearTimeout(reloadTimer);
+            };
         },
     };
 }

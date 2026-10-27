@@ -100,7 +100,7 @@ export function renderModelDropdown(
         const format = isLlm ? settings.apiFormat : embFormat;
 
         void (async () => {
-            const models = await fetchOllamaModels(url, format);
+            const models = await fetchOllamaModels(url, format, settings.apiKey);
             const sel = select;
             if (disposed || gen !== generation || !sel) return;
             fill(sel, models, currentValue, format);

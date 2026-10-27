@@ -35,7 +35,7 @@ const SHOW_TIMEOUT_MS = 3000;
  * Any failure — non-200, timeout, malformed payload — degrades to undefined
  * so the caller falls through to the name heuristic. Only successes are cached.
  */
-async function fetchShowCapabilities(url: string, entry: OllamaTagEntry): Promise<string[] | undefined> {
+async function fetchShowCapabilities(url: string, entry: OllamaTagEntry, apiKey?: string): Promise<string[] | undefined> {
     const key = `${url.replace(/\/+$/, "")}|${entry.digest ?? entry.name}`;
     const cached = showCapsCache.get(key);
     if (cached) return cached;
@@ -43,7 +43,7 @@ async function fetchShowCapabilities(url: string, entry: OllamaTagEntry): Promis
         const resp = await withTimeout(requestUrl({
             url: `${url}/api/show`,
             method: "POST",
-            headers: buildHeaders(),
+            headers: buildHeaders(apiKey),
             body: JSON.stringify({ model: entry.name }),
             throw: false,
         }), SHOW_TIMEOUT_MS, "Ollama show");
@@ -57,12 +57,17 @@ async function fetchShowCapabilities(url: string, entry: OllamaTagEntry): Promis
     }
 }
 
-export async function fetchOllamaModels(url: string, format: ApiFormat = "ollama"): Promise<OllamaModel[]> {
+/**
+ * List the models a server offers. `apiKey` is sent like on every other
+ * request to that server: OpenAI-compatible services such as OpenAI itself
+ * answer `/v1/models` with 401 without it.
+ */
+export async function fetchOllamaModels(url: string, format: ApiFormat = "ollama", apiKey?: string): Promise<OllamaModel[]> {
     try {
         validateServerUrl(url);
 
         if (format === "openai") {
-            const resp = await requestUrl({ url: openaiEndpoint(url, "models"), throw: false });
+            const resp = await requestUrl({ url: openaiEndpoint(url, "models"), headers: buildHeaders(apiKey), throw: false });
             if (resp.status !== 200) return [];
             const data = resp.json as { data?: Array<{ id: string }> };
             // `/v1/models` carries no type information — name heuristic only.
@@ -72,14 +77,14 @@ export async function fetchOllamaModels(url: string, format: ApiFormat = "ollama
             });
         }
 
-        const resp = await requestUrl({ url: `${url}/api/tags`, throw: false });
+        const resp = await requestUrl({ url: `${url}/api/tags`, headers: buildHeaders(apiKey), throw: false });
         if (resp.status !== 200) return [];
         const data = resp.json as { models?: OllamaTagEntry[] };
         const entries = data.models ?? [];
         const capsList = await Promise.all(entries.map((m) =>
             m.capabilities !== undefined
                 ? Promise.resolve<string[] | undefined>(m.capabilities)
-                : fetchShowCapabilities(url, m)
+                : fetchShowCapabilities(url, m, apiKey)
         ));
         return entries.map((m, i) => {
             const { kind, source } = resolveModelKind(m.name, capsList[i]);

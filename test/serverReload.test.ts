@@ -19,7 +19,7 @@ vi.mock("../src/utils", async (orig) => ({
 }));
 
 import { llmEndpointRow, llmModelRow, llmUrlRow } from "../src/settings/rowsAICuration";
-import { ollamaUrlRow } from "../src/settings/rowsQuickSetup";
+import { apiKeyRow, ollamaUrlRow } from "../src/settings/rowsQuickSetup";
 import { SERVER_RELOAD_DELAY_MS } from "../src/settings/rowHelpers";
 import { VaultSearchSettingTab } from "../src/settings";
 
@@ -89,7 +89,7 @@ describe("server address edits reload in place (#19 follow-up)", () => {
         ctx.serverChanged();
         await flush();
 
-        expect(fetchOllamaModels).toHaveBeenLastCalledWith("http://localhost:11434", "ollama");
+        expect(fetchOllamaModels).toHaveBeenLastCalledWith("http://localhost:11434", "ollama", plugin.settings.apiKey);
         expect(optionValues(setting)).toEqual(["", "gemma3:4b", "qwen3.8:27b-mlx"]);
         expect((setting.controlEl.querySelector("select") as HTMLSelectElement).value).toBe("gemma3:4b");
         cleanup();
@@ -165,6 +165,7 @@ describe("server address edits reload in place (#19 follow-up)", () => {
     it.each([
         ["AI curation server", (ctx: SettingsContext) => llmUrlRow(ctx, () => true)],
         ["embedding server", (ctx: SettingsContext) => ollamaUrlRow(ctx)],
+        ["API key", (ctx: SettingsContext) => apiKeyRow(ctx)],
     ])("the %s field reloads once typing pauses, not per keystroke", async (_label, build) => {
         vi.useFakeTimers();
         const { ctx } = makeCtx();
