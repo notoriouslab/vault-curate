@@ -28,7 +28,9 @@ export interface OnboardingChoice {
     openaiKey?: string;
     /** Populated only when provider === "ollama". */
     ollamaModel?: string;
-    /** True when the user dismissed with "Skip for now" (vs. picked a provider). */
+    /** True when the modal was closed (Esc / X / backdrop) without a button:
+     *  nothing is applied (042 D2). "Skip for now" applies the choices
+     *  without indexing, as in 1.15.0. */
     dismissed: boolean;
 }
 
@@ -82,7 +84,7 @@ export class OnboardingModal extends Modal {
 
         const btnRow = this.contentEl.createDiv({ cls: "vault-curate-modal-btnrow" });
         const skipBtn = btnRow.createEl("button", { text: t.onboardingLater });
-        skipBtn.addEventListener("click", () => this.complete(false, true));
+        skipBtn.addEventListener("click", () => this.complete(false, false));
 
         this.indexBtn = btnRow.createEl("button", { text: t.onboardingIndexNow });
         this.indexBtn.addClass("mod-cta");

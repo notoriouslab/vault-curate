@@ -3,7 +3,7 @@
 ## 1.15.1 — 2026-10-27
 
 ### Fixed
-- **Closing the welcome screen no longer changes your settings.** Closing it with Esc or the close button now only remembers that you have seen it.
+- **Closing the welcome screen no longer changes your settings.** Closing it with Esc or the close button now only remembers that you have seen it. **Skip for now** still keeps what you chose, without building the index.
 - **The welcome screen no longer overwrites synced settings.** On a computer that already has your settings through sync but has no index yet, the welcome screen used to appear and could replace them with its own choices. It now appears only on first use. If a second computer loads the plugin before sync has brought your settings over, it can still appear once; let sync finish and restart Obsidian before choosing anything there.
 - **Changing the embedding server address or API key no longer needs a restart.** On desktop, the new address and key take effect when you close Settings, or when you press Update index or Rebuild index; if they don't seem to apply, press Update index. On mobile they take effect when you leave the field.
 - **A failed provider switch puts the previous provider back**, so Settings never shows a provider that is not running.

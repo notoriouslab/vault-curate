@@ -44,6 +44,22 @@ const providers: OnboardingChoice[] = [
 
 beforeEach(() => { notices.length = 0; });
 
+describe("applyOnboardingChoice: Skip for now applies without indexing", () => {
+    it("openai-compatible: settings applied, backend reloaded, no rebuild", async () => {
+        const p = fakePlugin();
+        await apply(p, choice({
+            provider: "openai-compatible", openaiUrl: "https://api.example.com/v1",
+            openaiModel: "emb-1", openaiKey: "sk-x", indexNow: false,
+        }));
+        expect(p.settings.embeddingProvider).toBe("openai-compatible");
+        expect(p.settings.ollamaUrl).toBe("https://api.example.com/v1");
+        expect(p.settings.apiKey).toBe("sk-x");
+        expect(p.settings.onboardingDone).toBe(true);
+        expect(p.reloadEmbedding).toHaveBeenCalledTimes(1);
+        expect(p.rebuildIndex).not.toHaveBeenCalled();
+    });
+});
+
 describe("applyOnboardingChoice: dismiss changes nothing (042 D2)", () => {
     for (const c of providers) {
         it(`${c.provider}: only onboardingDone flips`, async () => {
