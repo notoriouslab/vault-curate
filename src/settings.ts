@@ -91,6 +91,17 @@ export class VaultSearchSettingTab extends PluginSettingTab implements SettingsC
         for (const cb of [...this.serverListeners]) cb();
     }
 
+    private warningListeners = new Set<() => void>();
+
+    onWarningsChange(cb: () => void): () => void {
+        this.warningListeners.add(cb);
+        return () => { this.warningListeners.delete(cb); };
+    }
+
+    warningsChanged(): void {
+        for (const cb of [...this.warningListeners]) cb();
+    }
+
     private runCleanups(): void {
         const pending = this.cleanups;
         this.cleanups = [];

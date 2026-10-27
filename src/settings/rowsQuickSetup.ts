@@ -5,7 +5,7 @@ import { Platform } from "obsidian";
 import type { Setting, SettingDefinitionRender } from "obsidian";
 import type { SettingsContext } from "./types";
 import type { EmbeddingProviderType } from "../types";
-import { clearRemoteWarning, renderModelDropdown, SERVER_RELOAD_DELAY_MS, updateRemoteWarning } from "./rowHelpers";
+import { clearRemoteWarning, renderModelDropdown, updateRemoteWarning } from "./rowHelpers";
 import type { Predicate } from "./rowHelpers";
 import { t } from "../i18n";
 import { resolveModelHost } from "../embedding/modelSource";
@@ -124,7 +124,6 @@ export function ollamaUrlRow(ctx: SettingsContext, visible?: Predicate): Setting
         desc: t.ollamaUrlDesc,
         visible,
         render: (setting) => {
-            let reloadTimer: number | null = null;
             setting.addText(text => {
                 text.setPlaceholder(t.urlPlaceholder);
                 text.setValue(ctx.plugin.settings.ollamaUrl);
@@ -132,13 +131,13 @@ export function ollamaUrlRow(ctx: SettingsContext, visible?: Predicate): Setting
                     ctx.plugin.settings.ollamaUrl = val.trim();
                     await ctx.plugin.saveSettings();
                     updateRemoteWarning(setting, val.trim(), keyText(ctx.plugin.settings.apiKey));
-                    // Same as the AI curation server: reload the model lists
-                    // (and the probe, when curation falls back to this server).
-                    if (reloadTimer !== null) window.clearTimeout(reloadTimer);
-                    reloadTimer = window.setTimeout(() => ctx.serverChanged(), SERVER_RELOAD_DELAY_MS);
                 });
-                // 015 layer 0↔2 flip, once the field is left (042 D4).
+                text.inputEl.addEventListener("input", () => ctx.warningsChanged());
+                // Once the field is left: reload the model lists (and the
+                // probe, when curation falls back to this server), and on
+                // mobile flip 015 layer 0↔2 (042 D4/D7).
                 text.inputEl.addEventListener("change", () => {
+                    ctx.serverChanged();
                     if (Platform.isMobile) ctx.plugin.refreshMobileProvider();
                 });
             });
@@ -149,9 +148,8 @@ export function ollamaUrlRow(ctx: SettingsContext, visible?: Predicate): Setting
             );
             refreshWarning();
             // The http-with-key warning also depends on the key, typed later.
-            const unsubscribe = ctx.onServerChange(refreshWarning);
+            const unsubscribe = ctx.onWarningsChange(refreshWarning);
             return () => {
-                if (reloadTimer !== null) window.clearTimeout(reloadTimer);
                 unsubscribe();
                 clearRemoteWarning(setting);
             };
@@ -165,7 +163,6 @@ export function apiKeyRow(ctx: SettingsContext, visible?: Predicate): SettingDef
         desc: t.apiKeyDesc,
         visible,
         render: (setting) => {
-            let reloadTimer: number | null = null;
             setting.addText(text => {
                 text.setPlaceholder(t.apiKeyPlaceholder);
                 text.setValue(ctx.plugin.settings.apiKey);
@@ -173,18 +170,15 @@ export function apiKeyRow(ctx: SettingsContext, visible?: Predicate): SettingDef
                 text.onChange(async (val) => {
                     ctx.plugin.settings.apiKey = val.trim();
                     await ctx.plugin.saveSettings();
-                    // The model lists and the probe send this key: a key typed
-                    // after the address must reload them like the address does.
-                    if (reloadTimer !== null) window.clearTimeout(reloadTimer);
-                    reloadTimer = window.setTimeout(() => ctx.serverChanged(), SERVER_RELOAD_DELAY_MS);
                 });
+                text.inputEl.addEventListener("input", () => ctx.warningsChanged());
+                // The model lists and the probe send this key: reload them
+                // like the address does (042 D4/D7).
                 text.inputEl.addEventListener("change", () => {
-                    if (Platform.isMobile) ctx.plugin.refreshMobileProvider(); // 042 D4
+                    ctx.serverChanged();
+                    if (Platform.isMobile) ctx.plugin.refreshMobileProvider();
                 });
             });
-            return () => {
-                if (reloadTimer !== null) window.clearTimeout(reloadTimer);
-            };
         },
     };
 }

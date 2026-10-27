@@ -5,7 +5,7 @@
 import { Platform } from "obsidian";
 import type { SettingDefinitionRender } from "obsidian";
 import type { SettingsContext } from "./types";
-import { clearRemoteWarning, renderModelDropdown, SERVER_RELOAD_DELAY_MS, updateRemoteWarning } from "./rowHelpers";
+import { clearRemoteWarning, renderModelDropdown, updateRemoteWarning } from "./rowHelpers";
 import type { Predicate } from "./rowHelpers";
 import { checkLLMReachable } from "../utils";
 import { resolveLlmUrl } from "../utils/resolveLlmUrl";
@@ -64,7 +64,6 @@ export function llmUrlRow(ctx: SettingsContext, visible: Predicate): SettingDefi
         desc: t.llmUrlDesc,
         visible,
         render: (setting) => {
-            let reloadTimer: number | null = null;
             setting.addText(text => {
                 text.setPlaceholder(ctx.plugin.settings.ollamaUrl);
                 text.setValue(ctx.plugin.settings.llmUrl);
@@ -72,11 +71,11 @@ export function llmUrlRow(ctx: SettingsContext, visible: Predicate): SettingDefi
                     ctx.plugin.settings.llmUrl = val.trim();
                     await ctx.plugin.saveSettings();
                     refreshWarning();
-                    // The model list and endpoint probe follow the new address
-                    // once typing pauses; one request per pause, not per key.
-                    if (reloadTimer !== null) window.clearTimeout(reloadTimer);
-                    reloadTimer = window.setTimeout(() => ctx.serverChanged(), SERVER_RELOAD_DELAY_MS);
                 });
+                text.inputEl.addEventListener("input", () => ctx.warningsChanged());
+                // The model list and endpoint probe follow the new address
+                // once the field is left; one request per edit (042 D7).
+                text.inputEl.addEventListener("change", () => ctx.serverChanged());
             });
             const refreshWarning = () => updateRemoteWarning(
                 setting,
@@ -85,9 +84,8 @@ export function llmUrlRow(ctx: SettingsContext, visible: Predicate): SettingDefi
             );
             refreshWarning();
             // The http-with-key warning also depends on the key, typed later.
-            const unsubscribe = ctx.onServerChange(refreshWarning);
+            const unsubscribe = ctx.onWarningsChange(refreshWarning);
             return () => {
-                if (reloadTimer !== null) window.clearTimeout(reloadTimer);
                 unsubscribe();
                 clearRemoteWarning(setting);
             };
@@ -104,7 +102,6 @@ export function llmApiKeyRow(ctx: SettingsContext, visible: Predicate): SettingD
         desc: t.llmApiKeyDesc,
         visible,
         render: (setting) => {
-            let reloadTimer: number | null = null;
             setting.addText(text => {
                 text.setPlaceholder(t.apiKeyPlaceholder);
                 text.setValue(ctx.plugin.settings.llmApiKey);
@@ -112,15 +109,13 @@ export function llmApiKeyRow(ctx: SettingsContext, visible: Predicate): SettingD
                 text.onChange(async (val) => {
                     ctx.plugin.settings.llmApiKey = val.trim();
                     await ctx.plugin.saveSettings();
-                    // The LLM model list, the probe and the http warning send
-                    // this key: reload them once typing pauses.
-                    if (reloadTimer !== null) window.clearTimeout(reloadTimer);
-                    reloadTimer = window.setTimeout(() => ctx.serverChanged(), SERVER_RELOAD_DELAY_MS);
                 });
+                // The http warning follows each keystroke; the LLM model list
+                // and the probe send this key, so they reload once the field
+                // is left (042 D7).
+                text.inputEl.addEventListener("input", () => ctx.warningsChanged());
+                text.inputEl.addEventListener("change", () => ctx.serverChanged());
             });
-            return () => {
-                if (reloadTimer !== null) window.clearTimeout(reloadTimer);
-            };
         },
     };
 }

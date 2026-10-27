@@ -20,7 +20,6 @@ vi.mock("../src/utils", async (orig) => ({
 
 import { llmApiKeyRow, llmEndpointRow, llmModelRow, llmUrlRow } from "../src/settings/rowsAICuration";
 import { apiKeyRow, ollamaUrlRow } from "../src/settings/rowsQuickSetup";
-import { SERVER_RELOAD_DELAY_MS } from "../src/settings/rowHelpers";
 import { VaultSearchSettingTab } from "../src/settings";
 import { buildDesktopDefinitions } from "../src/settings/definitions";
 
@@ -45,6 +44,7 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
 function makeCtx(overrides: Record<string, unknown> = {}) {
     const tab = Object.create(VaultSearchSettingTab.prototype) as VaultSearchSettingTab;
     (tab as unknown as { serverListeners: Set<() => void> }).serverListeners = new Set();
+    (tab as unknown as { warningListeners: Set<() => void> }).warningListeners = new Set();
     const plugin = {
         settings: { ...DEFAULT_SETTINGS, enableAICuration: true, ...overrides },
         saveSettings: vi.fn(async () => { /* noop */ }),
@@ -56,7 +56,12 @@ function makeCtx(overrides: Record<string, unknown> = {}) {
         refreshPredicates: vi.fn(),
         onServerChange: (cb: () => void) => tab.onServerChange(cb),
         serverChanged: vi.fn(() => tab.serverChanged()),
-    } as unknown as SettingsContext & { serverChanged: ReturnType<typeof vi.fn> };
+        onWarningsChange: (cb: () => void) => tab.onWarningsChange(cb),
+        warningsChanged: vi.fn(() => tab.warningsChanged()),
+    } as unknown as SettingsContext & {
+        serverChanged: ReturnType<typeof vi.fn>;
+        warningsChanged: ReturnType<typeof vi.fn>;
+    };
     return { ctx, plugin };
 }
 
@@ -168,27 +173,45 @@ describe("server address edits reload in place (#19 follow-up)", () => {
         ["embedding server", (ctx: SettingsContext) => ollamaUrlRow(ctx)],
         ["API key", (ctx: SettingsContext) => apiKeyRow(ctx)],
         ["AI curation API key", (ctx: SettingsContext) => llmApiKeyRow(ctx, () => true)],
-    ])("the %s field reloads once typing pauses, not per keystroke", async (_label, build) => {
-        vi.useFakeTimers();
+    ])("the %s field: typing redraws warnings, leaving reloads the lists (042 D7)", async (_label, build) => {
         const { ctx } = makeCtx();
-        let text!: { emit(v: string): unknown };
+        let text!: { emit(v: string): unknown; inputEl: HTMLElement };
         const setting = new Setting(document.createElement("div")) as Setting & { addText: Setting["addText"] };
         const orig = setting.addText.bind(setting);
         setting.addText = ((cb: (c: never) => unknown) => orig((c: never) => { text = c as never; return cb(c); })) as never;
-        const cleanup = (build(ctx).render as (s: Setting) => () => void)(setting);
+        const cleanup = (build(ctx).render as (s: Setting) => (() => void) | void)(setting);
+        const type = async (v: string) => { await text.emit(v); text.inputEl.dispatchEvent(new Event("input")); };
 
-        await text.emit("http://localhost:1");
-        await text.emit("http://localhost:11");
-        await text.emit("http://localhost:11434");
+        await type("http://localhost:1");
+        await type("http://localhost:11434");
+        expect(ctx.warningsChanged).toHaveBeenCalledTimes(2);
         expect(ctx.serverChanged).not.toHaveBeenCalled();
-        vi.advanceTimersByTime(SERVER_RELOAD_DELAY_MS);
+
+        text.inputEl.dispatchEvent(new Event("change"));
         expect(ctx.serverChanged).toHaveBeenCalledTimes(1);
         expect(ctx.refresh).not.toHaveBeenCalled();
 
-        await text.emit("http://localhost:11435");
-        cleanup();
-        vi.advanceTimersByTime(SERVER_RELOAD_DELAY_MS);
+        cleanup?.();
         expect(ctx.serverChanged).toHaveBeenCalledTimes(1);
+    });
+
+    it("typing a key redraws the server row's http warning right away", async () => {
+        const { ctx, plugin } = makeCtx({ embeddingProvider: "ollama", ollamaUrl: "http://192.168.1.20:11434", apiKey: "" });
+        const urlRow = render(ollamaUrlRow(ctx));
+        expect(urlRow.setting.settingEl.querySelector(".vault-curate-http-warn")).toBeNull();
+
+        let key!: { emit(v: string): unknown; inputEl: HTMLElement };
+        const keySetting = new Setting(document.createElement("div")) as Setting & { addText: Setting["addText"] };
+        const orig = keySetting.addText.bind(keySetting);
+        keySetting.addText = ((cb: (c: never) => unknown) => orig((c: never) => { key = c as never; return cb(c); })) as never;
+        (apiKeyRow(ctx).render as (s: Setting) => unknown)(keySetting);
+
+        await key.emit("sk-test");
+        key.inputEl.dispatchEvent(new Event("input"));
+        expect(plugin.settings.apiKey).toBe("sk-test");
+        expect(urlRow.setting.settingEl.querySelector(".vault-curate-http-warn")).not.toBeNull();
+        expect(ctx.serverChanged).not.toHaveBeenCalled();
+        urlRow.cleanup();
     });
 
     it("the http-with-key warning appears when the key is typed after the address", async () => {
@@ -197,7 +220,7 @@ describe("server address edits reload in place (#19 follow-up)", () => {
         expect(setting.settingEl.querySelector(".vault-curate-http-warn")).toBeNull();
 
         plugin.settings.llmApiKey = "sk-test";
-        ctx.serverChanged();
+        ctx.warningsChanged();
         expect(setting.settingEl.querySelector(".vault-curate-http-warn")).not.toBeNull();
         cleanup();
     });
@@ -250,7 +273,7 @@ describe("AI curation API key field (041 D1/D4)", () => {
         const { ctx, plugin } = makeCtx({ llmUrl: "http://192.168.1.20:11434", llmApiKey: "", apiKey: "" });
         const { setting, cleanup } = render(llmUrlRow(ctx, () => true));
         plugin.settings.apiKey = "sk";
-        ctx.serverChanged();
+        ctx.warningsChanged();
         expect(setting.settingEl.querySelector(".vault-curate-http-warn")).toBeNull();
         cleanup();
     });

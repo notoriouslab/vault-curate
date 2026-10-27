@@ -14,6 +14,8 @@ function makeCtx() {
         plugin,
         onServerChange: () => () => { /* none */ },
         serverChanged: vi.fn(),
+        onWarningsChange: () => () => { /* none */ },
+        warningsChanged: vi.fn(),
     } as unknown as SettingsContext;
     return { ctx, plugin };
 }
@@ -33,14 +35,10 @@ function field(def: SettingDefinitionRender) {
 }
 
 describe("mobile URL/key rows refresh the provider on change only (042 D4)", () => {
-    afterEach(() => {
-        (Platform as { isMobile: boolean }).isMobile = false;
-        vi.useRealTimers();
-    });
+    afterEach(() => { (Platform as { isMobile: boolean }).isMobile = false; });
 
     for (const [name, row] of [["URL", ollamaUrlRow], ["key", apiKeyRow]] as const) {
         it(`${name}: typing → 0, leaving → 1 on mobile; 0 on desktop`, async () => {
-            vi.useFakeTimers();
             (Platform as { isMobile: boolean }).isMobile = true;
             const m = makeCtx();
             const f = field(row(m.ctx));

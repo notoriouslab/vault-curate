@@ -23,4 +23,10 @@ export interface SettingsContext {
     /** A server address was edited: reload those rows in place. Never a
      *  full re-render, which would steal focus from the address input. */
     serverChanged(): void;
+    /** A row whose warning depends on another field (the http-with-key
+     *  warning on the server rows) registers how to redraw it. */
+    onWarningsChange(cb: () => void): () => void;
+    /** A server or key field was typed in: redraw the warnings now. The
+     *  model lists wait for serverChanged() when the field is left (042 D7). */
+    warningsChanged(): void;
 }

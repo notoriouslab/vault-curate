@@ -57,6 +57,8 @@ function ctxFor(settings: VaultSearchSettings): SettingsContext {
         refreshPredicates: vi.fn(),
         onServerChange: () => () => { /* nothing registered */ },
         serverChanged: vi.fn(),
+        onWarningsChange: () => () => { /* nothing registered */ },
+        warningsChanged: vi.fn(),
     } as unknown as SettingsContext;
 }
 

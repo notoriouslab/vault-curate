@@ -14,10 +14,6 @@ import { t } from "../i18n";
 
 export type Predicate = () => boolean;
 
-/** Pause after the last keystroke in a server address before the model
- *  lists and the endpoint probe reload. */
-export const SERVER_RELOAD_DELAY_MS = 500;
-
 export function clearRemoteWarning(setting: Setting) {
     const existing = setting.settingEl.querySelector(".vault-curate-remote-warn");
     if (existing) existing.remove();
