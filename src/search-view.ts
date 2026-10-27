@@ -21,6 +21,7 @@ import { classifyMocSize } from "./clustering";
 import { FallbackToFlatError, generateMocGrouped, NoteForMoc, renderMocGrouped } from "./moc-generator";
 import { t } from "./i18n";
 import { pairKey } from "./utils/pairKey";
+import { discoverNoIndexState } from "./utils/onboardingGate";
 
 /** 013 D11: how a result row resolves its dismiss write. Pair-level rows
  *  (Find Similar / Discover-current) carry the anchor note the results were
@@ -518,13 +519,7 @@ export class SearchView extends ItemView {
         // "not indexed" message we're about to set here.
         this.discoverForPath = file.path;
         const store = this.plugin.store;
-        if (!store) {
-            this.discoverStatusEl.setText(
-                Platform.isMobile ? this.plugin.mobileGateStatusText() : t.discoverNoIndex,
-            );
-            this.discoverResultsEl.empty();
-            return;
-        }
+        if (this.showDiscoverNoIndex(store) || !store) return;
         const note = store.getNote(file.path);
         if (!note) {
             this.discoverStatusEl.setText(t.notIndexed);
@@ -552,15 +547,18 @@ export class SearchView extends ItemView {
         this.renderDiscoverResults(results, file.path);
     }
 
+    /** 042 D1: shared "nothing to discover yet" state; true when shown. */
+    private showDiscoverNoIndex(store: VaultSearchPlugin["store"]): boolean {
+        const state = discoverNoIndexState(store, Platform.isMobile);
+        if (!state) return false;
+        this.discoverStatusEl.setText(state === "gate" ? this.plugin.mobileGateStatusText() : t.discoverNoIndex);
+        this.discoverResultsEl.empty();
+        return true;
+    }
+
     private async runGlobalDiscover() {
         const store = this.plugin.store;
-        if (!store) {
-            this.discoverStatusEl.setText(
-                Platform.isMobile ? this.plugin.mobileGateStatusText() : t.discoverNoIndex,
-            );
-            this.discoverResultsEl.empty();
-            return;
-        }
+        if (this.showDiscoverNoIndex(store) || !store) return;
 
         if (this.globalAbort) this.globalAbort.value = true;
         const abort = { value: false };

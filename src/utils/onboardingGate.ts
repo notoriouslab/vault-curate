@@ -23,3 +23,17 @@ export function isOnboardingBaseline(s: VaultSearchSettings): boolean {
     if (s.enableAICuration !== DEFAULT_SETTINGS.enableAICuration) return false;
     return BASELINE_TEXT_FIELDS.every((k) => keyText(s[k]) === keyText(DEFAULT_SETTINGS[k]));
 }
+
+/** What the Discover panel says before it can show results (042 D1).
+ *  "gate": mobile without a store shows its loading state; "noIndex":
+ *  "Build index first", also on desktop when the store is open but nothing
+ *  was ever indexed (deleted index, second computer, skipped Onboarding);
+ *  null: carry on. Mobile with a store keeps its own empty-index path. */
+export function discoverNoIndexState(
+    store: { getMeta(key: string): string | null | undefined } | null | undefined,
+    mobile: boolean,
+): "gate" | "noIndex" | null {
+    if (!store) return mobile ? "gate" : "noIndex";
+    if (!mobile && !store.getMeta("last_indexed_at")) return "noIndex";
+    return null;
+}
