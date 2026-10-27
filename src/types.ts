@@ -53,6 +53,11 @@ export interface VaultSearchSettings {
      *  "use ollamaUrl" — the embedding server — like before the split.
      *  Resolve only through resolveLlmUrl(); never read this raw. */
     llmUrl: string;
+    /** 041 D1: key for the AI curation server only. Empty = see
+     *  resolveLlmApiKey() (reuses apiKey when llmUrl is empty too).
+     *  Send through resolveLlmApiKey(); read raw only in mergeSettings and the
+     *  settings row that edits it. */
+    llmApiKey: string;
     /** 036 D1: language for LLM-written text (descriptions, tags, MOC names).
      *  "auto" = follow the interface language (pre-036 behaviour). */
     aiOutputLanguage: AiOutputLanguage;
@@ -112,6 +117,7 @@ export const DEFAULT_SETTINGS: VaultSearchSettings = {
     synonyms: {},
     llmModel: "qwen3:1.7b",
     llmUrl: "",
+    llmApiKey: "",
     aiOutputLanguage: "auto",
     aiOutputLanguageCustom: "",
     chunkSize: 2000,

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { mergeSettings } from '../src/utils/mergeSettings';
 import { DEFAULT_SETTINGS } from '../src/types';
+import { resolveLlmApiKey } from '../src/utils/resolveLlmApiKey';
 
 describe('mergeSettings', () => {
     it('fills missing new fields with empty records (pre-013 data.json)', () => {
@@ -90,3 +91,76 @@ describe('mergeSettings', () => {
         expect(custom.modelDownloadUrl).toBe('https://m.test');
     });
 });
+
+describe('041 D3 key migration', () => {
+    const run = (raw: unknown) => {
+        const m = mergeSettings(raw, DEFAULT_SETTINGS);
+        return { llmApiKey: m.llmApiKey, apiKey: m.apiKey, sent: resolveLlmApiKey(m), merged: m };
+    };
+
+    it('M1 external embedding, curation off, shared server: nothing copied', () => {
+        const r = run({ embeddingProvider: 'ollama', enableAICuration: false, llmUrl: '', apiKey: 'k' });
+        expect([r.llmApiKey, r.sent]).toEqual(['', 'k']);
+    });
+
+    it('M2 external embedding, curation on, shared server: reuses the key', () => {
+        const r = run({ embeddingProvider: 'ollama', enableAICuration: true, llmUrl: '', apiKey: 'k' });
+        expect([r.llmApiKey, r.sent]).toEqual(['', 'k']);
+    });
+
+    it('M3 external embedding, separate AI curation server: key copied', () => {
+        const r = run({ embeddingProvider: 'openai-compatible', enableAICuration: true, llmUrl: 'http://llm:8080', apiKey: 'k' });
+        expect([r.llmApiKey, r.sent]).toEqual(['k', 'k']);
+    });
+
+    it('M4 built-in embedding, separate AI curation server: key copied', () => {
+        const r = run({ embeddingProvider: 'wasm', enableAICuration: true, llmUrl: 'https://openrouter.ai/api/v1', apiKey: 'k' });
+        expect([r.llmApiKey, r.sent]).toEqual(['k', 'k']);
+    });
+
+    it('M5 built-in embedding, shared server: reuses the key', () => {
+        const r = run({ embeddingProvider: 'wasm', enableAICuration: true, llmUrl: '', apiKey: 'k' });
+        expect([r.llmApiKey, r.sent]).toEqual(['', 'k']);
+    });
+
+    it('M6 no key: nothing to copy', () => {
+        const r = run({ llmUrl: 'http://llm:8080', apiKey: '' });
+        expect([r.llmApiKey, r.sent]).toEqual(['', '']);
+    });
+
+    it('M7 an existing llmApiKey is kept (trimmed) and never re-migrated', () => {
+        expect(run({ llmUrl: 'http://llm:8080', apiKey: 'k', llmApiKey: '' })).toMatchObject({ llmApiKey: '', sent: '' });
+        expect(run({ llmUrl: 'http://llm:8080', apiKey: 'k', llmApiKey: ' own ' })).toMatchObject({ llmApiKey: 'own', sent: 'own' });
+    });
+
+    it('M8 fresh install', () => {
+        expect(run(undefined)).toMatchObject({ llmApiKey: '', sent: '' });
+    });
+
+    it('M9 a null apiKey loads as no key instead of throwing', () => {
+        expect(run({ llmUrl: 'http://llm:8080', apiKey: null })).toMatchObject({ llmApiKey: '', apiKey: '', sent: '' });
+    });
+
+    it('M9b a numeric apiKey stays the key it was sent as', () => {
+        expect(run({ llmUrl: 'http://llm:8080', apiKey: 12345 })).toMatchObject({ llmApiKey: '12345', apiKey: '12345', sent: '12345' });
+    });
+
+    it('M10 pre-1.6 data.json without llmUrl reuses the key', () => {
+        expect(run({ apiKey: 'k' })).toMatchObject({ llmApiKey: '', sent: 'k' });
+    });
+
+    it('M11 a null llmApiKey is treated as set-but-empty', () => {
+        expect(run({ llmUrl: 'http://llm:8080', apiKey: 'k', llmApiKey: null })).toMatchObject({ llmApiKey: '', sent: '' });
+    });
+
+    it('M12 settings that are not an object fall back to defaults', () => {
+        for (const raw of [null, [], 'x']) expect(run(raw)).toMatchObject({ llmApiKey: '', sent: '' });
+    });
+
+    it('a migrated result loaded again stays the same', () => {
+        const first = run({ embeddingProvider: 'openai-compatible', enableAICuration: true, llmUrl: 'http://llm:8080', apiKey: 'k' });
+        const again = run({ ...first.merged });
+        expect([again.llmApiKey, again.sent]).toEqual(['k', 'k']);
+    });
+});
+

@@ -1,5 +1,6 @@
 import type { VaultSearchSettings } from "../types";
 import { normalizeAiOutputLanguage } from "./aiOutputLanguage";
+import { keyText } from "./resolveLlmApiKey";
 
 /** Keep only string-key → finite-number entries (same tamper defence as
  *  the selfWrites ledger in loadSettings). A hand-edited data.json where
@@ -35,5 +36,17 @@ export function mergeSettings(rawSettings: unknown, defaults: VaultSearchSetting
     // 039: same treatment for the model download source and its URL.
     if (merged.modelDownloadSource !== "custom") merged.modelDownloadSource = "huggingface";
     if (typeof merged.modelDownloadUrl !== "string") merged.modelDownloadUrl = "";
+    // 041 D3: two keys. Normalise the old key fields first (a hand-edited
+    // null would otherwise throw below), then copy the key once for users
+    // whose AI curation already points at its own server, so nobody's
+    // curation starts failing with 401 after the upgrade. Copy only, never
+    // clear apiKey: 1.14.x still reads it after a downgrade.
+    merged.apiKey = keyText(merged.apiKey);
+    merged.llmUrl = keyText(merged.llmUrl);
+    if (saved && !("llmApiKey" in saved)) {
+        merged.llmApiKey = merged.llmUrl !== "" && merged.apiKey !== "" ? merged.apiKey : "";
+    } else {
+        merged.llmApiKey = keyText(merged.llmApiKey);
+    }
     return merged;
 }
