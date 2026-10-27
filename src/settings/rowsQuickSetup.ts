@@ -142,8 +142,11 @@ export function ollamaUrlRow(ctx: SettingsContext, visible?: Predicate): Setting
                 });
             });
             updateRemoteWarning(ctx, setting, ctx.plugin.settings.ollamaUrl);
+            // The http-with-key warning also depends on the key, typed later.
+            const unsubscribe = ctx.onServerChange(() => updateRemoteWarning(ctx, setting, ctx.plugin.settings.ollamaUrl));
             return () => {
                 if (reloadTimer !== null) window.clearTimeout(reloadTimer);
+                unsubscribe();
                 clearRemoteWarning(setting);
             };
         },

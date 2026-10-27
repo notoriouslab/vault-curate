@@ -77,7 +77,9 @@ export function buildDesktopDefinitions(ctx: SettingsContext): SettingDefinition
                 modelDownloadSourceRow(ctx, builtin),
                 modelDownloadUrlRow(ctx, () => builtin() && ctx.plugin.settings.modelDownloadSource === "custom"),
                 ollamaUrlRow(ctx, external),
-                apiKeyRow(ctx, external),
+                // 1.14.2: AI curation may talk to a keyed service (OpenRouter)
+                // while embeddings stay built-in, so the key shows for either.
+                apiKeyRow(ctx, () => external() || curation()),
                 embeddingModelRow(ctx, external),
                 excludePatternsRow(ctx),
             ],

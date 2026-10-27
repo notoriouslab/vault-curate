@@ -70,24 +70,24 @@ export function llmUrlRow(ctx: SettingsContext, visible: Predicate): SettingDefi
                 text.onChange(async (val) => {
                     ctx.plugin.settings.llmUrl = val.trim();
                     await ctx.plugin.saveSettings();
-                    updateRemoteWarning(
-                        ctx,
-                        setting,
-                        resolveLlmUrl(ctx.plugin.settings.llmUrl, ctx.plugin.settings.ollamaUrl),
-                    );
+                    refreshWarning();
                     // The model list and endpoint probe follow the new address
                     // once typing pauses; one request per pause, not per key.
                     if (reloadTimer !== null) window.clearTimeout(reloadTimer);
                     reloadTimer = window.setTimeout(() => ctx.serverChanged(), SERVER_RELOAD_DELAY_MS);
                 });
             });
-            updateRemoteWarning(
+            const refreshWarning = () => updateRemoteWarning(
                 ctx,
                 setting,
                 resolveLlmUrl(ctx.plugin.settings.llmUrl, ctx.plugin.settings.ollamaUrl),
             );
+            refreshWarning();
+            // The http-with-key warning also depends on the key, typed later.
+            const unsubscribe = ctx.onServerChange(refreshWarning);
             return () => {
                 if (reloadTimer !== null) window.clearTimeout(reloadTimer);
+                unsubscribe();
                 clearRemoteWarning(setting);
             };
         },

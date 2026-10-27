@@ -22,6 +22,7 @@ import { llmEndpointRow, llmModelRow, llmUrlRow } from "../src/settings/rowsAICu
 import { apiKeyRow, ollamaUrlRow } from "../src/settings/rowsQuickSetup";
 import { SERVER_RELOAD_DELAY_MS } from "../src/settings/rowHelpers";
 import { VaultSearchSettingTab } from "../src/settings";
+import { buildDesktopDefinitions } from "../src/settings/definitions";
 
 // The endpoint row uses Obsidian's empty()/setText(), which happy-dom lacks.
 const proto = HTMLElement.prototype as unknown as { empty?: () => void; setText?: (s: string) => void };
@@ -187,5 +188,34 @@ describe("server address edits reload in place (#19 follow-up)", () => {
         cleanup();
         vi.advanceTimersByTime(SERVER_RELOAD_DELAY_MS);
         expect(ctx.serverChanged).toHaveBeenCalledTimes(1);
+    });
+
+    it("the http-with-key warning appears when the key is typed after the address", async () => {
+        const { ctx, plugin } = makeCtx({ llmUrl: "http://192.168.1.20:11434", apiKey: "" });
+        const { setting, cleanup } = render(llmUrlRow(ctx, () => true));
+        expect(setting.settingEl.querySelector(".vault-curate-http-warn")).toBeNull();
+
+        plugin.settings.apiKey = "sk-test";
+        ctx.serverChanged();
+        expect(setting.settingEl.querySelector(".vault-curate-http-warn")).not.toBeNull();
+        cleanup();
+    });
+});
+
+describe("API key row visibility (1.14.2)", () => {
+    const keyRowVisible = (overrides: Record<string, unknown>) => {
+        const { ctx } = makeCtx(overrides);
+        const groups = buildDesktopDefinitions(ctx) as unknown as Array<{ items?: Array<{ name?: string; visible?: () => boolean }> }>;
+        const row = groups.flatMap((g) => g.items ?? []).find((i) => i.name === t.apiKeyLabel)!;
+        return row.visible ? row.visible() : true;
+    };
+
+    it.each([
+        [{ embeddingProvider: "wasm", enableAICuration: true }, true],
+        [{ embeddingProvider: "wasm", enableAICuration: false }, false],
+        [{ embeddingProvider: "ollama", enableAICuration: false }, true],
+        [{ embeddingProvider: "openai-compatible", enableAICuration: true }, true],
+    ])("%o -> %s", (overrides, expected) => {
+        expect(keyRowVisible(overrides)).toBe(expected);
     });
 });
