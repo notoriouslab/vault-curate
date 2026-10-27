@@ -8,11 +8,12 @@ import type {
     ProgressCallback,
     ProviderType,
 } from './EmbeddingProvider';
+import { openaiEndpoint } from '../utils/openaiEndpoint';
 
 const EMBED_TIMEOUT_MS = 90_000;
 
 export type OpenAICompatibleConfig = {
-    url: string;        // e.g. https://api.openai.com or http://localhost:8080
+    url: string;        // e.g. https://api.openai.com or http://localhost:8080 (a trailing /v1 is fine)
     model: string;      // e.g. text-embedding-3-small
     apiKey?: string;
 };
@@ -67,7 +68,7 @@ export class OpenAICompatibleProvider implements EmbeddingProvider {
 
         const resp = await withTimeout(
             this.httpFetch({
-                url: `${this.cfg.url.replace(/\/+$/, '')}/v1/embeddings`,
+                url: openaiEndpoint(this.cfg.url, 'embeddings'),
                 method: 'POST',
                 headers,
                 body: JSON.stringify({ model: this.cfg.model, input: texts }),

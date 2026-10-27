@@ -12,6 +12,7 @@ import type { ApiFormat, EmbeddingProviderType } from "../types";
 import { DEFAULT_SETTINGS } from "../types";
 import { validateServerUrl, isLoopbackHost, fetchOllamaModels } from "../utils";
 import { fillModelSelect } from "./modelSelect";
+import { openaiEndpoint } from "../utils/openaiEndpoint";
 import { t } from "../i18n";
 
 type AICurationChoice = "yes" | "no";
@@ -330,8 +331,7 @@ export class OnboardingModal extends Modal {
                 this.httpWarningShown = true;
                 new Notice(t.httpApiKeyWarning, 10000);
             }
-            const base = url.replace(/\/$/, "");
-            const target = base.endsWith("/v1") ? `${base}/models` : `${base}/v1/models`;
+            const target = openaiEndpoint(url, "models");
             const resp = await withTimeout(
                 requestUrl({
                     url: target,

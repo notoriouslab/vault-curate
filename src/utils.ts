@@ -2,6 +2,7 @@ import { App, requestUrl, TFile } from "obsidian";
 import type { ApiFormat } from "./types";
 import { stripReasoningWrappers } from "./utils/stripReasoningWrappers";
 import { validateServerUrl, isLoopbackHost } from "./utils/hostGuards";
+import { openaiEndpoint } from "./utils/openaiEndpoint";
 import { resolveModelKind } from "./utils/modelCapabilities";
 import type { ModelKind, ModelKindSource } from "./utils/modelCapabilities";
 
@@ -61,7 +62,7 @@ export async function fetchOllamaModels(url: string, format: ApiFormat = "ollama
         validateServerUrl(url);
 
         if (format === "openai") {
-            const resp = await requestUrl({ url: `${url}/v1/models`, throw: false });
+            const resp = await requestUrl({ url: openaiEndpoint(url, "models"), throw: false });
             if (resp.status !== 200) return [];
             const data = resp.json as { data?: Array<{ id: string }> };
             // `/v1/models` carries no type information — name heuristic only.
@@ -122,7 +123,7 @@ export async function checkLLMReachable(
     }
     const probeUrl = protocol === "ollama"
         ? `${endpoint}/api/tags`
-        : (endpoint.endsWith("/v1") ? `${endpoint}/models` : `${endpoint}/v1/models`);
+        : openaiEndpoint(endpoint, "models");
     try {
         const resp = await withTimeout(
             requestUrl({
@@ -220,7 +221,7 @@ export async function embedTexts(
 
     if (format === "openai") {
         const resp = await withTimeout(requestUrl({
-            url: `${url}/v1/embeddings`,
+            url: openaiEndpoint(url, "embeddings"),
             method: "POST",
             headers: buildHeaders(apiKey),
             body: JSON.stringify({ model, input: texts }),
@@ -295,7 +296,7 @@ export async function requestLlmJson<T>(
     validateServerUrl(settings.ollamaUrl);
     const isOpenAI = settings.apiFormat === "openai";
     const endpoint = isOpenAI
-        ? `${settings.ollamaUrl}/v1/chat/completions`
+        ? openaiEndpoint(settings.ollamaUrl, "chat/completions")
         : `${settings.ollamaUrl}/api/chat`;
 
     const body = buildLlmRequestBody(settings, prompt, { numCtx: opts.numCtx });
