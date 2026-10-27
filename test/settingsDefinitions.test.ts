@@ -40,7 +40,6 @@ function makeCtx(settingsOverrides: Record<string, unknown> = {}) {
         updateIndex: vi.fn(async () => { /* noop */ }),
         reloadMobileIndex: vi.fn(async () => { /* noop */ }),
         refreshMobileProvider: vi.fn(),
-        showOnboardingModal: vi.fn(),
         mobileGateState: vi.fn(() => "idle"),
         mobileGateStatusText: vi.fn(() => ""),
         tierResolver: vi.fn(() => () => "hot"),
@@ -78,7 +77,6 @@ describe("setting definitions", () => {
             t.aiOutputLanguage,
             t.aiOutputLanguageCustomName,
             t.llmEndpointHeading,
-            t.rerunOnboarding,
             t.topResults,
             t.minScore,
             t.settingCanvasFolder,
@@ -95,7 +93,7 @@ describe("setting definitions", () => {
             t.updateIndex,
             t.indexStats,
         ]);
-        expect(names.length).toBe(32); // 034: "Max embed characters" row retired; 036: +2 AI output language rows; 039: +2 model download rows; 041: +1 AI curation API key row
+        expect(names.length).toBe(31); // 034: "Max embed characters" row retired; 036: +2 AI output language rows; 039: +2 model download rows; 041: +1 AI curation API key row; 042: -1 re-run onboarding row
     });
 
     it("uses no control definitions", () => {

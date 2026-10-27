@@ -1,10 +1,10 @@
 // Onboarding modal (Phase 8 / 004 rebrand, D9.3).
 //
-// Shown on first plugin launch when neither `last_indexed_at` nor
-// `onboarding_dismissed` meta is set. Picks the embedding provider, gates
-// AI curation behind explicit opt-in, and kicks off the initial scanVault
-// when the user clicks "Index now". A "Skip for now" path records
-// dismissal so the modal stops re-appearing on every launch.
+// Shown on first launch only, while `settings.onboardingDone` is false and
+// there is no index (042 D1). Picks the embedding provider, gates AI
+// curation behind explicit opt-in, and kicks off the initial scanVault when
+// the user clicks "Index now". "Skip for now" (or closing the modal) only
+// marks Onboarding as answered; it changes no other setting (042 D2).
 
 import { App, Modal, Notice, requestUrl } from "obsidian";
 import type VaultSearchPlugin from "../main";
@@ -12,6 +12,7 @@ import type { ApiFormat, EmbeddingProviderType } from "../types";
 import { DEFAULT_SETTINGS } from "../types";
 import { validateServerUrl, isLoopbackHost, fetchOllamaModels } from "../utils";
 import { fillModelSelect } from "./modelSelect";
+import { isOnboardingBaseline } from "../utils/onboardingGate";
 import { openaiEndpoint } from "../utils/openaiEndpoint";
 import { t } from "../i18n";
 
@@ -247,10 +248,8 @@ export class OnboardingModal extends Modal {
      * Probe the configured Ollama endpoint on modal open. We only auto-probe
      * loopback hosts — a pre-seeded `settings.ollamaUrl` pointing at an
      * attacker domain would otherwise trigger an automatic outbound GET
-     * the moment the user opens the modal (Settings → Re-run onboarding
-     * is a single click). For non-loopback URLs we leave the status blank;
-     * the user can re-run onboarding after pointing settings at a real
-     * local Ollama.
+     * the moment the modal opens. For non-loopback URLs we leave the status
+     * blank; a remote Ollama is set up on the settings page instead.
      */
     private async detectOllama() {
         const status = this.statusEls.ollama;
@@ -370,14 +369,27 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 
 /**
  * Apply the user's onboarding choices to plugin settings, then kick off
- * the initial rebuild when requested. The store gets an
- * `onboarding_dismissed` marker either way so the modal won't pop again
- * on every layout-ready.
+ * the initial rebuild when requested. Every outcome marks Onboarding as
+ * answered (`onboardingDone`) so the modal won't pop again (042 D1).
+ *
+ * Skip / close changes nothing else (042 D2). The choices are applied only
+ * over default settings: if they changed while the modal was open (or a
+ * synced device already set them up), Onboarding steps aside (042 D3).
  */
 export async function applyOnboardingChoice(
     plugin: VaultSearchPlugin,
     choice: OnboardingChoice,
 ): Promise<void> {
+    plugin.settings.onboardingDone = true;
+    if (choice.dismissed) {
+        await plugin.saveSettings();
+        return;
+    }
+    if (!isOnboardingBaseline(plugin.settings)) {
+        await plugin.saveSettings();
+        new Notice(t.onboardingSettingsChanged, 8000);
+        return;
+    }
     plugin.settings.embeddingProvider = choice.provider;
     plugin.settings.enableAICuration = choice.aiCuration === "yes";
     if (choice.provider === "ollama") {
@@ -391,20 +403,18 @@ export async function applyOnboardingChoice(
     }
     await plugin.saveSettings();
 
-    // Mark onboarding as handled — even pure dismiss flows set this, so
-    // the modal stops re-appearing on every launch. We clear it on backend
-    // failure below so the user gets a second chance.
-    plugin.store?.setMeta("onboarding_dismissed", "1");
-
     try {
         await plugin.reloadBackends();
     } catch {
-        // reloadBackends already showed a Notice. Clear the dismissed flag
-        // so the user sees onboarding on next launch and can retry the
-        // provider settings — otherwise they're stuck in broken-backend
-        // state with no obvious recovery path.
-        plugin.store?.setMeta("onboarding_dismissed", "");
+        // reloadBackends already showed a Notice; the fix is on the
+        // settings page (Onboarding does not come back, 042 D1).
         return;
+    }
+
+    // 042 D8: the AI curation model is still the default, which a cloud
+    // server most likely lacks.
+    if (choice.provider === "openai-compatible" && choice.aiCuration === "yes") {
+        new Notice(t.onboardingPickLlmModel(plugin.settings.llmModel, t.llmModel), 15000);
     }
 
     if (choice.indexNow) {

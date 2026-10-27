@@ -581,10 +581,8 @@ export default class VaultSearchPlugin extends Plugin {
         console.debug("Vault Curate unloaded");
     }
 
-    /** Public — also called from Settings → AI Curation → "Re-run onboarding". */
+    /** First-launch only (042 D1); there is no re-run entry. */
     showOnboardingModal() {
-        // Clear the dismissed flag so a Skip from this re-run doesn't stick.
-        this.store?.setMeta("onboarding_dismissed", "");
         new OnboardingModal(this.app, this, (choice) => {
             void applyOnboardingChoice(this, choice);
         }).open();

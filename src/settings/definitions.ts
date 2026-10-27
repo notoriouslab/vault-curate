@@ -33,7 +33,6 @@ import {
     llmModelRow,
     llmUrlRow,
     llmApiKeyRow,
-    rerunOnboardingRow,
 } from "./rowsAICuration";
 import {
     autoIndexRow,
@@ -95,7 +94,6 @@ export function buildDesktopDefinitions(ctx: SettingsContext): SettingDefinition
                 aiOutputLanguageRow(ctx, curation),
                 aiOutputLanguageCustomRow(ctx, () => curation() && ctx.plugin.settings.aiOutputLanguage === "custom"),
                 llmEndpointRow(ctx, curation),
-                rerunOnboardingRow(ctx),
             ],
         },
         {

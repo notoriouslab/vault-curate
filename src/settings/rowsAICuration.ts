@@ -245,21 +245,3 @@ export function llmEndpointRow(ctx: SettingsContext, visible: Predicate): Settin
         },
     };
 }
-
-export function rerunOnboardingRow(ctx: SettingsContext): SettingDefinitionRender {
-    // Production path back to the Onboarding modal — survives a Skip and
-    // doesn't require the dev command. Last in the section and outside the
-    // gate: still reachable with AI curation off (024).
-    // A render row with a button (not an `action` row): identical look on
-    // both renderers, and the button keeps its own label.
-    return {
-        name: t.rerunOnboarding,
-        desc: t.rerunOnboardingDesc,
-        render: (setting) => {
-            setting.addButton(btn => {
-                btn.setButtonText(t.rerunOnboardingBtn);
-                btn.onClick(() => ctx.plugin.showOnboardingModal());
-            });
-        },
-    };
-}

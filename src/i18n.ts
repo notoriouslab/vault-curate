@@ -199,12 +199,11 @@ export interface Locale {
     onboardingAIYes: string;
     onboardingAINo: string;
     onboardingAIRequiresLlm: string;
+    onboardingSettingsChanged: string;
+    onboardingPickLlmModel: (model: string, setting: string) => string;
     onboardingIndexNow: string;
     onboardingLater: string;
     backendNotReady: string;
-    rerunOnboarding: string;
-    rerunOnboardingDesc: string;
-    rerunOnboardingBtn: string;
     dimMismatchNotice: (skipped: number) => string;
     // Notices
     noticeIndexEmpty: string;
@@ -503,9 +502,9 @@ const en: Locale = {
     onboardingIntro: "Vault Curate brings high-quality Chinese-friendly semantic search to your vault. Pick where embeddings run.",
     onboardingProviderHeading: "Embedding provider",
     onboardingOllamaDetected: "✓ Ollama detected on localhost:11434",
-    onboardingOllamaNotDetected: "⚠ Ollama not running. Install from ollama.com, then reopen this dialog.",
+    onboardingOllamaNotDetected: "⚠ Ollama not running. Install and start it from ollama.com, or pick Built-in now and switch to Ollama later in settings.",
     onboardingNoEmbeddingModel: (name: string) =>
-        `⚠ No embedding model installed. Run: ollama pull ${name}`,
+        `⚠ No embedding model installed. Run: ollama pull ${name}, or pick Built-in now and change it later in settings.`,
     onboardingOpenaiEndpoint: "Endpoint URL",
     onboardingOpenaiModel: "Model name",
     onboardingTestConnection: "Test connection",
@@ -514,13 +513,13 @@ const en: Locale = {
     onboardingAIHeading: "Enable AI curation?",
     onboardingAIYes: "Yes — description + topic-grouped MOC",
     onboardingAINo: "No, just search",
-    onboardingAIRequiresLlm: "AI curation needs an LLM endpoint. Start Ollama (ollama.com) or switch embedding to OpenAI-compatible.",
+    onboardingAIRequiresLlm: "AI curation needs an LLM endpoint: start Ollama (ollama.com) or use OpenAI-compatible. Or leave AI curation off now and turn it on later in settings.",
+    onboardingSettingsChanged: "Your settings have already changed, so onboarding will not overwrite them. Adjust them on the settings page.",
+    onboardingPickLlmModel: (model, setting) =>
+        `AI curation uses the model ${model}. Pick a model this server has under "${setting}" in settings.`,
     onboardingIndexNow: "Index my vault now",
     onboardingLater: "Skip for now",
     backendNotReady: "Backend not ready — reload the plugin (check console for the init error).",
-    rerunOnboarding: "Re-run onboarding",
-    rerunOnboardingDesc: "Reopen the first-launch setup modal — useful if you dismissed it earlier and want to revisit provider / AI curation choices.",
-    rerunOnboardingBtn: "Open onboarding",
     dimMismatchNotice: (skipped) =>
         `${skipped} notes have a different embedding dimension than the current model. Run "Rebuild index" to recover.`,
     noticeIndexEmpty: "Vault Curate: Index is empty. Run 'Rebuild index' first",
@@ -844,9 +843,9 @@ const zhTW: Locale = {
     onboardingIntro: "Vault Curate 為 Obsidian 提供高品質的中文語意搜尋。請選擇 embedding 運行位置。",
     onboardingProviderHeading: "Embedding 提供者",
     onboardingOllamaDetected: "✓ 偵測到 Ollama（localhost:11434）",
-    onboardingOllamaNotDetected: "⚠ 未偵測到 Ollama。請從 ollama.com 安裝後重開此視窗。",
+    onboardingOllamaNotDetected: "⚠ 未偵測到 Ollama。請從 ollama.com 安裝並啟動，或先選內建，之後可在設定頁換成 Ollama。",
     onboardingNoEmbeddingModel: (name: string) =>
-        `⚠ 未安裝 embedding 模型。請先執行：ollama pull ${name}`,
+        `⚠ 未安裝 embedding 模型。請先執行：ollama pull ${name}，或先選內建，之後可在設定頁更改。`,
     onboardingOpenaiEndpoint: "Endpoint URL",
     onboardingOpenaiModel: "模型名稱",
     onboardingTestConnection: "測試連線",
@@ -855,13 +854,13 @@ const zhTW: Locale = {
     onboardingAIHeading: "啟用 AI 整理？",
     onboardingAIYes: "啟用 — Description 生成與主題分群 MOC",
     onboardingAINo: "不用，純搜尋",
-    onboardingAIRequiresLlm: "AI 整理需要 LLM endpoint。請先啟動 Ollama（ollama.com）或把 embedding 切換為 OpenAI-compatible。",
+    onboardingAIRequiresLlm: "AI 整理需要 LLM endpoint：請啟動 Ollama（ollama.com）或改用 OpenAI-compatible。也可以先不啟用 AI 整理，之後在設定頁打開。",
+    onboardingSettingsChanged: "設定已經改過，Onboarding 不會覆蓋，請到設定頁調整。",
+    onboardingPickLlmModel: (model, setting) =>
+        `AI 整理目前使用模型 ${model}，請到設定頁「${setting}」選這台伺服器上有的模型。`,
     onboardingIndexNow: "現在開始建立索引",
     onboardingLater: "稍後再說",
     backendNotReady: "後端未就緒 — 請重新載入 plugin（檢查 console 看初始化錯誤）。",
-    rerunOnboarding: "重新執行 Onboarding",
-    rerunOnboardingDesc: "重新打開首次啟動設定視窗 — 若之前 dismiss 了想重新選 provider / AI 整理，可從這裡進。",
-    rerunOnboardingBtn: "開啟 Onboarding",
     dimMismatchNotice: (skipped) =>
         `${skipped} 篇筆記的 embedding 維度與當前模型不符。請執行「重建索引」修復。`,
     noticeIndexEmpty: "Vault Curate：索引為空，請先執行「重建索引」",
@@ -1188,9 +1187,9 @@ const zhCN: Locale = {
     onboardingIntro: "Vault Curate 为 Obsidian 提供高质量的中文语义搜索。请选择 embedding 运行位置。",
     onboardingProviderHeading: "Embedding 提供者",
     onboardingOllamaDetected: "✓ 检测到 Ollama（localhost:11434）",
-    onboardingOllamaNotDetected: "⚠ 未检测到 Ollama。请从 ollama.com 安装后重新打开此窗口。",
+    onboardingOllamaNotDetected: "⚠ 未检测到 Ollama。请从 ollama.com 安装并启动，或先选内置，之后可在设置页换成 Ollama。",
     onboardingNoEmbeddingModel: (name: string) =>
-        `⚠ 未安装 embedding 模型。请先执行：ollama pull ${name}`,
+        `⚠ 未安装 embedding 模型。请先执行：ollama pull ${name}，或先选内置，之后可在设置页更改。`,
     onboardingOpenaiEndpoint: "Endpoint URL",
     onboardingOpenaiModel: "模型名称",
     onboardingTestConnection: "测试连接",
@@ -1199,13 +1198,13 @@ const zhCN: Locale = {
     onboardingAIHeading: "启用 AI 整理？",
     onboardingAIYes: "启用 — Description 生成与主题分组 MOC",
     onboardingAINo: "不用，仅搜索",
-    onboardingAIRequiresLlm: "AI 整理需要 LLM endpoint。请先启动 Ollama（ollama.com）或把 embedding 切换为 OpenAI-compatible。",
+    onboardingAIRequiresLlm: "AI 整理需要 LLM endpoint：请启动 Ollama（ollama.com）或改用 OpenAI-compatible。也可以先不启用 AI 整理，之后在设置页打开。",
+    onboardingSettingsChanged: "设置已经改过，Onboarding 不会覆盖，请到设置页调整。",
+    onboardingPickLlmModel: (model, setting) =>
+        `AI 整理目前使用模型 ${model}，请到设置页“${setting}”选择这台服务器上有的模型。`,
     onboardingIndexNow: "现在开始建立索引",
     onboardingLater: "稍后再说",
     backendNotReady: "后端未就绪 — 请重新加载插件（查看 console 看初始化错误）。",
-    rerunOnboarding: "重新执行 Onboarding",
-    rerunOnboardingDesc: "重新打开首次启动设置窗口 — 如果之前关闭了想重新选 provider / AI 整理，可从这里进入。",
-    rerunOnboardingBtn: "打开 Onboarding",
     dimMismatchNotice: (skipped) =>
         `${skipped} 篇笔记的 embedding 维度与当前模型不符。请执行「重建索引」修复。`,
     noticeIndexEmpty: "Vault Curate：索引为空，请先执行「重建索引」",
