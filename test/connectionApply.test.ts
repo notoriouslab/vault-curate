@@ -23,7 +23,7 @@ function host(over: Partial<ConnectionHost> & { reloadFails?: boolean } = {}) {
     return h;
 }
 
-const flush = () => new Promise((r) => setTimeout(r, 0));
+const flush = () => new Promise((r) => window.setTimeout(r, 0));
 
 describe("connectionStale (042 D4)", () => {
     it("an edited URL or key is stale; editing it back is not", () => {

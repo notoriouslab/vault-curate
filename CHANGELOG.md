@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.15.1 — 2026-10-27
+
+### Fixed
+- **Closing the welcome screen no longer changes your settings.** Closing it with Esc or the close button now only remembers that you have seen it.
+- **The welcome screen no longer overwrites synced settings.** On a computer that already has your settings through sync but has no index yet, the welcome screen used to appear and could replace them with its own choices. It now appears only on first use, and only on a vault that has never been set up.
+- **Changing the embedding server address or API key no longer needs a restart.** The new address and key take effect when you close Settings, or when you press Update index or Rebuild index.
+- **A failed provider switch puts the previous provider back**, so Settings never shows a provider that is not running.
+- **On mobile, an embedding server address such as `http://localhost:11434` is recognised as the phone itself.** Search now uses keywords only instead of trying a server that is not there, and Settings shows the note that explains this.
+- **Model lists no longer send your API key to a half-typed address.** They now reload once you leave the server or key field.
+- **Choosing an OpenAI-compatible server with AI curation on in the welcome screen now reminds you to pick an AI curation model**, since the default model is usually not on that server.
+- **Discover in the sidebar says to build the index first** when nothing has been indexed yet.
+
+### Changed
+- **Settings no longer has a "Re-run onboarding" button.** To switch the embedding provider, use the provider dropdown in Settings.
+- **Model lists and the AI curation endpoint status reload when you leave the server or key field**, instead of half a second after you stop typing. The warning about sending a key over plain http still appears as you type.
+
 ## 1.15.0 — 2026-10-27
 
 ### Changed

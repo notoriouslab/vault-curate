@@ -201,7 +201,7 @@ describe("server address edits reload in place (#19 follow-up)", () => {
         expect(urlRow.setting.settingEl.querySelector(".vault-curate-http-warn")).toBeNull();
 
         let key!: { emit(v: string): unknown; inputEl: HTMLElement };
-        const keySetting = new Setting(document.createElement("div")) as Setting & { addText: Setting["addText"] };
+        const keySetting = new Setting(window.document.createElement("div")) as Setting & { addText: Setting["addText"] };
         const orig = keySetting.addText.bind(keySetting);
         keySetting.addText = ((cb: (c: never) => unknown) => orig((c: never) => { key = c as never; return cb(c); })) as never;
         (apiKeyRow(ctx).render as (s: Setting) => unknown)(keySetting);

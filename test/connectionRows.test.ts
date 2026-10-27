@@ -24,7 +24,7 @@ function makeCtx() {
  *  plus the DOM input event), `leave` like leaving the field. */
 function field(def: SettingDefinitionRender) {
     let text!: { emit(v: string): unknown; inputEl: HTMLElement };
-    const setting = new Setting(document.createElement("div"));
+    const setting = new Setting(window.document.createElement("div"));
     const orig = setting.addText.bind(setting);
     setting.addText = ((cb: (c: never) => unknown) => orig((c: never) => { text = c as never; return cb(c); })) as never;
     (def.render as (s: Setting) => unknown)(setting);
