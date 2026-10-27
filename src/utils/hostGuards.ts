@@ -129,6 +129,17 @@ export function isLoopbackHost(rawHost: string): boolean {
     return false;
 }
 
+/** isLoopbackHost for a whole URL. Settings store full URLs, and passing one
+ *  to isLoopbackHost reads "http://localhost:11434" as a host name and
+ *  answers false (042 P13). Unparseable input counts as remote. */
+export function isLoopbackUrl(url: string): boolean {
+    try {
+        return isLoopbackHost(new URL(url).hostname);
+    } catch {
+        return false;
+    }
+}
+
 function expandIPv6(host: string): number[] | null {
     // A dotted-IPv4 tail (`::ffff:169.254.169.254`) is legal IPv6 syntax;
     // fold it into the last two hex groups before the general parse.

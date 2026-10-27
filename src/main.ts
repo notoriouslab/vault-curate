@@ -57,7 +57,7 @@ import knnWorkerSource from "@inline/knn-worker";
 import { makeTierResolver, resolveCreated } from "./heat/makeTierResolver";
 import { MobileIndexGate, type MobileGateState } from "./mobile/indexGate";
 import { probeStoreHealth } from "./mobile/probeStoreHealth";
-import { isLoopbackHost } from "./utils";
+import { isLoopbackUrl } from "./utils";
 import { SELF_WRITE_TOLERANCE_MS, type TierResolver } from "./heat/deriveTier";
 import { relatedKwRank, kwRankForQuery } from "./search/relatedKwRank";
 import { parseTags } from "./search/relatedFusion";
@@ -1500,7 +1500,7 @@ export default class VaultSearchPlugin extends Plugin {
      *  the WASM provider (no ORT on mobile). Pure settings read, no I/O. */
     private buildMobileProvider(): EmbeddingProvider | null {
         if (this.settings.embeddingProvider === "wasm") return null;
-        if (isLoopbackHost(this.settings.ollamaUrl)) return null;
+        if (isLoopbackUrl(this.settings.ollamaUrl)) return null;
         return createProvider(this.remoteEmbeddingCfg(), { httpFetch: this.makeHttpFetch() });
     }
 

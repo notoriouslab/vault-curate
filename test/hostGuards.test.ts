@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateServerUrl, isLoopbackHost } from '../src/utils/hostGuards';
+import { validateServerUrl, isLoopbackHost, isLoopbackUrl } from '../src/utils/hostGuards';
 
 describe('validateServerUrl', () => {
     it('accepts plain local and LAN servers', () => {
@@ -59,5 +59,19 @@ describe('isLoopbackHost', () => {
         expect(isLoopbackHost('192.168.1.50')).toBe(false);
         expect(isLoopbackHost('example.com')).toBe(false);
         expect(isLoopbackHost('')).toBe(false);
+    });
+});
+
+describe('isLoopbackUrl', () => {
+    it('reads the host out of a full URL', () => {
+        expect(isLoopbackUrl('http://localhost:11434')).toBe(true);
+        expect(isLoopbackUrl('http://127.0.0.1:8080/v1')).toBe(true);
+        expect(isLoopbackUrl('http://[::1]:11434')).toBe(true);
+    });
+
+    it('treats remote and unparseable input as remote', () => {
+        expect(isLoopbackUrl('http://192.168.1.10:11434')).toBe(false);
+        expect(isLoopbackUrl('not a url')).toBe(false);
+        expect(isLoopbackUrl('')).toBe(false);
     });
 });

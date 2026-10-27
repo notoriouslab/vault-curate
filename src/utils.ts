@@ -1,7 +1,7 @@
 import { App, requestUrl, TFile } from "obsidian";
 import type { ApiFormat } from "./types";
 import { stripReasoningWrappers } from "./utils/stripReasoningWrappers";
-import { validateServerUrl, isLoopbackHost } from "./utils/hostGuards";
+import { validateServerUrl, isLoopbackHost, isLoopbackUrl } from "./utils/hostGuards";
 import { openaiEndpoint } from "./utils/openaiEndpoint";
 import { resolveModelKind } from "./utils/modelCapabilities";
 import type { ModelKind, ModelKindSource } from "./utils/modelCapabilities";
@@ -184,7 +184,7 @@ function truncateError(text: string, max = 200): string {
 // Host-safety guards moved to ./utils/hostGuards (unit-testable pure
 // module; single definition of dangerous-host logic). Imported above and
 // re-exported here so existing `from "./utils"` imports keep working.
-export { validateServerUrl, isLoopbackHost };
+export { validateServerUrl, isLoopbackHost, isLoopbackUrl };
 
 export async function embedText(
     text: string,

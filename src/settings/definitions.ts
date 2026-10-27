@@ -54,7 +54,7 @@ import {
     topResultsRow,
     updateIndexRow,
 } from "./rowsAdvanced";
-import { isLoopbackHost } from "../utils";
+import { isLoopbackUrl } from "../utils";
 import { t } from "../i18n";
 
 export function buildDesktopDefinitions(ctx: SettingsContext): SettingDefinitionItem[] {
@@ -140,7 +140,7 @@ export function buildMobileDefinitions(ctx: SettingsContext): SettingDefinitionI
     const loopbackNote: SettingDefinitionEmpty = {
         name: t.embeddingProvider,
         desc: t.mobileLoopbackWarning,
-        visible: () => isLoopbackHost(ctx.plugin.settings.ollamaUrl),
+        visible: () => isLoopbackUrl(ctx.plugin.settings.ollamaUrl),
     };
     return [
         {
