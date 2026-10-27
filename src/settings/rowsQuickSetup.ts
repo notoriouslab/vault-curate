@@ -5,7 +5,7 @@ import { Platform } from "obsidian";
 import type { Setting, SettingDefinitionRender } from "obsidian";
 import type { SettingsContext } from "./types";
 import type { EmbeddingProviderType } from "../types";
-import { clearRemoteWarning, renderModelDropdown, updateRemoteWarning } from "./rowHelpers";
+import { clearRemoteWarning, renderModelDropdown, SERVER_RELOAD_DELAY_MS, updateRemoteWarning } from "./rowHelpers";
 import type { Predicate } from "./rowHelpers";
 import { t } from "../i18n";
 import { resolveModelHost } from "../embedding/modelSource";
@@ -126,6 +126,7 @@ export function ollamaUrlRow(ctx: SettingsContext, visible?: Predicate): Setting
         desc: t.ollamaUrlDesc,
         visible,
         render: (setting) => {
+            let reloadTimer: number | null = null;
             setting.addText(text => {
                 text.setPlaceholder(t.urlPlaceholder);
                 text.setValue(ctx.plugin.settings.ollamaUrl);
@@ -134,10 +135,17 @@ export function ollamaUrlRow(ctx: SettingsContext, visible?: Predicate): Setting
                     await ctx.plugin.saveSettings();
                     updateRemoteWarning(ctx, setting, val.trim());
                     if (Platform.isMobile) ctx.plugin.refreshMobileProvider(); // 015: layer 0↔2 flip
+                    // Same as the AI curation server: reload the model lists
+                    // (and the probe, when curation falls back to this server).
+                    if (reloadTimer !== null) window.clearTimeout(reloadTimer);
+                    reloadTimer = window.setTimeout(() => ctx.serverChanged(), SERVER_RELOAD_DELAY_MS);
                 });
             });
             updateRemoteWarning(ctx, setting, ctx.plugin.settings.ollamaUrl);
-            return () => clearRemoteWarning(setting);
+            return () => {
+                if (reloadTimer !== null) window.clearTimeout(reloadTimer);
+                clearRemoteWarning(setting);
+            };
         },
     };
 }
@@ -170,7 +178,7 @@ export function embeddingModelRow(ctx: SettingsContext, visible?: Predicate): Se
         render: (setting) => renderModelDropdown(setting, {
             ctx,
             kind: "embedding",
-            current: ctx.plugin.settings.ollamaModel,
+            current: () => ctx.plugin.settings.ollamaModel,
             active: visible ?? (() => true),
             onChange: async (val) => {
                 const old = ctx.plugin.settings.ollamaModel;

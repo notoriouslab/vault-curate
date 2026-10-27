@@ -5,7 +5,7 @@
 import { Platform } from "obsidian";
 import type { SettingDefinitionRender } from "obsidian";
 import type { SettingsContext } from "./types";
-import { clearRemoteWarning, renderModelDropdown, updateRemoteWarning } from "./rowHelpers";
+import { clearRemoteWarning, renderModelDropdown, SERVER_RELOAD_DELAY_MS, updateRemoteWarning } from "./rowHelpers";
 import type { Predicate } from "./rowHelpers";
 import { checkLLMReachable } from "../utils";
 import { resolveLlmUrl } from "../utils/resolveLlmUrl";
@@ -63,6 +63,7 @@ export function llmUrlRow(ctx: SettingsContext, visible: Predicate): SettingDefi
         desc: t.llmUrlDesc,
         visible,
         render: (setting) => {
+            let reloadTimer: number | null = null;
             setting.addText(text => {
                 text.setPlaceholder(ctx.plugin.settings.ollamaUrl);
                 text.setValue(ctx.plugin.settings.llmUrl);
@@ -74,6 +75,10 @@ export function llmUrlRow(ctx: SettingsContext, visible: Predicate): SettingDefi
                         setting,
                         resolveLlmUrl(ctx.plugin.settings.llmUrl, ctx.plugin.settings.ollamaUrl),
                     );
+                    // The model list and endpoint probe follow the new address
+                    // once typing pauses; one request per pause, not per key.
+                    if (reloadTimer !== null) window.clearTimeout(reloadTimer);
+                    reloadTimer = window.setTimeout(() => ctx.serverChanged(), SERVER_RELOAD_DELAY_MS);
                 });
             });
             updateRemoteWarning(
@@ -81,7 +86,10 @@ export function llmUrlRow(ctx: SettingsContext, visible: Predicate): SettingDefi
                 setting,
                 resolveLlmUrl(ctx.plugin.settings.llmUrl, ctx.plugin.settings.ollamaUrl),
             );
-            return () => clearRemoteWarning(setting);
+            return () => {
+                if (reloadTimer !== null) window.clearTimeout(reloadTimer);
+                clearRemoteWarning(setting);
+            };
         },
     };
 }
@@ -94,7 +102,7 @@ export function llmModelRow(ctx: SettingsContext, visible: Predicate): SettingDe
         render: (setting) => renderModelDropdown(setting, {
             ctx,
             kind: "llm",
-            current: ctx.plugin.settings.llmModel,
+            current: () => ctx.plugin.settings.llmModel,
             active: visible,
             onChange: async (val) => {
                 ctx.plugin.settings.llmModel = val;
@@ -163,12 +171,15 @@ export function llmEndpointRow(ctx: SettingsContext, visible: Predicate): Settin
             // toggle re-renders this row for real once it is shown.
             if (!visible()) return;
             let disposed = false;
+            // Each probe bumps this; an answer for an older address is dropped.
+            let generation = 0;
             const desc = setting.descEl;
             desc.empty();
             const urlLine = desc.createDiv({ cls: "vault-curate-endpoint-url" });
             const statusLine = desc.createDiv({ cls: "vault-curate-endpoint-status" });
             const hintLine = desc.createDiv({ cls: "vault-curate-endpoint-hint" });
             const probe = async () => {
+                const gen = ++generation;
                 const settings = ctx.plugin.settings;
                 const protocolLabel = settings.apiFormat === "ollama" ? "Ollama" : "OpenAI-compatible";
                 // 023: probe (and show) the URL curation will actually hit.
@@ -181,8 +192,8 @@ export function llmEndpointRow(ctx: SettingsContext, visible: Predicate): Settin
                     apiFormat: settings.apiFormat,
                     apiKey: settings.apiKey,
                 });
-                // The row may be gone by the time the probe answers.
-                if (disposed) return;
+                // The row may be gone, or the address edited, by the time the probe answers.
+                if (disposed || gen !== generation) return;
                 if (status.reachable) {
                     statusLine.setText(t.llmEndpointReachable);
                 } else {
@@ -195,7 +206,11 @@ export function llmEndpointRow(ctx: SettingsContext, visible: Predicate): Settin
                 btn.onClick(() => { void probe(); });
             });
             void probe();
-            return () => { disposed = true; };
+            const unsubscribe = ctx.onServerChange(() => { void probe(); });
+            return () => {
+                disposed = true;
+                unsubscribe();
+            };
         },
     };
 }

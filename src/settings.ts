@@ -79,6 +79,17 @@ export class VaultSearchSettingTab extends PluginSettingTab implements SettingsC
         this.statsRefresher?.();
     }
 
+    private serverListeners = new Set<() => void>();
+
+    onServerChange(cb: () => void): () => void {
+        this.serverListeners.add(cb);
+        return () => { this.serverListeners.delete(cb); };
+    }
+
+    serverChanged(): void {
+        for (const cb of [...this.serverListeners]) cb();
+    }
+
     private runCleanups(): void {
         const pending = this.cleanups;
         this.cleanups = [];

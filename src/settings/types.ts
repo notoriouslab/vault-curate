@@ -16,4 +16,11 @@ export interface SettingsContext {
     /** Redraw only the stats panel (hotDays edits); never a full re-render,
      *  which would steal focus from the input being typed in. */
     refreshStats(): void;
+    /** A row whose content depends on the server address (model lists,
+     *  the endpoint probe) registers how to reload itself; returns the
+     *  unregister function for the row's teardown. */
+    onServerChange(cb: () => void): () => void;
+    /** A server address was edited: reload those rows in place. Never a
+     *  full re-render, which would steal focus from the address input. */
+    serverChanged(): void;
 }

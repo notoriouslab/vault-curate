@@ -5,11 +5,17 @@
 import type { ButtonComponent, Setting } from "obsidian";
 import type { SettingsContext } from "./types";
 import { fetchOllamaModels, formatLocalDateTime, isLoopbackHost } from "../utils";
+import type { OllamaModel } from "../utils";
+import type { ApiFormat } from "../types";
 import { resolveLlmUrl } from "../utils/resolveLlmUrl";
 import { fillModelSelect } from "../ui/modelSelect";
 import { t } from "../i18n";
 
 export type Predicate = () => boolean;
+
+/** Pause after the last keystroke in a server address before the model
+ *  lists and the endpoint probe reload. */
+export const SERVER_RELOAD_DELAY_MS = 500;
 
 export function clearRemoteWarning(setting: Setting) {
     const existing = setting.settingEl.querySelector(".vault-curate-remote-warn");
@@ -44,7 +50,9 @@ export function renderModelDropdown(
     o: {
         ctx: SettingsContext;
         kind: "embedding" | "llm";
-        current: string;
+        /** Read live: a reload after a server edit must keep the model
+         *  picked since the row was rendered. */
+        current: () => string;
         onChange: (val: string) => Promise<void>;
         /** Whether the row is actually shown. On 1.13 a row whose `visible`
          *  predicate is false is still rendered (just CSS-hidden, spike S2),
@@ -52,18 +60,19 @@ export function renderModelDropdown(
         active: () => boolean;
     },
 ): () => void {
-    const settings = o.ctx.plugin.settings;
     const isLlm = o.kind === "llm";
-    const currentValue = o.current;
+    const initialValue = o.current();
     let disposed = false;
     let hint: HTMLElement | null = null;
+    // Each load bumps this; an answer from an older server address is dropped.
+    let generation = 0;
     // Assigned synchronously by addDropdown's callback.
     let select!: HTMLSelectElement;
 
     setting.addDropdown(drop => {
         drop.addOption("", "Loading...");
-        if (currentValue) drop.addOption(currentValue, currentValue);
-        drop.setValue(currentValue);
+        if (initialValue) drop.addOption(initialValue, initialValue);
+        drop.setValue(initialValue);
         drop.onChange(o.onChange);
         select = drop.selectEl;
     });
@@ -72,22 +81,33 @@ export function renderModelDropdown(
     // ctx.refresh() re-renders the row once it becomes visible.
     if (!o.active()) return () => { /* nothing fetched, nothing to tear down */ };
 
-    // 023: the LLM dropdown lists what its own (possibly separate) server
-    // offers; the embedding dropdown always lists the main server's models.
-    // 024: each list speaks its own path's protocol — the embedding list
-    // derives it from embeddingProvider (apiFormat is LLM-only and hidden
-    // while AI curation is off), the LLM list uses apiFormat.
-    const embFormat = settings.embeddingProvider !== "wasm"
-        ? (settings.embeddingProvider === "openai-compatible" ? "openai" : "ollama")
-        : settings.apiFormat;
-    const url = isLlm ? resolveLlmUrl(settings.llmUrl, settings.ollamaUrl) : settings.ollamaUrl;
-    const format = isLlm ? settings.apiFormat : embFormat;
+    const load = () => {
+        const gen = ++generation;
+        const settings = o.ctx.plugin.settings;
+        const currentValue = o.current();
+        hint?.remove();
+        hint = null;
 
-    void (async () => {
-        const models = await fetchOllamaModels(url, format);
-        const sel = select;
-        if (disposed || !sel) return;
+        // 023: the LLM dropdown lists what its own (possibly separate) server
+        // offers; the embedding dropdown always lists the main server's models.
+        // 024: each list speaks its own path's protocol — the embedding list
+        // derives it from embeddingProvider (apiFormat is LLM-only and hidden
+        // while AI curation is off), the LLM list uses apiFormat.
+        const embFormat = settings.embeddingProvider !== "wasm"
+            ? (settings.embeddingProvider === "openai-compatible" ? "openai" : "ollama")
+            : settings.apiFormat;
+        const url = isLlm ? resolveLlmUrl(settings.llmUrl, settings.ollamaUrl) : settings.ollamaUrl;
+        const format = isLlm ? settings.apiFormat : embFormat;
 
+        void (async () => {
+            const models = await fetchOllamaModels(url, format);
+            const sel = select;
+            if (disposed || gen !== generation || !sel) return;
+            fill(sel, models, currentValue, format);
+        })();
+    };
+
+    const fill = (sel: HTMLSelectElement, models: OllamaModel[], currentValue: string, format: ApiFormat) => {
         // 031: an empty list is itself a finding — the dropdown must say the
         // server could not be reached instead of sitting on "Loading...".
         if (models.length === 0) {
@@ -122,12 +142,30 @@ export function renderModelDropdown(
                     : t.modelNotListedHint,
             });
         }
-    })();
+    };
+
+    load();
+    // A server address edit reloads this list in place (no tab re-render).
+    const unsubscribe = o.ctx.onServerChange(() => {
+        if (disposed) return;
+        // Drop the previous server's list before asking the new one.
+        resetOptions(select, "Loading...", o.current());
+        load();
+    });
 
     return () => {
         disposed = true;
+        unsubscribe();
         hint?.remove();
     };
+}
+
+/** Back to the pre-fetch shape: a placeholder plus the current model. */
+function resetOptions(sel: HTMLSelectElement, placeholder: string, currentValue: string) {
+    while (sel.firstChild) sel.removeChild(sel.firstChild);
+    sel.createEl("option", { value: "", text: placeholder });
+    if (currentValue) sel.createEl("option", { value: currentValue, text: currentValue });
+    sel.value = currentValue;
 }
 
 /** Run a long index action with the button parked on `busyText` meanwhile. */
