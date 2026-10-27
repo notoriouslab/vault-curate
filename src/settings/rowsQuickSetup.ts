@@ -55,7 +55,7 @@ export function providerRow(ctx: SettingsContext): SettingDefinitionRender {
                     await switchProvider({
                         settings: ctx.plugin.settings,
                         saveSettings: () => ctx.plugin.saveSettings(),
-                        reload: () => ctx.plugin.reloadBackends(),
+                        reload: () => ctx.plugin.reloadEmbedding(),
                         refresh: () => ctx.refresh(),
                         rebuild: () => ctx.plugin.rebuildIndex(),
                     }, newProvider, old);
@@ -132,11 +132,14 @@ export function ollamaUrlRow(ctx: SettingsContext, visible?: Predicate): Setting
                     ctx.plugin.settings.ollamaUrl = val.trim();
                     await ctx.plugin.saveSettings();
                     updateRemoteWarning(setting, val.trim(), keyText(ctx.plugin.settings.apiKey));
-                    if (Platform.isMobile) ctx.plugin.refreshMobileProvider(); // 015: layer 0↔2 flip
                     // Same as the AI curation server: reload the model lists
                     // (and the probe, when curation falls back to this server).
                     if (reloadTimer !== null) window.clearTimeout(reloadTimer);
                     reloadTimer = window.setTimeout(() => ctx.serverChanged(), SERVER_RELOAD_DELAY_MS);
+                });
+                // 015 layer 0↔2 flip, once the field is left (042 D4).
+                text.inputEl.addEventListener("change", () => {
+                    if (Platform.isMobile) ctx.plugin.refreshMobileProvider();
                 });
             });
             const refreshWarning = () => updateRemoteWarning(
@@ -170,11 +173,13 @@ export function apiKeyRow(ctx: SettingsContext, visible?: Predicate): SettingDef
                 text.onChange(async (val) => {
                     ctx.plugin.settings.apiKey = val.trim();
                     await ctx.plugin.saveSettings();
-                    if (Platform.isMobile) ctx.plugin.refreshMobileProvider(); // 015
                     // The model lists and the probe send this key: a key typed
                     // after the address must reload them like the address does.
                     if (reloadTimer !== null) window.clearTimeout(reloadTimer);
                     reloadTimer = window.setTimeout(() => ctx.serverChanged(), SERVER_RELOAD_DELAY_MS);
+                });
+                text.inputEl.addEventListener("change", () => {
+                    if (Platform.isMobile) ctx.plugin.refreshMobileProvider(); // 042 D4
                 });
             });
             return () => {
@@ -198,7 +203,7 @@ export function embeddingModelRow(ctx: SettingsContext, visible?: Predicate): Se
                 const old = ctx.plugin.settings.ollamaModel;
                 if (val === old) return;
                 // 015 review C1: on mobile the desktop flow below is wrong twice
-                // over — reloadBackends() bypasses the D3 decision table
+                // over — reloadEmbedding() bypasses the D3 decision table
                 // (buildMobileProvider) and rebuildIndex() fires a bogus
                 // "backend not ready" notice (no indexer exists on mobile).
                 // Mobile just swaps the provider; the index stays desktop-built.
@@ -217,7 +222,7 @@ export function embeddingModelRow(ctx: SettingsContext, visible?: Predicate): Se
                 ctx.plugin.settings.ollamaModel = val;
                 await ctx.plugin.saveSettings();
                 try {
-                    await ctx.plugin.reloadBackends();
+                    await ctx.plugin.reloadEmbedding();
                 } catch {
                     // Roll back the persisted setting + UI so we don't leave the
                     // dropdown showing a model that the backend never accepted.

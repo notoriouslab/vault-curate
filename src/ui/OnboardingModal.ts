@@ -404,7 +404,7 @@ export async function applyOnboardingChoice(
     await plugin.saveSettings();
 
     try {
-        await plugin.reloadBackends();
+        await plugin.reloadEmbedding();
     } catch {
         // reloadBackends already showed a Notice; the fix is on the
         // settings page (Onboarding does not come back, 042 D1).

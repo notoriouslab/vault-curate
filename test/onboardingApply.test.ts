@@ -22,7 +22,7 @@ function fakePlugin(over: Partial<VaultSearchSettings> = {}, opts: { reloadFails
     return {
         settings,
         saveSettings: vi.fn(async () => { /* noop */ }),
-        reloadBackends: vi.fn(async () => { if (opts.reloadFails) throw new Error("boom"); }),
+        reloadEmbedding: vi.fn(async () => { if (opts.reloadFails) throw new Error("boom"); }),
         rebuildIndex: vi.fn(async () => { /* noop */ }),
         store: opts.noStore ? undefined : { setMeta: vi.fn() },
     };
@@ -52,7 +52,7 @@ describe("applyOnboardingChoice: dismiss changes nothing (042 D2)", () => {
             await apply(p, { ...c, dismissed: true, indexNow: false });
             expect(p.settings).toEqual({ ...before, onboardingDone: true });
             expect(p.saveSettings).toHaveBeenCalledTimes(1);
-            expect(p.reloadBackends).not.toHaveBeenCalled();
+            expect(p.reloadEmbedding).not.toHaveBeenCalled();
             expect(p.rebuildIndex).not.toHaveBeenCalled();
             expect(p.store?.setMeta).not.toHaveBeenCalled();
         });
@@ -82,7 +82,7 @@ describe("applyOnboardingChoice: only over default settings (042 D3)", () => {
             const before = structuredClone(p.settings);
             await apply(p, providers[2]);
             expect(p.settings).toEqual({ ...before, onboardingDone: true });
-            expect(p.reloadBackends).not.toHaveBeenCalled();
+            expect(p.reloadEmbedding).not.toHaveBeenCalled();
             expect(p.rebuildIndex).not.toHaveBeenCalled();
             expect(notices).toEqual([t.onboardingSettingsChanged]);
         });
@@ -106,7 +106,7 @@ describe("applyOnboardingChoice: only over default settings (042 D3)", () => {
             ollamaUrl: "https://api.example.com/v1", ollamaModel: "emb-1", apiKey: "sk-x", onboardingDone: true,
         });
         for (const p of [wasm, ollama, openai]) {
-            expect(p.reloadBackends).toHaveBeenCalledTimes(1);
+            expect(p.reloadEmbedding).toHaveBeenCalledTimes(1);
             expect(p.rebuildIndex).toHaveBeenCalledTimes(1);
             expect(p.store?.setMeta).not.toHaveBeenCalled();
         }

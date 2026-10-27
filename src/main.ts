@@ -59,6 +59,7 @@ import { MobileIndexGate, type MobileGateState } from "./mobile/indexGate";
 import { probeStoreHealth } from "./mobile/probeStoreHealth";
 import { isLoopbackUrl } from "./utils";
 import { shouldShowOnboarding } from "./utils/onboardingGate";
+import { applyBeforeIndexJob, applyOnClose, connectionOf, serialize, type Connection, type ConnectionHost } from "./utils/connectionApply";
 import { SELF_WRITE_TOLERANCE_MS, type TierResolver } from "./heat/deriveTier";
 import { relatedKwRank, kwRankForQuery } from "./search/relatedKwRank";
 import { parseTags } from "./search/relatedFusion";
@@ -83,6 +84,8 @@ export default class VaultSearchPlugin extends Plugin {
     /** 032: kept so the tab can re-evaluate its predicates once the backend
      *  is ready (the definitions are built while it is still starting). */
     settingTab: VaultSearchSettingTab | null = null;
+    /** URL and key the external provider was last built with (042 D4). */
+    private builtConnection: Connection = { url: "", key: "" };
     /** 015 D4: mobile query-intent loading gate (null on desktop). State
      *  lives here, not in the view — reopening the sidebar reads the same
      *  gate; the view only renders it. */
@@ -1163,6 +1166,7 @@ export default class VaultSearchPlugin extends Plugin {
             new Notice("vault-curate: backend not ready — see console for init error");
             return;
         }
+        if (!(await applyBeforeIndexJob(this.connectionHost()))) return;
         const indexer = this.indexer;
         await runIndexJob(indexer, () => indexer.rebuild(), {
             busy: () => { new Notice(t.indexingInProgress); },
@@ -1176,6 +1180,7 @@ export default class VaultSearchPlugin extends Plugin {
             new Notice("vault-curate: backend not ready — see console for init error");
             return;
         }
+        if (!(await applyBeforeIndexJob(this.connectionHost()))) return;
         const indexer = this.indexer;
         await runIndexJob(indexer, () => indexer.update(), {
             busy: () => { new Notice(t.indexingInProgress); },
@@ -1532,7 +1537,29 @@ export default class VaultSearchPlugin extends Plugin {
             );
         }
 
+        // Recorded before building, so a failed build still counts as
+        // applied: the same settings won't be retried on every close.
+        this.builtConnection = connectionOf(this.settings);
         return createProvider(this.remoteEmbeddingCfg(), { httpFetch });
+    }
+
+    /** Settings-page reloads run one at a time (042 D4). */
+    readonly reloadEmbedding = serialize(() => this.reloadBackends());
+
+    private connectionHost(): ConnectionHost {
+        return {
+            mobile: Platform.isMobile,
+            settings: this.settings,
+            built: this.builtConnection,
+            indexer: this.indexer,
+            reload: () => this.reloadEmbedding(),
+            refreshMobile: () => this.refreshMobileProvider(),
+        };
+    }
+
+    /** Settings tab closed: apply an edited URL or key (042 D4). */
+    applyConnectionOnClose(): void {
+        applyOnClose(this.connectionHost());
     }
 
     /** Tear down old provider/store, build new from current settings. Used after Settings save. */

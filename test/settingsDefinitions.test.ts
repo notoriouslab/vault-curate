@@ -35,7 +35,7 @@ function makeCtx(settingsOverrides: Record<string, unknown> = {}) {
         store: null,
         indexer: null,
         saveSettings,
-        reloadBackends: vi.fn(async () => { /* noop */ }),
+        reloadEmbedding: vi.fn(async () => { /* noop */ }),
         rebuildIndex: vi.fn(async () => { /* noop */ }),
         updateIndex: vi.fn(async () => { /* noop */ }),
         reloadMobileIndex: vi.fn(async () => { /* noop */ }),

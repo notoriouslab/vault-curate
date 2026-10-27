@@ -39,6 +39,7 @@ export class VaultSearchSettingTab extends PluginSettingTab implements SettingsC
 
     hide(): void {
         this.runCleanups();
+        this.plugin.applyConnectionOnClose();
         super.hide();
     }
 
