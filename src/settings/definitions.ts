@@ -32,6 +32,7 @@ import {
     llmEndpointRow,
     llmModelRow,
     llmUrlRow,
+    llmApiKeyRow,
     rerunOnboardingRow,
 } from "./rowsAICuration";
 import {
@@ -77,9 +78,7 @@ export function buildDesktopDefinitions(ctx: SettingsContext): SettingDefinition
                 modelDownloadSourceRow(ctx, builtin),
                 modelDownloadUrlRow(ctx, () => builtin() && ctx.plugin.settings.modelDownloadSource === "custom"),
                 ollamaUrlRow(ctx, external),
-                // 1.14.2: AI curation may talk to a keyed service (OpenRouter)
-                // while embeddings stay built-in, so the key shows for either.
-                apiKeyRow(ctx, () => external() || curation()),
+                apiKeyRow(ctx, external),
                 embeddingModelRow(ctx, external),
                 excludePatternsRow(ctx),
             ],
@@ -91,6 +90,7 @@ export function buildDesktopDefinitions(ctx: SettingsContext): SettingDefinition
                 enableAICurationRow(ctx),
                 apiFormatRow(ctx, curation),
                 llmUrlRow(ctx, curation),
+                llmApiKeyRow(ctx, curation),
                 llmModelRow(ctx, curation),
                 aiOutputLanguageRow(ctx, curation),
                 aiOutputLanguageCustomRow(ctx, () => curation() && ctx.plugin.settings.aiOutputLanguage === "custom"),

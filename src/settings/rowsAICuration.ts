@@ -95,6 +95,36 @@ export function llmUrlRow(ctx: SettingsContext, visible: Predicate): SettingDefi
     };
 }
 
+export function llmApiKeyRow(ctx: SettingsContext, visible: Predicate): SettingDefinitionRender {
+    // 041 D4: AI curation's own key, right under its server. Shows the raw
+    // value (D1 exception): showing the resolved key would save the reused
+    // embedding key here the moment the field is edited.
+    return {
+        name: t.llmApiKeyName,
+        desc: t.llmApiKeyDesc,
+        visible,
+        render: (setting) => {
+            let reloadTimer: number | null = null;
+            setting.addText(text => {
+                text.setPlaceholder(t.apiKeyPlaceholder);
+                text.setValue(ctx.plugin.settings.llmApiKey);
+                text.inputEl.type = "password";
+                text.onChange(async (val) => {
+                    ctx.plugin.settings.llmApiKey = val.trim();
+                    await ctx.plugin.saveSettings();
+                    // The LLM model list, the probe and the http warning send
+                    // this key: reload them once typing pauses.
+                    if (reloadTimer !== null) window.clearTimeout(reloadTimer);
+                    reloadTimer = window.setTimeout(() => ctx.serverChanged(), SERVER_RELOAD_DELAY_MS);
+                });
+            });
+            return () => {
+                if (reloadTimer !== null) window.clearTimeout(reloadTimer);
+            };
+        },
+    };
+}
+
 export function llmModelRow(ctx: SettingsContext, visible: Predicate): SettingDefinitionRender {
     return {
         name: t.llmModel,

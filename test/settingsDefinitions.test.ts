@@ -73,6 +73,7 @@ describe("setting definitions", () => {
             t.enableAICuration,
             t.apiFormat,
             t.llmUrlName,
+            t.llmApiKeyName,
             t.llmModel,
             t.aiOutputLanguage,
             t.aiOutputLanguageCustomName,
@@ -94,7 +95,7 @@ describe("setting definitions", () => {
             t.updateIndex,
             t.indexStats,
         ]);
-        expect(names.length).toBe(31); // 034: "Max embed characters" row retired; 036: +2 AI output language rows; 039: +2 model download rows
+        expect(names.length).toBe(32); // 034: "Max embed characters" row retired; 036: +2 AI output language rows; 039: +2 model download rows; 041: +1 AI curation API key row
     });
 
     it("uses no control definitions", () => {

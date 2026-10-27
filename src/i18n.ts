@@ -39,6 +39,8 @@ export interface Locale {
     aiOutputLanguageCustomDesc: string;
     llmUrlName: string;
     llmUrlDesc: string;
+    llmApiKeyName: string;
+    llmApiKeyDesc: string;
     enableAICuration: string;
     enableAICurationDesc: string;
     llmEndpointHeading: string;
@@ -360,7 +362,9 @@ const en: Locale = {
     aiOutputLanguageCustomName: "Custom language",
     aiOutputLanguageCustomDesc: "Language name to write in, e.g. Français or Deutsch. Prefer a listed language when available: those use prompts written in that language, which small models follow more reliably. Leave empty to follow the interface language.",
     llmUrlName: "AI curation server (optional)",
-    llmUrlDesc: "Separate server for AI curation only. Leave empty to use the embedding server above. Useful when your LLM runs on a server that doesn't serve embeddings (e.g. mlx_lm.server). Note: the API key above is sent to both servers.",
+    llmUrlDesc: "Separate server for AI curation only. Leave empty to use the embedding server above. Useful when your LLM runs on a server that doesn't serve embeddings (e.g. mlx_lm.server).",
+    llmApiKeyName: "AI curation API key (optional)",
+    llmApiKeyDesc: "For an AI curation service that requires authentication, such as OpenRouter. Sent only to the AI curation server. If the AI curation server above is empty, leaving this empty reuses the embedding key; if a server is filled in, only this key is used.",
     enableAICuration: "Enable AI curation",
     enableAICurationDesc: "When on, expose Description generation and topic-grouped MOC commands. The LLM uses the embedding server above unless you set a separate AI curation server below.",
     llmEndpointHeading: "LLM endpoint status",
@@ -440,7 +444,7 @@ const en: Locale = {
     descRepairedTruncated: (n) => `Repaired ${n} descriptions that an earlier version cut off mid-sentence.`,
     descOpenSidebarFirst: "Open the Vault Curate panel and run a search first.",
     apiKeyLabel: "API key",
-    apiKeyDesc: "Optional — for servers that require authentication. Sent to both the embedding server and the AI curation server.",
+    apiKeyDesc: "Optional, for an embedding server that requires authentication. AI curation also uses it when the AI curation server and AI curation API key are both left empty.",
     urlPlaceholder: "http://localhost:11434",
     apiKeyPlaceholder: "sk-...",
     remoteWarning: "\u26a0 Remote server — note content will be sent outside your machine",
@@ -699,7 +703,9 @@ const zhTW: Locale = {
     aiOutputLanguageCustomName: "自訂語言",
     aiOutputLanguageCustomDesc: "要輸出的語言名稱，例如 Français、Deutsch。清單裡有的語言請直接選：那些用的是以該語言寫的提示詞，小模型比較聽話。留空＝跟隨介面語言。",
     llmUrlName: "AI 整理伺服器（選填）",
-    llmUrlDesc: "只給 AI 整理用的獨立伺服器。留空則使用上方的 Embedding 伺服器。適合 LLM 跑在不提供 embeddings 的伺服器（如 mlx_lm.server）時使用。注意：上方的 API key 會同時送到兩台伺服器。",
+    llmUrlDesc: "只給 AI 整理用的獨立伺服器。留空則使用上方的 Embedding 伺服器。適合 LLM 跑在不提供 embeddings 的伺服器（如 mlx_lm.server）時使用。",
+    llmApiKeyName: "AI 整理 API key（選填）",
+    llmApiKeyDesc: "給需要認證的 AI 整理服務，例如 OpenRouter。只會送到 AI 整理伺服器。上方的 AI 整理伺服器留空時，這裡留空會沿用 Embedding 的 key；有填伺服器時，只用這裡的 key。",
     enableAICuration: "啟用 AI 整理",
     enableAICurationDesc: "開啟後才會出現 Description 生成與主題分群 MOC 等指令。LLM 預設使用上方的 Embedding 伺服器，也可在下方另設 AI 整理專用伺服器。",
     llmEndpointHeading: "LLM 連線狀態",
@@ -779,7 +785,7 @@ const zhTW: Locale = {
     descRepairedTruncated: (n) => `已修補 ${n} 篇被舊版截斷的描述。`,
     descOpenSidebarFirst: "請先開啟 Vault Curate 面板並執行搜尋。",
     apiKeyLabel: "API key",
-    apiKeyDesc: "選填 — 用於需要認證的伺服器。會同時送到 Embedding 伺服器與 AI 整理伺服器。",
+    apiKeyDesc: "選填，給需要認證的 Embedding 伺服器。AI 整理伺服器與 AI 整理 API key 都留空時，AI 整理也會用這把。",
     urlPlaceholder: "http://localhost:11434",
     apiKeyPlaceholder: "sk-...",
     remoteWarning: "\u26a0 遠端伺服器 — 筆記內容將傳送至外部機器",
@@ -1041,7 +1047,9 @@ const zhCN: Locale = {
     aiOutputLanguageCustomName: "自定义语言",
     aiOutputLanguageCustomDesc: "要输出的语言名称，例如 Français、Deutsch。列表里有的语言请直接选：那些用的是以该语言写的提示词，小模型更听话。留空＝跟随界面语言。",
     llmUrlName: "AI 整理服务器（选填）",
-    llmUrlDesc: "只给 AI 整理用的独立服务器。留空则使用上方的 Embedding 服务器。适合 LLM 跑在不提供 embeddings 的服务器（如 mlx_lm.server）时使用。注意：上方的 API key 会同时发送到两台服务器。",
+    llmUrlDesc: "只给 AI 整理用的独立服务器。留空则使用上方的 Embedding 服务器。适合 LLM 跑在不提供 embeddings 的服务器（如 mlx_lm.server）时使用。",
+    llmApiKeyName: "AI 整理 API key（选填）",
+    llmApiKeyDesc: "给需要认证的 AI 整理服务，例如 OpenRouter。只会发送到 AI 整理服务器。上方的 AI 整理服务器留空时，这里留空会沿用 Embedding 的 key；填了服务器时，只用这里的 key。",
     enableAICuration: "启用 AI 整理",
     enableAICurationDesc: "开启后才会出现 Description 生成与主题分组 MOC 等命令。LLM 默认使用上方的 Embedding 服务器，也可在下方另设 AI 整理专用服务器。",
     llmEndpointHeading: "LLM 连接状态",
@@ -1121,7 +1129,7 @@ const zhCN: Locale = {
     descRepairedTruncated: (n) => `已修补 ${n} 篇被旧版截断的描述。`,
     descOpenSidebarFirst: "请先打开 Vault Curate 面板并执行搜索。",
     apiKeyLabel: "API key",
-    apiKeyDesc: "选填 — 用于需要认证的服务器。会同时发送到 Embedding 服务器与 AI 整理服务器。",
+    apiKeyDesc: "选填，给需要认证的 Embedding 服务器。AI 整理服务器与 AI 整理 API key 都留空时，AI 整理也会用这把。",
     urlPlaceholder: "http://localhost:11434",
     apiKeyPlaceholder: "sk-...",
     remoteWarning: "⚠ 远程服务器 — 笔记内容将发送到外部设备",

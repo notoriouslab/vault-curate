@@ -18,7 +18,7 @@ vi.mock("../src/utils", async (orig) => ({
     checkLLMReachable,
 }));
 
-import { llmEndpointRow, llmModelRow, llmUrlRow } from "../src/settings/rowsAICuration";
+import { llmApiKeyRow, llmEndpointRow, llmModelRow, llmUrlRow } from "../src/settings/rowsAICuration";
 import { apiKeyRow, ollamaUrlRow } from "../src/settings/rowsQuickSetup";
 import { SERVER_RELOAD_DELAY_MS } from "../src/settings/rowHelpers";
 import { VaultSearchSettingTab } from "../src/settings";
@@ -167,6 +167,7 @@ describe("server address edits reload in place (#19 follow-up)", () => {
         ["AI curation server", (ctx: SettingsContext) => llmUrlRow(ctx, () => true)],
         ["embedding server", (ctx: SettingsContext) => ollamaUrlRow(ctx)],
         ["API key", (ctx: SettingsContext) => apiKeyRow(ctx)],
+        ["AI curation API key", (ctx: SettingsContext) => llmApiKeyRow(ctx, () => true)],
     ])("the %s field reloads once typing pauses, not per keystroke", async (_label, build) => {
         vi.useFakeTimers();
         const { ctx } = makeCtx();
@@ -202,20 +203,56 @@ describe("server address edits reload in place (#19 follow-up)", () => {
     });
 });
 
-describe("API key row visibility (1.14.2)", () => {
-    const keyRowVisible = (overrides: Record<string, unknown>) => {
+describe("API key row visibility (041)", () => {
+    const rowVisible = (name: string, overrides: Record<string, unknown>) => {
         const { ctx } = makeCtx(overrides);
         const groups = buildDesktopDefinitions(ctx) as unknown as Array<{ items?: Array<{ name?: string; visible?: () => boolean }> }>;
-        const row = groups.flatMap((g) => g.items ?? []).find((i) => i.name === t.apiKeyLabel)!;
+        const row = groups.flatMap((g) => g.items ?? []).find((i) => i.name === name)!;
         return row.visible ? row.visible() : true;
     };
+    const keyRowVisible = (overrides: Record<string, unknown>) => rowVisible(t.apiKeyLabel, overrides);
 
     it.each([
-        [{ embeddingProvider: "wasm", enableAICuration: true }, true],
+        [{ embeddingProvider: "wasm", enableAICuration: true }, false],
         [{ embeddingProvider: "wasm", enableAICuration: false }, false],
         [{ embeddingProvider: "ollama", enableAICuration: false }, true],
         [{ embeddingProvider: "openai-compatible", enableAICuration: true }, true],
     ])("%o -> %s", (overrides, expected) => {
         expect(keyRowVisible(overrides)).toBe(expected);
     });
+
+    it.each([
+        [{ embeddingProvider: "wasm", enableAICuration: true }, true],
+        [{ embeddingProvider: "wasm", enableAICuration: false }, false],
+        [{ embeddingProvider: "ollama", enableAICuration: false }, false],
+        [{ embeddingProvider: "openai-compatible", enableAICuration: true }, true],
+    ])("AI curation API key row: %o -> %s", (overrides, expected) => {
+        expect(rowVisible(t.llmApiKeyName, overrides)).toBe(expected);
+    });
+
+    it("the AI curation API key row sits right under the AI curation server", () => {
+        const { ctx } = makeCtx();
+        const groups = buildDesktopDefinitions(ctx) as unknown as Array<{ items?: Array<{ name?: string }> }>;
+        const names = groups.flatMap((g) => g.items ?? []).map((i) => i.name);
+        expect(names[names.indexOf(t.llmUrlName) + 1]).toBe(t.llmApiKeyName);
+    });
 });
+
+describe("AI curation API key field (041 D1/D4)", () => {
+    it("shows its own stored value, never the reused embedding key", () => {
+        const { ctx } = makeCtx({ llmApiKey: "", llmUrl: "", apiKey: "emb" });
+        const { setting, cleanup } = render(llmApiKeyRow(ctx, () => true));
+        expect((setting.controlEl.querySelector("input") as HTMLInputElement).value).toBe("");
+        cleanup();
+    });
+
+    it("editing the embedding key does not change the AI curation server's http warning", () => {
+        const { ctx, plugin } = makeCtx({ llmUrl: "http://192.168.1.20:11434", llmApiKey: "", apiKey: "" });
+        const { setting, cleanup } = render(llmUrlRow(ctx, () => true));
+        plugin.settings.apiKey = "sk";
+        ctx.serverChanged();
+        expect(setting.settingEl.querySelector(".vault-curate-http-warn")).toBeNull();
+        cleanup();
+    });
+});
+
