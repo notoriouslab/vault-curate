@@ -529,8 +529,10 @@ export class Indexer {
         const incomingSet = this.buildIncomingSet();
         const h1Collisions = this.buildH1Collisions(this.getMarkdownFiles());
         await this.indexOne(file, incomingSet, h1Collisions);
-        if (this.store.isDisposed || this.provider !== passProvider) return;
-        this.writeIndexMeta();
+        if (this.store.isDisposed) return;
+        // Provider swapped mid-edit: the note is written, but the new
+        // model's meta must not be stamped over it.
+        if (this.provider === passProvider) this.writeIndexMeta();
         // The upsert just invalidated the BM25 index — re-warm it in the
         // background so relatedness fusion stays consistently available
         // (011 perf follow-up; sliced build, never blocks this path).

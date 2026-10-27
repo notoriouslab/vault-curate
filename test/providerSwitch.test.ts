@@ -29,12 +29,16 @@ describe("switchProvider (042 D6)", () => {
     it("never rejects, even when the rollback save fails", async () => {
         const h = host({ reloadFails: true, saveFailsAfter: 1 });
         await expect(switchProvider(h, "ollama", "wasm")).resolves.toBeUndefined();
+        expect(h.settings.embeddingProvider).toBe("wasm");
+        expect(h.refresh).toHaveBeenCalledTimes(1);
     });
 
     it("never rejects when the first save fails", async () => {
         const h = host({ saveFailsAfter: 0 });
         await expect(switchProvider(h, "ollama", "wasm")).resolves.toBeUndefined();
         expect(h.reload).not.toHaveBeenCalled();
+        expect(h.settings.embeddingProvider).toBe("wasm");
+        expect(h.refresh).toHaveBeenCalledTimes(1);
         expect(h.rebuild).not.toHaveBeenCalled();
     });
 

@@ -4,13 +4,13 @@
 
 ### Fixed
 - **Closing the welcome screen no longer changes your settings.** Closing it with Esc or the close button now only remembers that you have seen it.
-- **The welcome screen no longer overwrites synced settings.** On a computer that already has your settings through sync but has no index yet, the welcome screen used to appear and could replace them with its own choices. It now appears only on first use. If a second computer loads the plugin before sync brings your settings over, it can still appear once, but it no longer changes settings that are not the defaults.
+- **The welcome screen no longer overwrites synced settings.** On a computer that already has your settings through sync but has no index yet, the welcome screen used to appear and could replace them with its own choices. It now appears only on first use. If a second computer loads the plugin before sync has brought your settings over, it can still appear once; let sync finish and restart Obsidian before choosing anything there.
 - **Changing the embedding server address or API key no longer needs a restart.** On desktop, the new address and key take effect when you close Settings, or when you press Update index or Rebuild index; if they don't seem to apply, press Update index. On mobile they take effect when you leave the field.
 - **A failed provider switch puts the previous provider back**, so Settings never shows a provider that is not running.
-- **On mobile, an embedding server address such as `http://localhost:11434` is recognised as the phone itself.** Search now uses keywords only instead of trying a server that is not there, and Settings shows the note that explains this.
+- **On mobile, an embedding server address such as `http://localhost:11434` is recognised as the phone itself.** Search now uses keywords only instead of trying a server that is not there, and Settings shows the note that explains this. If you run an embedding server on the phone itself, semantic search on that phone now falls back to keywords.
 - **Model lists no longer send your API key to a half-typed address.** They now reload once you leave the server or key field.
 - **Choosing an OpenAI-compatible server with AI curation on in the welcome screen now reminds you to pick an AI curation model**, since the default model is usually not on that server.
-- **Discover in the sidebar says to build the index first** when nothing has been indexed yet.
+- **On desktop, Discover in the sidebar says to build the index first** when nothing has been indexed yet, including while a rebuild is running.
 
 ### Changed
 - **Settings no longer has a "Re-run onboarding" button.** To switch the embedding provider, use the provider dropdown in Settings.

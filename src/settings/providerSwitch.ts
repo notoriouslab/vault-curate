@@ -25,13 +25,15 @@ export async function switchProvider(
         await host.saveSettings();
         await host.reload();
     } catch {
+        host.settings.embeddingProvider = old;
         try {
-            host.settings.embeddingProvider = old;
             await host.saveSettings();
-            host.refresh();
         } catch {
             // Best-effort: the reload's Notice already told the user.
         }
+        // Redraw even when the save failed: the dropdown must show the
+        // provider that is running.
+        host.refresh();
         return;
     }
     host.refresh();
