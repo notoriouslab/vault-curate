@@ -4,7 +4,7 @@ import { stripReasoningWrappers } from "./utils/stripReasoningWrappers";
 import { validateServerUrl, isLoopbackHost, isLoopbackUrl } from "./utils/hostGuards";
 import { openaiEndpoint } from "./utils/openaiEndpoint";
 import { apiErrorMessage } from "./utils/llmError";
-import { resolveModelKind } from "./utils/modelCapabilities";
+import { resolveModelKind, supportsJsonOutput } from "./utils/modelCapabilities";
 import type { ModelKind, ModelKindSource } from "./utils/modelCapabilities";
 
 export interface OllamaModel {
@@ -14,6 +14,9 @@ export interface OllamaModel {
     isEmbedding: boolean;
     kind: ModelKind;
     source: ModelKindSource;
+    /** False when the server says the model cannot return JSON, which AI
+     *  curation requires; undefined when the server does not say. */
+    jsonOutput?: boolean;
 }
 
 interface OllamaTagEntry {
@@ -70,11 +73,15 @@ export async function fetchOllamaModels(url: string, format: ApiFormat = "ollama
         if (format === "openai") {
             const resp = await requestUrl({ url: openaiEndpoint(url, "models"), headers: buildHeaders(apiKey), throw: false });
             if (resp.status !== 200) return [];
-            const data = resp.json as { data?: Array<{ id: string }> };
+            const data = resp.json as { data?: Array<{ id: string; supported_parameters?: unknown }> };
             // `/v1/models` carries no type information — name heuristic only.
             return (data.data ?? []).map((m) => {
                 const { kind, source } = resolveModelKind(m.id, undefined);
-                return { name: m.id, sizeGB: 0, isEmbedding: kind === "embedding", kind, source };
+                const jsonOutput = supportsJsonOutput(m.supported_parameters);
+                return {
+                    name: m.id, sizeGB: 0, isEmbedding: kind === "embedding", kind, source,
+                    ...(jsonOutput === undefined ? {} : { jsonOutput }),
+                };
             });
         }
 
@@ -144,7 +151,10 @@ export async function checkLLMReachable(
         if (resp.status >= 200 && resp.status < 300) {
             result.reachable = true;
         } else {
-            result.reason = `HTTP ${resp.status}`;
+            // The server's own words (e.g. "User not found." for a bad key)
+            // say more than the bare status (issue #19).
+            const detail = resp.text ? apiErrorMessage(resp.text, 120) : "";
+            result.reason = detail ? `HTTP ${resp.status}: ${detail}` : `HTTP ${resp.status}`;
         }
     } catch (err) {
         result.reason = err instanceof Error ? err.message : "connection error";
@@ -176,10 +186,6 @@ function buildHeaders(apiKey?: string): Record<string, string> {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
     return headers;
-}
-
-function truncateError(text: string, max = 200): string {
-    return text.length > max ? text.slice(0, max) + "..." : text;
 }
 
 // Host-safety guards moved to ./utils/hostGuards (unit-testable pure
@@ -233,7 +239,7 @@ export async function embedTexts(
             body: JSON.stringify({ model, input: texts }),
             throw: false,
         }), EMBED_TIMEOUT_MS, "Embedding");
-        if (resp.status !== 200) throw new Error(`API ${resp.status}: ${truncateError(resp.text)}`);
+        if (resp.status !== 200) throw new Error(`API ${resp.status}: ${apiErrorMessage(resp.text)}`);
         const data = resp.json as { data?: Array<{ index: number; embedding: number[] }> };
         // OpenAI returns {data: [{embedding: [...]}, ...]} sorted by index
         return (data.data ?? [])
@@ -249,7 +255,7 @@ export async function embedTexts(
         body: JSON.stringify({ model, input: texts }),
         throw: false,
     }), EMBED_TIMEOUT_MS, "Embedding");
-    if (resp.status !== 200) throw new Error(`Ollama ${resp.status}: ${truncateError(resp.text)}`);
+    if (resp.status !== 200) throw new Error(`Ollama ${resp.status}: ${apiErrorMessage(resp.text)}`);
     const data = resp.json as { embeddings?: number[][] };
     return data.embeddings ?? [];
 }

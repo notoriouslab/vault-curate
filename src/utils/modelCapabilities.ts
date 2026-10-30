@@ -49,3 +49,14 @@ export function resolveModelKind(
     if (byCaps !== "unknown") return { kind: byCaps, source: "capabilities" };
     return { kind: classifyByHeuristic(name), source: "heuristic" };
 }
+
+/**
+ * Whether a model can return JSON, from an OpenAI-compatible `/models` entry's
+ * `supported_parameters` (OpenRouter lists it; issue #19: a summarize-only
+ * model rejected every request with "response_format is not supported").
+ * `undefined` when the server does not report the field, so nothing is hidden.
+ */
+export function supportsJsonOutput(params: unknown): boolean | undefined {
+    if (!Array.isArray(params)) return undefined;
+    return params.includes("response_format") || params.includes("structured_outputs");
+}

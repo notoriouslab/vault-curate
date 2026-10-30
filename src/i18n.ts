@@ -104,7 +104,7 @@ export interface Locale {
     menuDescGenerate: string;
     menuFindSimilar: string;
     btnDescGenerate: string;
-    ollamaNotReady: string;
+    llmNotReady: (reason: string) => string;
     noSimilar: string;
     notIndexed: string;
     similarTo: (title: string) => string;
@@ -127,6 +127,8 @@ export interface Locale {
     descGeneratedOne: (name: string) => string;
     descBatchDone: (ok: number, failed: number, reason?: string) => string;
     descLlmFailed: (name: string, reason?: string) => string;
+    descReasonEchoTitle: string;
+    descReasonEmpty: string;
     descNoEligible: string;
     descRepairedTruncated: (n: number) => string;
     descOpenSidebarFirst: string;
@@ -153,6 +155,8 @@ export interface Locale {
     modelDownloadHttpFailed: (host: string, msg: string) => string;
     modelNotInstalledHintOllama: (name: string) => string;
     modelNotListedHint: string;
+    modelNoJson: string;
+    modelNoJsonHint: string;
     modelListUnavailable: string;
     // Discover
     tabSearch: string;
@@ -415,7 +419,7 @@ const en: Locale = {
     menuDescGenerate: "VC: Generate description",
     menuFindSimilar: "VC: Find similar notes",
     btnDescGenerate: "Generate description",
-    ollamaNotReady: "Cannot connect to Ollama. Please ensure Ollama is running.",
+    llmNotReady: (reason) => `Cannot reach the AI curation server: ${reason}`,
     noSimilar: "No similar notes found",
     notIndexed: "This note is not indexed",
     similarTo: (title) => `Similar to: ${title}`,
@@ -440,6 +444,8 @@ const en: Locale = {
         ? `Done — ${ok} notes, ${failed} failed${reason ? ` (${reason})` : ""}`
         : `Done — ${ok} notes`,
     descLlmFailed: (name, reason) => `LLM failed for ${name}${reason ? `: ${reason}` : ""}`,
+    descReasonEchoTitle: "the model only repeated the title, twice",
+    descReasonEmpty: "the reply had no description",
     descNoEligible: "No notes without a description in the current selection.",
     descRepairedTruncated: (n) => `Repaired ${n} descriptions that an earlier version cut off mid-sentence.`,
     descOpenSidebarFirst: "Open the Vault Curate panel and run a search first.",
@@ -469,6 +475,8 @@ const en: Locale = {
     modelNotInstalledHintOllama: (name: string) =>
         `This model is not on the server. Install it with: ollama pull ${name}`,
     modelNotListedHint: "This model is not in the server's model list.",
+    modelNoJson: "no JSON output",
+    modelNoJsonHint: "The server says this model cannot return JSON, which AI curation needs. Pick another model.",
     modelListUnavailable: "Could not load the model list. Check the server address.",
     tabSearch: "Search",
     tabDiscover: "Discover",
@@ -757,7 +765,7 @@ const zhTW: Locale = {
     menuDescGenerate: "VC: 生成 description",
     menuFindSimilar: "VC: 尋找相似筆記",
     btnDescGenerate: "生成 description",
-    ollamaNotReady: "無法連線 Ollama，請確認 Ollama 已啟動",
+    llmNotReady: (reason) => `無法連線 AI 整理伺服器：${reason}`,
     noSimilar: "找不到相似筆記",
     notIndexed: "此筆記尚未索引",
     similarTo: (title) => `與「${title}」相似`,
@@ -782,6 +790,8 @@ const zhTW: Locale = {
         ? `完成 — ${ok} 篇成功、${failed} 篇失敗${reason ? `（${reason}）` : ""}`
         : `完成 — ${ok} 篇`,
     descLlmFailed: (name, reason) => `LLM 對 ${name} 生成失敗${reason ? `：${reason}` : ""}`,
+    descReasonEchoTitle: "模型連續兩次只回了標題",
+    descReasonEmpty: "回覆裡沒有描述",
     descNoEligible: "目前結果中沒有缺少 description 的筆記。",
     descRepairedTruncated: (n) => `已修補 ${n} 篇被舊版截斷的描述。`,
     descOpenSidebarFirst: "請先開啟 Vault Curate 面板並執行搜尋。",
@@ -811,6 +821,8 @@ const zhTW: Locale = {
     modelNotInstalledHintOllama: (name: string) =>
         `伺服器上沒有這個模型。安裝：ollama pull ${name}`,
     modelNotListedHint: "伺服器的模型清單裡沒有這個模型。",
+    modelNoJson: "不支援 JSON 輸出",
+    modelNoJsonHint: "伺服器表示這個模型無法輸出 JSON，AI 整理需要 JSON，請改選其他模型。",
     modelListUnavailable: "無法取得模型清單，請確認伺服器地址。",
     tabSearch: "搜尋",
     tabDiscover: "發掘",
@@ -1102,7 +1114,7 @@ const zhCN: Locale = {
     menuDescGenerate: "VC: 生成 description",
     menuFindSimilar: "VC: 查找相似笔记",
     btnDescGenerate: "生成 description",
-    ollamaNotReady: "无法连接 Ollama，请确认 Ollama 已启动",
+    llmNotReady: (reason) => `无法连接 AI 整理服务器：${reason}`,
     noSimilar: "找不到相似笔记",
     notIndexed: "此笔记尚未索引",
     similarTo: (title) => `与「${title}」相似`,
@@ -1127,6 +1139,8 @@ const zhCN: Locale = {
         ? `完成 — ${ok} 篇成功、${failed} 篇失败${reason ? `（${reason}）` : ""}`
         : `完成 — ${ok} 篇`,
     descLlmFailed: (name, reason) => `${name} 的 description 生成失败${reason ? `：${reason}` : ""}`,
+    descReasonEchoTitle: "模型连续两次只回了标题",
+    descReasonEmpty: "回复里没有描述",
     descNoEligible: "当前结果中没有缺少 description 的笔记。",
     descRepairedTruncated: (n) => `已修补 ${n} 篇被旧版截断的描述。`,
     descOpenSidebarFirst: "请先打开 Vault Curate 面板并执行搜索。",
@@ -1156,6 +1170,8 @@ const zhCN: Locale = {
     modelNotInstalledHintOllama: (name: string) =>
         `服务器上没有这个模型。安装：ollama pull ${name}`,
     modelNotListedHint: "服务器的模型列表里没有这个模型。",
+    modelNoJson: "不支持 JSON 输出",
+    modelNoJsonHint: "服务器表示这个模型无法输出 JSON，AI 整理需要 JSON，请改选其他模型。",
     modelListUnavailable: "无法获取模型列表，请确认服务器地址。",
     tabSearch: "搜索",
     tabDiscover: "发掘",

@@ -79,6 +79,26 @@ describe('generateForFiles result (040 D6)', () => {
         done.mockRestore();
     });
 
+    it('names the reason when the model only echoes the title', async () => {
+        const { gen, g } = makeGenerator();
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        vi.spyOn(g, 'callLLM').mockResolvedValue({ description: 'a' });
+        const done = vi.spyOn(t, 'descBatchDone');
+        await gen.generateForFiles([makeFile('a.md')]);
+        expect(done).toHaveBeenCalledWith(0, 1, t.descReasonEchoTitle);
+        done.mockRestore();
+    });
+
+    it('names the reason when the reply has no description', async () => {
+        const { gen, g } = makeGenerator();
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        vi.spyOn(g, 'callLLM').mockResolvedValue({ description: '  ' });
+        const done = vi.spyOn(t, 'descBatchDone');
+        await gen.generateForFiles([makeFile('a.md')]);
+        expect(done).toHaveBeenCalledWith(0, 1, t.descReasonEmpty);
+        done.mockRestore();
+    });
+
     it('starts each batch without the previous batch reason', async () => {
         const { gen, g } = makeGenerator();
         vi.spyOn(console, 'warn').mockImplementation(() => {});

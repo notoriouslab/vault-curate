@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const { requestUrl } = vi.hoisted(() => ({ requestUrl: vi.fn() }));
 vi.mock("obsidian", async (orig) => ({ ...(await orig<object>()), requestUrl }));
 
-import { fetchOllamaModels } from "../src/utils";
+import { checkLLMReachable, fetchOllamaModels } from "../src/utils";
 
 type Req = { url: string; headers?: Record<string, string> };
 const calls = () => requestUrl.mock.calls.map(([r]) => r as Req);
@@ -32,5 +32,38 @@ describe("fetchOllamaModels sends the API key (1.14.2)", () => {
         requestUrl.mockResolvedValue({ status: 200, json: { data: [] } });
         await fetchOllamaModels("http://localhost:11434/v1", "openai");
         expect(calls()[0].headers?.Authorization).toBeUndefined();
+    });
+});
+
+describe("JSON output support from /models (issue #19)", () => {
+    it("marks models by supported_parameters and leaves unreported ones alone", async () => {
+        requestUrl.mockResolvedValue({ status: 200, json: { data: [
+            { id: "scaledown/summarize", supported_parameters: ["max_tokens"] },
+            { id: "openai/gpt-4o-mini", supported_parameters: ["max_tokens", "response_format"] },
+            { id: "x/structured", supported_parameters: ["structured_outputs"] },
+            { id: "local-model" },
+        ] } });
+        const models = await fetchOllamaModels("https://openrouter.ai/api/v1", "openai");
+        expect(models.map((m) => [m.name, m.jsonOutput])).toEqual([
+            ["scaledown/summarize", false],
+            ["openai/gpt-4o-mini", true],
+            ["x/structured", true],
+            ["local-model", undefined],
+        ]);
+    });
+});
+
+describe("checkLLMReachable reason (issue #19)", () => {
+    it("carries the server's error message", async () => {
+        requestUrl.mockResolvedValue({ status: 401, text: '{"error":{"message":"User not found.","code":401}}' });
+        const r = await checkLLMReachable({ ollamaUrl: "https://openrouter.ai/api/v1", apiFormat: "openai", apiKey: "k" });
+        expect(r.reachable).toBe(false);
+        expect(r.reason).toBe("HTTP 401: User not found.");
+    });
+
+    it("falls back to the bare status on an empty body", async () => {
+        requestUrl.mockResolvedValue({ status: 503, text: "" });
+        const r = await checkLLMReachable({ ollamaUrl: "http://localhost:11434", apiFormat: "ollama", apiKey: "" });
+        expect(r.reason).toBe("HTTP 503");
     });
 });

@@ -78,11 +78,14 @@ export class DescriptionGenerator {
      */
     private async llmReachable(): Promise<boolean> {
         const { ollamaUrl, llmUrl, apiFormat } = this.plugin.settings;
-        return (await checkLLMReachable({
+        const status = await checkLLMReachable({
             ollamaUrl: resolveLlmUrl(llmUrl, ollamaUrl),
             apiFormat,
             apiKey: resolveLlmApiKey(this.plugin.settings),
-        })).reachable;
+        });
+        // Not Ollama-specific any more, and with the probe's reason (issue #19).
+        if (!status.reachable) new Notice(t.llmNotReady(status.reason ?? "unknown"));
+        return status.reachable;
     }
 
     /** Generate + write description for a single note. Returns true on success. */
@@ -92,7 +95,6 @@ export class DescriptionGenerator {
             return false;
         }
         if (!(await this.llmReachable())) {
-            new Notice(t.ollamaNotReady);
             return false;
         }
         return (await this.runOne(file)) === "ok";
@@ -115,7 +117,6 @@ export class DescriptionGenerator {
             return { ok: 0, failed: 0, skipped: 0, okPaths };
         }
         if (!(await this.llmReachable())) {
-            new Notice(t.ollamaNotReady);
             return { ok: 0, failed: 0, skipped: 0, okPaths };
         }
 
@@ -201,7 +202,8 @@ export class DescriptionGenerator {
                         description = retryDesc;
                         if (retry.tags) result = { description: retryDesc, tags: retry.tags };
                     } else {
-                        if (!silent) new Notice(t.descLlmFailed(file.basename));
+                        this.lastFailureReason = t.descReasonEchoTitle;
+                        if (!silent) new Notice(t.descLlmFailed(file.basename, this.lastFailureReason));
                         return "failed";
                     }
                 } catch (e) {
@@ -214,7 +216,8 @@ export class DescriptionGenerator {
 
             if (!description) {
                 console.warn(`vault-curate: LLM returned no description for ${file.path}`);
-                if (!silent) new Notice(t.descLlmFailed(file.basename));
+                this.lastFailureReason = t.descReasonEmpty;
+                if (!silent) new Notice(t.descLlmFailed(file.basename, this.lastFailureReason));
                 return "failed";
             }
 
@@ -248,7 +251,8 @@ export class DescriptionGenerator {
                 });
             } catch (e) {
                 console.warn(`vault-curate: frontmatter merge failed for ${file.path}`, e);
-                if (!silent) new Notice(t.descLlmFailed(file.basename));
+                this.lastFailureReason = llmFailureReason(e);
+                if (!silent) new Notice(t.descLlmFailed(file.basename, this.lastFailureReason));
                 return "failed";
             }
             if (changedMeanwhile) {
