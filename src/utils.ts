@@ -3,6 +3,7 @@ import type { ApiFormat } from "./types";
 import { stripReasoningWrappers } from "./utils/stripReasoningWrappers";
 import { validateServerUrl, isLoopbackHost, isLoopbackUrl } from "./utils/hostGuards";
 import { openaiEndpoint } from "./utils/openaiEndpoint";
+import { apiErrorMessage } from "./utils/llmError";
 import { resolveModelKind } from "./utils/modelCapabilities";
 import type { ModelKind, ModelKindSource } from "./utils/modelCapabilities";
 
@@ -319,7 +320,7 @@ export async function requestLlmJson<T>(
     );
 
     if (resp.status !== 200) {
-        throw new Error(`LLM ${resp.status}: ${truncateError(resp.text)}`);
+        throw new Error(`LLM ${resp.status}: ${apiErrorMessage(resp.text)}`);
     }
 
     const data = resp.json as {

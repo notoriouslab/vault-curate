@@ -125,8 +125,8 @@ export interface Locale {
     descGenerating: (done: number, total: number) => string;
     descGeneratingOne: (name: string) => string;
     descGeneratedOne: (name: string) => string;
-    descBatchDone: (ok: number, failed: number) => string;
-    descLlmFailed: (name: string) => string;
+    descBatchDone: (ok: number, failed: number, reason?: string) => string;
+    descLlmFailed: (name: string, reason?: string) => string;
     descNoEligible: string;
     descRepairedTruncated: (n: number) => string;
     descOpenSidebarFirst: string;
@@ -168,6 +168,7 @@ export interface Locale {
     discoverProgress: (done: number, total: number) => string;
     generateMoc: string;
     mocCreated: (path: string) => string;
+    mocNamingFailed: (reason: string) => string;
     mocNoResults: string;
     cmdGlobalDiscover: string;
     scopeCold: string;
@@ -435,10 +436,10 @@ const en: Locale = {
     descGenerating: (done, total) => `Generating descriptions: ${done}/${total}...`,
     descGeneratingOne: (name) => `Generating description for ${name}...`,
     descGeneratedOne: (name) => `Description added to ${name}`,
-    descBatchDone: (ok, failed) => failed > 0
-        ? `Done — ${ok} notes, ${failed} failed`
+    descBatchDone: (ok, failed, reason) => failed > 0
+        ? `Done — ${ok} notes, ${failed} failed${reason ? ` (${reason})` : ""}`
         : `Done — ${ok} notes`,
-    descLlmFailed: (name) => `LLM failed for ${name}`,
+    descLlmFailed: (name, reason) => `LLM failed for ${name}${reason ? `: ${reason}` : ""}`,
     descNoEligible: "No notes without a description in the current selection.",
     descRepairedTruncated: (n) => `Repaired ${n} descriptions that an earlier version cut off mid-sentence.`,
     descOpenSidebarFirst: "Open the Vault Curate panel and run a search first.",
@@ -482,6 +483,7 @@ const en: Locale = {
     discoverProgress: (done, total) => `Computing: ${done}/${total}...`,
     generateMoc: "Generate MOC",
     mocCreated: (path) => `MOC created: ${path}`,
+    mocNamingFailed: (reason) => `LLM could not name some groups, so they got generic names: ${reason}`,
     mocNoResults: "No results to generate MOC from",
     cmdGlobalDiscover: "Discover related Cold notes",
     scopeCold: "Cold only",
@@ -776,10 +778,10 @@ const zhTW: Locale = {
     descGenerating: (done, total) => `生成 description：${done}/${total}...`,
     descGeneratingOne: (name) => `正在為 ${name} 生成 description…`,
     descGeneratedOne: (name) => `已為 ${name} 寫入 description`,
-    descBatchDone: (ok, failed) => failed > 0
-        ? `完成 — ${ok} 篇成功、${failed} 篇失敗`
+    descBatchDone: (ok, failed, reason) => failed > 0
+        ? `完成 — ${ok} 篇成功、${failed} 篇失敗${reason ? `（${reason}）` : ""}`
         : `完成 — ${ok} 篇`,
-    descLlmFailed: (name) => `LLM 對 ${name} 生成失敗`,
+    descLlmFailed: (name, reason) => `LLM 對 ${name} 生成失敗${reason ? `：${reason}` : ""}`,
     descNoEligible: "目前結果中沒有缺少 description 的筆記。",
     descRepairedTruncated: (n) => `已修補 ${n} 篇被舊版截斷的描述。`,
     descOpenSidebarFirst: "請先開啟 Vault Curate 面板並執行搜尋。",
@@ -823,6 +825,7 @@ const zhTW: Locale = {
     discoverProgress: (done, total) => `計算中：${done}/${total}...`,
     generateMoc: "生成 MOC",
     mocCreated: (path) => `MOC 已建立：${path}`,
+    mocNamingFailed: (reason) => `LLM 無法為部分群組命名，已改用通用名稱：${reason}`,
     mocNoResults: "沒有結果可生成 MOC",
     cmdGlobalDiscover: "發掘相關的 Cold 筆記",
     scopeCold: "僅 Cold",
@@ -1120,10 +1123,10 @@ const zhCN: Locale = {
     descGenerating: (done, total) => `生成 description：${done}/${total}...`,
     descGeneratingOne: (name) => `正在为 ${name} 生成 description…`,
     descGeneratedOne: (name) => `已为 ${name} 写入 description`,
-    descBatchDone: (ok, failed) => failed > 0
-        ? `完成 — ${ok} 篇成功、${failed} 篇失败`
+    descBatchDone: (ok, failed, reason) => failed > 0
+        ? `完成 — ${ok} 篇成功、${failed} 篇失败${reason ? `（${reason}）` : ""}`
         : `完成 — ${ok} 篇`,
-    descLlmFailed: (name) => `${name} 的 description 生成失败`,
+    descLlmFailed: (name, reason) => `${name} 的 description 生成失败${reason ? `：${reason}` : ""}`,
     descNoEligible: "当前结果中没有缺少 description 的笔记。",
     descRepairedTruncated: (n) => `已修补 ${n} 篇被旧版截断的描述。`,
     descOpenSidebarFirst: "请先打开 Vault Curate 面板并执行搜索。",
@@ -1167,6 +1170,7 @@ const zhCN: Locale = {
     discoverProgress: (done, total) => `计算中：${done}/${total}...`,
     generateMoc: "生成 MOC",
     mocCreated: (path) => `MOC 已创建：${path}`,
+    mocNamingFailed: (reason) => `LLM 无法为部分群组命名，已改用通用名称：${reason}`,
     mocNoResults: "没有结果可生成 MOC",
     cmdGlobalDiscover: "发掘相关的 Cold 笔记",
     scopeCold: "仅 Cold",

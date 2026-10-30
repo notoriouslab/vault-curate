@@ -810,6 +810,7 @@ export class SearchView extends ItemView {
             }
 
             new Notice(t.mocCreated(fileName));
+            if (result.namingError) new Notice(t.mocNamingFailed(result.namingError), 10000);
 
             const file = this.app.vault.getAbstractFileByPath(fileName);
             if (file instanceof TFile) {

@@ -197,4 +197,6 @@ export interface MocGroupedResult {
     miscellaneous: NamedCluster | null;
     totalNotes: number;
     query: string;
+    /** Why LLM naming failed for the first fallback group, if any (issue #19) */
+    namingError?: string;
 }

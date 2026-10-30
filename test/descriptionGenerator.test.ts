@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { TFile } from 'obsidian';
 import { DescriptionGenerator } from '../src/description-generator';
+import { t } from '../src/i18n';
 
 function makeFile(path: string): TFile {
     const f = new TFile();
@@ -65,6 +66,29 @@ describe('generateForFiles result (040 D6)', () => {
         expect(res.ok).toBe(1);
         expect(res.failed).toBe(1);
         expect([...res.okPaths]).toEqual(['good.md']);
+    });
+
+    it('puts the server reason in the batch summary (issue #19)', async () => {
+        const { gen, g } = makeGenerator();
+        vi.spyOn(g, 'callLLM').mockRejectedValue(new Error('LLM 402: Insufficient credits'));
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const done = vi.spyOn(t, 'descBatchDone');
+        await gen.generateForFiles([makeFile('a.md')]);
+        expect(done).toHaveBeenCalledWith(0, 1, '402: Insufficient credits');
+        expect(t.descBatchDone(0, 1, '402: Insufficient credits')).toContain('402: Insufficient credits');
+        done.mockRestore();
+    });
+
+    it('starts each batch without the previous batch reason', async () => {
+        const { gen, g } = makeGenerator();
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        vi.spyOn(g, 'callLLM').mockRejectedValueOnce(new Error('LLM 401: bad key'));
+        await gen.generateForFiles([makeFile('a.md')]);
+        g.callLLM.mockResolvedValue({ description: 'Alpha covers the plan. It ends well.' });
+        const done = vi.spyOn(t, 'descBatchDone');
+        await gen.generateForFiles([makeFile('b.md')]);
+        expect(done).toHaveBeenCalledWith(1, 0, '');
+        done.mockRestore();
     });
 });
 

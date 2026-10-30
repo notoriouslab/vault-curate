@@ -16,6 +16,7 @@ import { resolveLlmApiKey } from "./utils/resolveLlmApiKey";
 import { stripDangerousInvisibles } from "./description-generator";
 import { locales, t } from "./i18n";
 import { resolvePromptSet } from "./utils/aiOutputLanguage";
+import { llmFailureReason } from "./utils/llmError";
 
 const LLM_NAMING_TIMEOUT_MS = 30000;
 const NOTE_DESCRIPTION_CAP = 200;
@@ -76,6 +77,7 @@ export async function generateMocGrouped(params: GenerateMocParams): Promise<Moc
     const noiseCluster = clusters.find(c => c.label === -1) ?? null;
 
     const named: NamedCluster[] = [];
+    let namingError = "";
     for (let i = 0; i < nonNoise.length; i++) {
         if (cancelled?.value) {
             // Fill remaining clusters with fallback names and stop
@@ -90,6 +92,7 @@ export async function generateMocGrouped(params: GenerateMocParams): Promise<Moc
             named.push({ ...nonNoise[i], ...result, isFallback: false });
         } catch (err) {
             console.warn("Vault Curate: cluster naming failed, using fallback", err);
+            namingError ||= llmFailureReason(err);
             named.push(fallbackNamedCluster(nonNoise[i], notes, i));
         }
     }
@@ -102,6 +105,7 @@ export async function generateMocGrouped(params: GenerateMocParams): Promise<Moc
         miscellaneous,
         totalNotes: notes.length,
         query,
+        ...(namingError ? { namingError } : {}),
     };
 }
 

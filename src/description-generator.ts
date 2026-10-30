@@ -25,6 +25,7 @@ import { denoiseForEmbed } from "./indexer/denoise";
 import { locales, t } from "./i18n";
 import { resolvePromptSet } from "./utils/aiOutputLanguage";
 import { sampleSpread, stripUrlsForLlm } from "./utils/llmSample";
+import { llmFailureReason } from "./utils/llmError";
 
 // A spread sample is about 1-5.3k tokens: prose stays near 2k, but random
 // IDs, hashes and base64 the estimate cannot see through ran to 5.3k (040
@@ -56,6 +57,9 @@ export class DescriptionGenerator {
      *  same note when a user double-clicks the sidebar button or simultaneously
      *  triggers the file-menu and palette command. */
     private inflight = new Set<string>();
+
+    /** Why the latest LLM call failed, for the batch summary (issue #19). */
+    private lastFailureReason = "";
 
     constructor(private plugin: VaultSearchPlugin) {}
 
@@ -116,6 +120,7 @@ export class DescriptionGenerator {
         }
 
         const progress = new Notice(t.descGenerating(0, files.length), 0);
+        this.lastFailureReason = "";
         let ok = 0;
         let failed = 0;
         let skipped = 0;
@@ -130,7 +135,7 @@ export class DescriptionGenerator {
             await new Promise(r => window.setTimeout(r, 0));
         }
         progress.hide();
-        new Notice(t.descBatchDone(ok, failed), 8000);
+        new Notice(t.descBatchDone(ok, failed, this.lastFailureReason), 8000);
         return { ok, failed, skipped, okPaths };
     }
 
@@ -181,7 +186,8 @@ export class DescriptionGenerator {
                 result = await this.callLLM(llmEndpoint, llmModel, title, body);
             } catch (e) {
                 console.warn(`vault-curate: LLM failed for ${file.path}`, e);
-                if (!silent) new Notice(t.descLlmFailed(file.basename));
+                this.lastFailureReason = llmFailureReason(e);
+                if (!silent) new Notice(t.descLlmFailed(file.basename, this.lastFailureReason));
                 return "failed";
             }
 
@@ -200,7 +206,8 @@ export class DescriptionGenerator {
                     }
                 } catch (e) {
                     console.warn(`vault-curate: LLM retry failed for ${file.path}`, e);
-                    if (!silent) new Notice(t.descLlmFailed(file.basename));
+                    this.lastFailureReason = llmFailureReason(e);
+                    if (!silent) new Notice(t.descLlmFailed(file.basename, this.lastFailureReason));
                     return "failed";
                 }
             }
