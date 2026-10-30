@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.15.2 — 2026-10-30
+
+### Fixed
+- **When AI curation fails, the notice now says why (#19).** It used to say only "LLM failed", and the reason was only in the developer console. It now shows the server's own message, such as a wrong API key, no credits left, a model that is gone, or a request your provider's privacy settings blocked. This matters with hosted services such as OpenRouter, which do not list rejected requests in their activity page. The batch summary, the notice when AI curation cannot reach its server, and a new notice when AI could not name some groups in a MOC do the same. When the model answers but the answer is unusable (it only repeats the title, or has no description), the notice says that too.
+- **The AI curation model list puts models without listed JSON support last (#19).** AI curation needs a JSON answer, and some models on OpenRouter (for example summarize-only models) reject that request every time. When the server says which models support it, as OpenRouter does, the others now sit in a last group, **JSON support not listed (may fail)**. They stay selectable, because many of them still answer in JSON; if you pick one, Settings says to choose another model if AI curation fails. Servers that do not say keep the list as before.
+- **Embedding server errors show the server's message** instead of a cut-off piece of its raw reply.
+
 ## 1.15.1 — 2026-10-27
 
 ### Fixed
