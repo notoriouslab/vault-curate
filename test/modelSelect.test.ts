@@ -69,6 +69,28 @@ describe('fillModelSelect', () => {
         expect(result.missing).toBe(true);
     });
 
+    it('moves models without listed JSON support into a last group (issue #19)', () => {
+        const select = newSelect();
+        const withJson = [
+            ...models,
+            { ...model('scaledown/summarize', 'other'), jsonOutput: false },
+            { ...model('openai/gpt-4o-mini', 'other'), jsonOutput: true },
+        ];
+        const result = fillModelSelect(select, withJson, 'other', 'scaledown/summarize', { ...LABELS, noJsonGroup: 'NO_JSON' });
+        const gs = groups(select);
+        expect(gs.map((g) => g.label)).toEqual(['OTHER_GROUP', 'EMB_GROUP', 'NO_JSON']);
+        expect(Array.from(gs[0].querySelectorAll('option')).map((o) => o.value)).toEqual(['qwen3.8:27b-mlx', 'openai/gpt-4o-mini']);
+        expect(Array.from(gs[2].querySelectorAll('option')).map((o) => o.value)).toEqual(['scaledown/summarize']);
+        expect(select.value).toBe('scaledown/summarize');
+        expect(result.missing).toBe(false);
+    });
+
+    it('keeps jsonOutput: false models in their kind group without noJsonGroup', () => {
+        const select = newSelect();
+        fillModelSelect(select, [{ ...model('scaledown/summarize', 'other'), jsonOutput: false }], 'other', '', LABELS);
+        expect(groups(select).map((g) => g.label)).toEqual(['OTHER_GROUP']);
+    });
+
     it('selects a configured model that the server does list', () => {
         const select = newSelect();
         const result = fillModelSelect(select, models, 'embedding', 'bge-m3:latest', LABELS);

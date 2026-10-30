@@ -116,10 +116,9 @@ export function renderModelDropdown(
             return;
         }
 
-        // Issue #19: AI curation always asks for JSON, so the LLM list leaves
-        // out models the server says cannot return it (OpenRouter reports
-        // this; other servers say nothing and keep their full list).
-        const listed = isLlm ? models.filter((m) => m.jsonOutput !== false) : models;
+        // Issue #19: AI curation always asks for JSON. The LLM list moves
+        // models the server does not list JSON support for into a last group
+        // (OpenRouter reports this; other servers say nothing).
         const noJson = isLlm && models.some((m) => m.name === currentValue && m.jsonOutput === false);
 
         // 031: list every model the server reports, grouped by kind, with
@@ -127,14 +126,15 @@ export function renderModelDropdown(
         // embedding models the name heuristic did not recognise.
         const { missing } = fillModelSelect(
             sel,
-            listed,
+            models,
             isLlm ? "other" : "embedding",
             currentValue,
             {
                 placeholder: t.selectModel,
                 embeddingGroup: t.modelGroupEmbedding,
                 otherGroup: isLlm ? t.modelGroupLlm : t.modelGroupOther,
-                notInstalled: noJson ? t.modelNoJson : t.modelNotInstalled,
+                notInstalled: t.modelNotInstalled,
+                ...(isLlm ? { noJsonGroup: t.modelGroupNoJson } : {}),
             },
         );
 
@@ -142,11 +142,14 @@ export function renderModelDropdown(
             // Only Ollama has a `pull` command to point at.
             hint = setting.descEl.createDiv({
                 cls: "vault-curate-note vault-curate-model-hint",
-                text: noJson
-                    ? t.modelNoJsonHint
-                    : format === "ollama"
-                        ? t.modelNotInstalledHintOllama(currentValue)
-                        : t.modelNotListedHint,
+                text: format === "ollama"
+                    ? t.modelNotInstalledHintOllama(currentValue)
+                    : t.modelNotListedHint,
+            });
+        } else if (noJson) {
+            hint = setting.descEl.createDiv({
+                cls: "vault-curate-note vault-curate-model-hint",
+                text: t.modelNoJsonHint,
             });
         }
     };

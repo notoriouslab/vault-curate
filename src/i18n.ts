@@ -155,7 +155,7 @@ export interface Locale {
     modelDownloadHttpFailed: (host: string, msg: string) => string;
     modelNotInstalledHintOllama: (name: string) => string;
     modelNotListedHint: string;
-    modelNoJson: string;
+    modelGroupNoJson: string;
     modelNoJsonHint: string;
     modelListUnavailable: string;
     // Discover
@@ -475,8 +475,8 @@ const en: Locale = {
     modelNotInstalledHintOllama: (name: string) =>
         `This model is not on the server. Install it with: ollama pull ${name}`,
     modelNotListedHint: "This model is not in the server's model list.",
-    modelNoJson: "no JSON output",
-    modelNoJsonHint: "The server says this model cannot return JSON, which AI curation needs. Pick another model.",
+    modelGroupNoJson: "JSON support not listed (may fail)",
+    modelNoJsonHint: "The server does not list JSON output for this model, which AI curation needs. Many such models still work; if AI curation fails, pick another model.",
     modelListUnavailable: "Could not load the model list. Check the server address.",
     tabSearch: "Search",
     tabDiscover: "Discover",
@@ -821,8 +821,8 @@ const zhTW: Locale = {
     modelNotInstalledHintOllama: (name: string) =>
         `伺服器上沒有這個模型。安裝：ollama pull ${name}`,
     modelNotListedHint: "伺服器的模型清單裡沒有這個模型。",
-    modelNoJson: "不支援 JSON 輸出",
-    modelNoJsonHint: "伺服器表示這個模型無法輸出 JSON，AI 整理需要 JSON，請改選其他模型。",
+    modelGroupNoJson: "未標示支援 JSON（可能失敗）",
+    modelNoJsonHint: "伺服器沒有標示這個模型支援 JSON 輸出，而 AI 整理需要 JSON。很多這類模型照樣能用；如果 AI 整理失敗，請改選其他模型。",
     modelListUnavailable: "無法取得模型清單，請確認伺服器地址。",
     tabSearch: "搜尋",
     tabDiscover: "發掘",
@@ -1170,8 +1170,8 @@ const zhCN: Locale = {
     modelNotInstalledHintOllama: (name: string) =>
         `服务器上没有这个模型。安装：ollama pull ${name}`,
     modelNotListedHint: "服务器的模型列表里没有这个模型。",
-    modelNoJson: "不支持 JSON 输出",
-    modelNoJsonHint: "服务器表示这个模型无法输出 JSON，AI 整理需要 JSON，请改选其他模型。",
+    modelGroupNoJson: "未标示支持 JSON（可能失败）",
+    modelNoJsonHint: "服务器没有标示这个模型支持 JSON 输出，而 AI 整理需要 JSON。很多这类模型照样能用；如果 AI 整理失败，请改选其他模型。",
     modelListUnavailable: "无法获取模型列表，请确认服务器地址。",
     tabSearch: "搜索",
     tabDiscover: "发掘",

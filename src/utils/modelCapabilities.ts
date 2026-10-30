@@ -51,10 +51,10 @@ export function resolveModelKind(
 }
 
 /**
- * Whether a model can return JSON, from an OpenAI-compatible `/models` entry's
- * `supported_parameters` (OpenRouter lists it; issue #19: a summarize-only
- * model rejected every request with "response_format is not supported").
- * `undefined` when the server does not report the field, so nothing is hidden.
+ * Whether a model lists JSON output, from an OpenAI-compatible `/models`
+ * entry's `supported_parameters` (OpenRouter reports it; issue #19: a
+ * summarize-only model rejected every request with "response_format is not
+ * supported"). `undefined` when the server does not report the field.
  */
 export function supportsJsonOutput(params: unknown): boolean | undefined {
     if (!Array.isArray(params)) return undefined;

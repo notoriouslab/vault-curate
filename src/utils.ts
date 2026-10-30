@@ -14,8 +14,10 @@ export interface OllamaModel {
     isEmbedding: boolean;
     kind: ModelKind;
     source: ModelKindSource;
-    /** False when the server says the model cannot return JSON, which AI
-     *  curation requires; undefined when the server does not say. */
+    /** False when the server's model list does not include JSON output for
+     *  this model (AI curation asks for it); undefined when the server does
+     *  not say. Not proof of failure: OpenRouter drops parameters a provider
+     *  does not support, and many such models still answer in JSON. */
     jsonOutput?: boolean;
 }
 
